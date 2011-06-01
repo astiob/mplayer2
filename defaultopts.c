@@ -18,7 +18,7 @@ void set_default_mplayer_options(struct MPOpts *opts)
         .vo_gamma_contrast = 1000,
         .vo_gamma_saturation = 1000,
         .vo_gamma_hue = 1000,
-        .osd_level = 1,
+        .osd_level = -1,
         .osd_duration = 1000,
         .stream_dump_name = "stream.dump",
         .loop_times = -1,
@@ -33,7 +33,7 @@ void set_default_mplayer_options(struct MPOpts *opts)
         .term_osd = 1,
         .term_osd_esc = "\x1b[A\r\x1b[K",
         .key_fifo_size = 7,
-        .consolecontrols = 1,
+        .consolecontrols = -1,
         .doubleclick_time = 300,
         .audio_id = -1,
         .video_id = -1,
@@ -67,6 +67,6 @@ void set_default_mplayer_options(struct MPOpts *opts)
              .use_ar = 1,
 #endif
              .default_bindings = 1,
-         }
+         },
     };
 }

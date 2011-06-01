@@ -352,6 +352,9 @@ struct m_option {
 /// The option should be set during command line pre-parsing
 #define M_OPT_PRE_PARSE		(1<<6)
 
+/// When this option is set, a string_list option always appends (use -option-clr to clear)
+#define M_OPT_STRING_LIST_APPEND		(1<<8)
+
 /// \defgroup OldOptionFlags Backward compatibility
 ///
 /// These are kept for compatibility with older code.

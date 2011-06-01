@@ -103,6 +103,10 @@
 
 #include "input/input.h"
 
+#ifdef CONFIG_FFMPEG
+#include "encode_lavc.h"
+#endif
+
 int slave_mode=0;
 int enable_mouse_movements=0;
 float start_volume = -1;
@@ -714,6 +718,11 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
 {
   if (mpctx->user_muted && !mpctx->edl_muted) mixer_mute(&mpctx->mixer);
   uninit_player(mpctx, INITIALIZED_ALL);
+
+#ifdef CONFIG_FFMPEG
+encode_lavc_finish();
+#endif
+
 #if defined(__MINGW32__) || defined(__CYGWIN__)
   timeEndPeriod(1);
 #endif
@@ -1232,6 +1241,7 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
 {
     struct MPOpts *opts = &mpctx->opts;
   sh_video_t * const sh_video = mpctx->sh_video;
+  float position;
 
   if (mpctx->sh_audio && a_pos == MP_NOPTS_VALUE)
       a_pos = playing_audio_pts(mpctx);
@@ -1251,6 +1261,7 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
 
   int width;
   char *line;
+  const char *lavcbuf;
   unsigned pos = 0;
   get_screen_size();
   if (screen_width > 0)
@@ -1286,32 +1297,42 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
     saddf(line, &pos, width, "A-V:%7.3f ct:%7.3f ",
           mpctx->last_av_difference, mpctx->total_avsync_change);
 
-  // Video stats
-  if (sh_video)
-    saddf(line, &pos, width, "%3d/%3d ",
-      (int)sh_video->num_frames,
-      (int)sh_video->num_frames_decoded);
+  position = (get_current_time(mpctx) - seek_to_sec) / (get_time_length(mpctx) - seek_to_sec);
+  if (end_at.type == END_AT_TIME)
+    position = max(position, (get_current_time(mpctx) - seek_to_sec) / (end_at.pos - seek_to_sec));
+  if (play_n_frames_mf)
+    position = max(position, 1.0 - play_n_frames / (double) play_n_frames_mf);
+  if ((lavcbuf = encode_lavc_getstatus(position, get_current_time(mpctx) - seek_to_sec))) {
+    // encoding stats
+    saddf(line, &pos, width, "%s ", lavcbuf);
+  } else {
+    // Video stats
+    if (sh_video)
+      saddf(line, &pos, width, "%3d/%3d ",
+        (int)sh_video->num_frames,
+        (int)sh_video->num_frames_decoded);
+  
+    // CPU usage
+    if (sh_video) {
+      if (sh_video->timer > 0.5)
+        saddf(line, &pos, width, "%2d%% %2d%% %4.1f%% ",
+          (int)(100.0*video_time_usage*opts->playback_speed/(double)sh_video->timer),
+          (int)(100.0*vout_time_usage*opts->playback_speed/(double)sh_video->timer),
+          (100.0*audio_time_usage*opts->playback_speed/(double)sh_video->timer));
+      else
+        saddf(line, &pos, width, "??%% ??%% ??,?%% ");
+    } else if (mpctx->sh_audio) {
+      if (mpctx->delay > 0.5)
+        saddf(line, &pos, width, "%4.1f%% ",
+          100.0*audio_time_usage/(double)mpctx->delay);
+      else
+        saddf(line, &pos, width, "??,?%% ");
+    }
 
-  // CPU usage
-  if (sh_video) {
-    if (sh_video->timer > 0.5)
-      saddf(line, &pos, width, "%2d%% %2d%% %4.1f%% ",
-        (int)(100.0*video_time_usage*opts->playback_speed/(double)sh_video->timer),
-        (int)(100.0*vout_time_usage*opts->playback_speed/(double)sh_video->timer),
-        (100.0*audio_time_usage*opts->playback_speed/(double)sh_video->timer));
-    else
-      saddf(line, &pos, width, "??%% ??%% ??,?%% ");
-  } else if (mpctx->sh_audio) {
-    if (mpctx->delay > 0.5)
-      saddf(line, &pos, width, "%4.1f%% ",
-        100.0*audio_time_usage/(double)mpctx->delay);
-    else
-      saddf(line, &pos, width, "??,?%% ");
+    // VO stats
+    if (sh_video)
+      saddf(line, &pos, width, "%d %d ", drop_frame_cnt, output_quality);
   }
-
-  // VO stats
-  if (sh_video)
-    saddf(line, &pos, width, "%d %d ", drop_frame_cnt, output_quality);
 
 #ifdef CONFIG_STREAM_CACHE
   // cache stats
@@ -2419,6 +2440,7 @@ static int fill_audio_out_buffers(struct MPContext *mpctx)
     // sync completely wrong; there should be no need to use ao->pts
     // in get_space()
     ao->pts = ((mpctx->sh_video?mpctx->sh_video->timer:0)+mpctx->delay)*90000.0;
+    ao->apts = written_audio_pts(mpctx);
     playsize = ao_get_space(ao);
 
     // Fill buffer if needed:
@@ -2473,6 +2495,7 @@ static int fill_audio_out_buffers(struct MPContext *mpctx)
     // They're obviously badly broken in the way they handle av sync;
     // would not having access to this make them more broken?
     ao->pts = ((mpctx->sh_video?mpctx->sh_video->timer:0)+mpctx->delay)*90000.0;
+    ao->apts = written_audio_pts(mpctx);
     playsize = ao_play(ao, sh_audio->a_out_buffer, playsize, playflags);
     assert(playsize % unitsize == 0);
 
@@ -3065,6 +3088,10 @@ static void seek_reset(struct MPContext *mpctx, bool reset_ao)
     mpctx->total_avsync_change = 0;
     audio_time_usage = 0; video_time_usage = 0; vout_time_usage = 0;
     drop_frame_cnt = 0;
+
+#ifdef CONFIG_FFMPEG
+    encode_lavc_failtimesync();
+#endif
 
     current_module = NULL;
 }
@@ -3942,6 +3969,33 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
       opt_exit = 1;
     }
 
+#ifdef CONFIG_FFMPEG
+    if (opts->encode_output.format && strcmp(opts->encode_output.format,"help")==0) {
+        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_F);
+        opt_exit = 1;
+    }
+    if (opts->encode_output.fopts && opts->encode_output.fopts[0] && strcmp(opts->encode_output.fopts[0],"help")==0) {
+        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_FOPTS);
+        opt_exit = 1;
+    }
+    if (opts->encode_output.vcodec && strcmp(opts->encode_output.vcodec,"help")==0) {
+        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_VC);
+        opt_exit = 1;
+    }
+    if (opts->encode_output.vopts && opts->encode_output.vopts[0] && strcmp(opts->encode_output.vopts[0],"help")==0) {
+        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_VCOPTS);
+        opt_exit = 1;
+    }
+    if (opts->encode_output.acodec && strcmp(opts->encode_output.acodec,"help")==0) {
+        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_AC);
+        opt_exit = 1;
+    }
+    if (opts->encode_output.aopts && opts->encode_output.aopts[0] && strcmp(opts->encode_output.aopts[0],"help")==0) {
+        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_ACOPTS);
+        opt_exit = 1;
+    }
+#endif
+
     if(opt_exit)
       exit_player(mpctx, EXIT_NONE);
 
@@ -3960,6 +4014,11 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
       for(i=1;i<argc;i++)mp_msg(MSGT_CPLAYER, MSGL_INFO," '%s'",argv[i]);
       mp_msg(MSGT_CPLAYER, MSGL_INFO, "\n");
     }
+
+#ifdef CONFIG_FFMPEG
+    if (opts->encode_output.file)
+        encode_lavc_init(mpctx, &opts->encode_output);
+#endif
 
 //------ load global data first ------
 
@@ -4036,6 +4095,19 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
 
 // Init input system
 current_module = "init_input";
+
+#ifdef CONFIG_FFMPEG
+if (opts->encode_output.file) {
+    // default console controls off
+    if (opts->consolecontrols < 0)
+        opts->consolecontrols = 0;
+} else {
+    // default console controls on
+    if (opts->consolecontrols < 0)
+        opts->consolecontrols = 1;
+}
+#endif
+
  mpctx->input = mp_input_init(&opts->input);
  mp_input_add_key_fd(mpctx->input, -1,0,mplayer_get_key,NULL, mpctx->key_fifo);
  if(slave_mode) {
@@ -4122,6 +4194,31 @@ play_next_file:
     load_per_output_config (mpctx->mconfig, PROFILE_CFG_VO, opts->video_driver_list[0]);
   if (opts->audio_driver_list)
     load_per_output_config (mpctx->mconfig, PROFILE_CFG_AO, opts->audio_driver_list[0]);
+
+// do we want to encode?
+#ifdef CONFIG_FFMPEG
+if (opts->encode_output.file) {
+    opts->video_driver_list = malloc(sizeof(*opts->video_driver_list) * 2);
+    opts->video_driver_list[0] = strdup("lavc");
+    opts->video_driver_list[1] = NULL;
+
+    opts->audio_driver_list = malloc(sizeof(*opts->audio_driver_list) * 2);
+    opts->audio_driver_list[0] = strdup("lavc");
+    opts->audio_driver_list[1] = NULL;
+
+    opts->fixed_vo = true;
+    opts->gapless_audio = true;
+    opts->benchmark = true;
+
+    // default osd level 0
+    if (opts->osd_level < 0)
+        opts->osd_level = 0;
+} else {
+    // default osd level 1
+    if (opts->osd_level < 0)
+        opts->osd_level = 1;
+}
+#endif
 
 // We must enable getch2 here to be able to interrupt network connection
 // or cache filling
@@ -4887,6 +4984,11 @@ while(mpctx->playtree_iter != NULL) {
 if (mpctx->playtree_iter != NULL || opts->player_idle_mode) {
     if(!mpctx->playtree_iter) mpctx->filename = NULL;
     mpctx->stop_play = 0;
+
+#ifdef CONFIG_FFMPEG
+    encode_lavc_failtimesync();
+#endif
+
     goto play_next_file;
 }
 

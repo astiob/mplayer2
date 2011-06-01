@@ -71,6 +71,7 @@ struct ao {
     int outburst;
     int buffersize;
     int pts;
+    double apts;
     bool initialized;
     bool untimed;
     const struct ao_driver *driver;
