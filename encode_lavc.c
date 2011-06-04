@@ -209,13 +209,6 @@ int encode_lavc_start(void)
 
     header_written = -1;
 
-    if (av_set_parameters(avc, NULL) < 0) {
-        mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: unable to set parameters\n");
-        encode_lavc_finish();
-        exit_player_with_rc(mpctx, EXIT_ERROR, 1);
-        return 0;
-    }
-
     if (!(avc->oformat->flags & AVFMT_NOFILE)) {
         if (avio_open(&avc->pb, avc->filename, URL_WRONLY) < 0) {
             mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: could not open '%s'\n",
