@@ -31,6 +31,12 @@
 #include "w32_common.h"
 #include "mp_fifo.h"
 
+#ifndef WM_XBUTTONDOWN
+# define WM_XBUTTONDOWN    0x020B
+# define WM_XBUTTONUP      0x020C
+# define WM_XBUTTONDBLCLK  0x020D
+#endif
+
 #ifndef MONITOR_DEFAULTTOPRIMARY
 #define MONITOR_DEFAULTTOPRIMARY 1
 #endif
