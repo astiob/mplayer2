@@ -172,6 +172,16 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
                     mplayer_put_key(MOUSE_BTN4);
                 break;
             }
+            break;
+        case WM_XBUTTONDOWN:
+            if (!vo_nomouse_input) {
+                int x = HIWORD(wParam);
+                if (x == 1)
+                    mplayer_put_key(MOUSE_BTN5);
+                else // if (x == 2)
+                    mplayer_put_key(MOUSE_BTN6);
+            }
+            break;
     }
 
     return DefWindowProc(hWnd, message, wParam, lParam);
