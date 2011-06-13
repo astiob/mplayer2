@@ -309,6 +309,12 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
         packet.stream_index = ac->stream->index;
         packet.data = ac->buffer;
         packet.size = size;
+
+        /* TODO: enable this code once ffmpeg.c adds something similar; till then, do the same as ffmpeg.c: mark ALL audio frames as key frames
+           if(ac->stream->codec->coded_frame && ac->stream->codec->coded_frame->keyframe)
+           packet.flags |= AV_PKT_FLAG_KEY;
+           else if(!ac->stream->codec->coded_frame)
+         */
         packet.flags |= AV_PKT_FLAG_KEY;
 
         if (ac->stream->codec->coded_frame && ac->stream->codec->coded_frame->pts != AV_NOPTS_VALUE) {
