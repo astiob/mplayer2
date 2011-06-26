@@ -176,7 +176,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
                     mplayer_put_key(MOUSE_BTN3);
                 else
                     mplayer_put_key(MOUSE_BTN4);
-                break;
             }
             break;
         case WM_XBUTTONDOWN:
