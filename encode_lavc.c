@@ -81,7 +81,7 @@ static int set_avoptions(void *ctx, const void *privclass, void *privctx, const 
         if (!dry_run)
             av_log(ctx, AV_LOG_DEBUG, "Setting value '%s' for key '%s'\n", val, key);
 
-        ret = AVERROR(ENOENT);
+        ret = AVERROR_OPTION_NOT_FOUND;
         if (dry_run) {
             char buf[256];
             const AVOption *opt;
@@ -95,9 +95,9 @@ static int set_avoptions(void *ctx, const void *privclass, void *privctx, const 
         } else {
             if (privctx)
                 ret = av_set_string3(privctx, key, val, 1, NULL);
-            if (ret == AVERROR(ENOENT))
+            if (ret == AVERROR_OPTION_NOT_FOUND)
                 ret = av_set_string3(ctx, key, val, 1, NULL);
-            if (ret == AVERROR(ENOENT))
+            if (ret == AVERROR_OPTION_NOT_FOUND)
                 av_log(ctx, AV_LOG_ERROR, "Key '%s' not found.\n", key);
         }
 
