@@ -189,6 +189,35 @@ out_takefirst:
 
     ac->stream->codec->bits_per_raw_sample = ac->sample_size * 8;
 
+    switch (ao->channels) {
+        case 1:
+            ac->stream->codec->channel_layout = AV_CH_LAYOUT_MONO;
+            break;
+        case 2:
+            ac->stream->codec->channel_layout = AV_CH_LAYOUT_STEREO;
+            break;
+        /* someone please check if these are what mplayer normally assumes
+        case 3:
+            ac->stream->codec->channel_layout = AV_CH_LAYOUT_SURROUND;
+            break;
+        case 4:
+            ac->stream->codec->channel_layout = AV_CH_LAYOUT_2_2;
+            break;
+        */
+        case 5:
+            ac->stream->codec->channel_layout = AV_CH_LAYOUT_5POINT0;
+            break;
+        case 6:
+            ac->stream->codec->channel_layout = AV_CH_LAYOUT_5POINT1;
+            break;
+        case 8:
+            ac->stream->codec->channel_layout = AV_CH_LAYOUT_7POINT1;
+            break;
+        default:
+            mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: unknown channel layout; hoping for the best\n");
+            break;
+    }
+
     if (encode_lavc_open_codec(ac->stream) < 0) {
         mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: unable to open encoder\n");
         return -1;
