@@ -309,7 +309,7 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
         reorder_channel_nch(data, AF_CHANNEL_LAYOUT_MPLAYER_DEFAULT,
                             AF_CHANNEL_LAYOUT_LAVC_DEFAULT,
                             ao->channels,
-                            ac->aframesize, ac->sample_size);
+                            ac->aframesize * ao->channels, ac->sample_size);
     }
 
     if(data && ptsvalid)
