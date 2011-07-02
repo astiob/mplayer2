@@ -54,8 +54,6 @@ struct priv {
     const void *sample_padding;
     int restptsvalid;
     double restpts;
-    void *restbuffer;
-    size_t restcount;
 };
 
 // open & setup audio device
@@ -238,9 +236,7 @@ out_takefirst:
     if (ac->buffer_size < FF_MIN_BUFFER_SIZE)
         ac->buffer_size = FF_MIN_BUFFER_SIZE;
     ac->buffer = talloc_size(ac, ac->buffer_size);
-    ac->restbuffer = talloc_size(ac, ac->buffer_size); // remaining samples at the end of encode go here
     ac->restpts = MP_NOPTS_VALUE;
-    ac->restcount = 0;
 
     // enough frames for at least 0.25 seconds
     ac->framecount = ceil(ao->samplerate * 0.25 / ac->aframesize);
@@ -277,13 +273,16 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data);
 static void uninit(struct ao *ao, bool cut_audio){
     struct priv *ac = ao->priv;
     if (ac->buffer) {
-        if (ac->restcount > 0) {
-            fill_with_padding((char *) ac->restbuffer + ac->sample_size * ac->restcount * ao->channels, (ac->aframesize - ac->restcount) * ao->channels, ac->sample_size, ac->sample_padding);
+        if (ao->buffer.len > 0) {
+            void *paddingbuf = talloc_size(ao, ac->aframesize * ao->channels * ac->sample_size);
+            memcpy(paddingbuf, ao->buffer.start, ao->buffer.len);
+            fill_with_padding((char *) paddingbuf + ao->buffer.len, (ac->aframesize * ao->channels * ac->sample_size - ao->buffer.len) / ac->sample_size, ac->sample_size, ac->sample_padding);
             encode(ao,
                     ac->restptsvalid,
                     ac->restpts,
-                    ac->restbuffer);
-            ac->restpts += ac->restcount / (double) ao->samplerate;
+                    paddingbuf);
+            ac->restpts += ac->aframesize / (double) ao->samplerate;
+            talloc_free(paddingbuf);
         }
         while (encode(ao, 
                     ac->restptsvalid,
@@ -444,25 +443,6 @@ static int play(struct ao *ao, void* data,int len,int flags){
     // this is for the case uninit() gets called
     ac->restpts = ao->apts + (bufpos + ptsoffset) / (double) ao->samplerate + encode_lavc_getoffset(ac->stream);
     ac->restptsvalid = ptsvalid;
-
-    if (flags & AOPLAY_FINAL_CHUNK) {
-        mp_msg(MSGT_AO, MSGL_INFO, "ao-lavc: receiving final chunk\n");
-
-        // copy out the remaining data, in case uninit gets called later
-        ac->restcount = len - bufpos; // because of the while condition, we are guaranteed that this is < ac->aframesize
-        if (ac->restcount)
-          memcpy(ac->restbuffer, (char *) data + ac->sample_size * bufpos * ao->channels, ac->sample_size * ac->restcount * ao->channels);
-        // note: we do NOT advance bufpos here. We usually will get that data back then.
-
-    } else {
-        if (ac->restcount > 0) {
-            if (len < ac->restcount || memcmp(ac->restbuffer, data, ac->sample_size * ac->restcount * ao->channels))
-                mp_msg(MSGT_AO, MSGL_WARN, "ao-lavc: got a new chunk after a \"final\" one, lost some samples\n");
-            else
-                mp_msg(MSGT_AO, MSGL_INFO, "ao-lavc: got a new chunk after a \"final\" one, no lost samples\n");
-        }
-        ac->restcount = 0;
-    }
 
     if(paddingbuf)
         talloc_free(paddingbuf);
