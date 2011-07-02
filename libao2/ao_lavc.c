@@ -47,13 +47,12 @@ struct priv {
     int aframesize;
     int aframecount;
     int offset;
+    int offset_left;
     int64_t savepts;
     int framecount;
     int64_t lastpts;
     int sample_size;
     const void *sample_padding;
-    int restptsvalid;
-    double restpts;
 };
 
 // open & setup audio device
@@ -236,7 +235,6 @@ out_takefirst:
     if (ac->buffer_size < FF_MIN_BUFFER_SIZE)
         ac->buffer_size = FF_MIN_BUFFER_SIZE;
     ac->buffer = talloc_size(ac, ac->buffer_size);
-    ac->restpts = MP_NOPTS_VALUE;
 
     // enough frames for at least 0.25 seconds
     ac->framecount = ceil(ao->samplerate * 0.25 / ac->aframesize);
@@ -246,6 +244,7 @@ out_takefirst:
     ac->savepts = MP_NOPTS_VALUE;
     ac->lastpts = MP_NOPTS_VALUE;
     ac->offset = ac->stream->codec->sample_rate * encode_lavc_getoffset(ac->stream);
+    ac->offset_left = ac->offset;
 
     //fill_ao_data:
     ao->outburst = ac->aframesize * ac->sample_size * ao->channels * ac->framecount;
@@ -273,20 +272,21 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data);
 static void uninit(struct ao *ao, bool cut_audio){
     struct priv *ac = ao->priv;
     if (ac->buffer) {
+        double pts = ao->apts + ac->offset / (double) ao->samplerate;
         if (ao->buffer.len > 0) {
             void *paddingbuf = talloc_size(ao, ac->aframesize * ao->channels * ac->sample_size);
             memcpy(paddingbuf, ao->buffer.start, ao->buffer.len);
             fill_with_padding((char *) paddingbuf + ao->buffer.len, (ac->aframesize * ao->channels * ac->sample_size - ao->buffer.len) / ac->sample_size, ac->sample_size, ac->sample_padding);
             encode(ao,
-                    ac->restptsvalid,
-                    ac->restpts,
+                    true,
+                    pts,
                     paddingbuf);
-            ac->restpts += ac->aframesize / (double) ao->samplerate;
+            pts += ac->aframesize / (double) ao->samplerate;
             talloc_free(paddingbuf);
         }
         while (encode(ao, 
-                    ac->restptsvalid,
-                    ac->restpts,
+                    true,
+                    pts,
                     NULL) > 0);
     }
 
@@ -382,7 +382,6 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
 static int play(struct ao *ao, void* data,int len,int flags){
     struct priv *ac = ao->priv;
     int bufpos = 0;
-    int ptsvalid;
     int64_t ptsoffset;
     void *paddingbuf = NULL;
 
@@ -391,30 +390,39 @@ static int play(struct ao *ao, void* data,int len,int flags){
     if (!encode_lavc_start())
         return 0;
 
+    ptsoffset = ac->offset;
+    // this basically just edits ao->apts for syncing purposes
+
     if (encode_lavc_testflag(ENCODE_LAVC_FLAG_COPYTS)) {
         // we do not send time sync data to the video side, but we always need the exact pts, even if zero
-        ptsvalid = 1;
-        ptsoffset = ac->offset;
     } else {
-        ptsvalid = (ao->apts > 0); // FIXME for some reason I sometimes get invalid apts == 0 when seeking... don't initialize time sync from that
-        if (ac->offset < 0) {
-            if (ac->offset <= -len) {
+        // here we must "simulate" the pts editing
+        // 1. if we have to skip stuff, we skip it
+        // 2. if we have to add samples, we add them
+        // 3. we must still adjust ptsoffset appropriately for AV sync!
+        // invariant:
+        // if no partial skipping is done, the first frame gets ao->apts passed as pts!
+
+        if (ac->offset_left < 0) {
+            if (ac->offset_left <= -len) {
                 // skip whole frame
-                ac->offset += len;
+                ac->offset_left += len;
                 return len * ac->sample_size * ao->channels;
             } else {
                 // skip part of this frame, buffer/encode the rest
-                bufpos += -ac->offset;
-                ac->offset = 0;
+                bufpos -= ac->offset_left;
+                ptsoffset += ac->offset_left;
+                ac->offset_left = 0;
             }
-        } else if (ac->offset > 0) {
+        } else if (ac->offset_left > 0) {
             // make a temporary buffer, filled with zeroes at the start (don't worry, only happens once)
 
-            paddingbuf = talloc_size(ac, ac->sample_size * ao->channels * (ac->offset + len));
-            fill_with_padding(paddingbuf, ac->offset, ac->sample_size, ac->sample_padding);
-            data = (char *) paddingbuf + ac->sample_size * ao->channels * ac->offset;
-            bufpos -= ac->offset; // yes, negative!
-            ac->offset = 0;
+            paddingbuf = talloc_size(ac, ac->sample_size * ao->channels * (ac->offset_left + len));
+            fill_with_padding(paddingbuf, ac->offset_left, ac->sample_size, ac->sample_padding);
+            data = (char *) paddingbuf + ac->sample_size * ao->channels * ac->offset_left;
+            bufpos -= ac->offset_left; // yes, negative!
+            ptsoffset += ac->offset_left;
+            ac->offset_left = 0;
 
             // now adjust the bufpos so the final value of bufpos is positive!
             {
@@ -429,20 +437,15 @@ static int play(struct ao *ao, void* data,int len,int flags){
                 }
             }
         }
-        ptsoffset = 0;
     }
 
     while (len - bufpos >= ac->aframesize) {
         encode(ao,
-                ptsvalid,
+                ao->apts != MP_NOPTS_VALUE,
                 ao->apts + (bufpos + ptsoffset) / (double) ao->samplerate + encode_lavc_getoffset(ac->stream),
                 (char *) data + ac->sample_size * bufpos * ao->channels);
         bufpos += ac->aframesize;
     }
-
-    // this is for the case uninit() gets called
-    ac->restpts = ao->apts + (bufpos + ptsoffset) / (double) ao->samplerate + encode_lavc_getoffset(ac->stream);
-    ac->restptsvalid = ptsvalid;
 
     if(paddingbuf)
         talloc_free(paddingbuf);

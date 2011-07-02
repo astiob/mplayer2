@@ -2407,6 +2407,7 @@ static int audio_start_sync(struct MPContext *mpctx, int playsize)
          * in playsize. */
         char *p = malloc(playsize);
         memset(p, fillbyte, playsize);
+        ao->apts = written_audio_pts(mpctx);
         playsize = ao_play(ao, p, playsize, 0);
         free(p);
         mpctx->delay += opts->playback_speed*playsize/(double)ao->bps;
@@ -2440,7 +2441,6 @@ static int fill_audio_out_buffers(struct MPContext *mpctx)
     // sync completely wrong; there should be no need to use ao->pts
     // in get_space()
     ao->pts = ((mpctx->sh_video?mpctx->sh_video->timer:0)+mpctx->delay)*90000.0;
-    ao->apts = written_audio_pts(mpctx);
     playsize = ao_get_space(ao);
 
     // Fill buffer if needed:
@@ -2509,6 +2509,7 @@ static int fill_audio_out_buffers(struct MPContext *mpctx)
     if (played > 0) {
         ao->buffer.len -= played;
         memmove(ao->buffer.start, ao->buffer.start + played, ao->buffer.len);
+        ao->apts = written_audio_pts(mpctx);
         mpctx->delay += opts->playback_speed * played / ao->bps;
     } else if (audio_eof && ao_get_delay(ao) < .04) {
         // Sanity check to avoid hanging in case current ao doesn't output
