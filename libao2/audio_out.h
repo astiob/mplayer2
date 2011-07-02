@@ -21,6 +21,8 @@
 
 #include <stdbool.h>
 
+#include "bstr.h"
+
 typedef struct ao_info {
     /* driver name ("Matrox Millennium G200/G400" */
     const char *name;
@@ -72,6 +74,8 @@ struct ao {
     int buffersize;
     int pts;
     double apts;
+    struct bstr buffer;
+    int buffer_playable_size;
     bool initialized;
     bool untimed;
     const struct ao_driver *driver;
