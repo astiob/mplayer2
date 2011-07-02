@@ -278,7 +278,7 @@ static void uninit(struct ao *ao, bool cut_audio){
             memcpy(paddingbuf, ao->buffer.start, ao->buffer.len);
             fill_with_padding((char *) paddingbuf + ao->buffer.len, (ac->aframesize * ao->channels * ac->sample_size - ao->buffer.len) / ac->sample_size, ac->sample_size, ac->sample_padding);
             encode(ao,
-                    true,
+                    ao->apts != MP_NOPTS_VALUE,
                     pts,
                     paddingbuf);
             pts += ac->aframesize / (double) ao->samplerate;
