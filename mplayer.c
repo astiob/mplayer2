@@ -2407,7 +2407,6 @@ static int audio_start_sync(struct MPContext *mpctx, int playsize)
          * in playsize. */
         char *p = malloc(playsize);
         memset(p, fillbyte, playsize);
-        ao->apts = written_audio_pts(mpctx);
         playsize = ao_play(ao, p, playsize, 0);
         free(p);
         mpctx->delay += opts->playback_speed*playsize/(double)ao->bps;
