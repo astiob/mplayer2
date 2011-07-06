@@ -4143,11 +4143,11 @@ current_module = "init_input";
 if (opts->encode_output.file) {
     // default console controls off
     if (opts->consolecontrols < 0)
-        opts->consolecontrols = 0;
+        m_config_set_option(mpctx->mconfig, "consolecontrols", "no");
 } else {
     // default console controls on
     if (opts->consolecontrols < 0)
-        opts->consolecontrols = 1;
+        m_config_set_option(mpctx->mconfig, "consolecontrols", "yes");
 }
 #endif
 
@@ -4241,27 +4241,19 @@ play_next_file:
 // do we want to encode?
 #ifdef CONFIG_FFMPEG
 if (opts->encode_output.file) {
-    mp_tmsg(MSGT_VO,MSGL_FATAL,"This code is currently broken because of a change in master. I do not know how to fix it. Encoding may fail until this is fixed, and at the very least, we have a memory leak of about 1kb total size here. Maybe someone else can help. What we need is to PROPERLY deallocate, and reallocate the video driver list, so later code does not crash.\n");
-
-    opts->video_driver_list = talloc_size(NULL, sizeof(*opts->video_driver_list) * 2);
-    opts->video_driver_list[0] = talloc_strdup(NULL, "lavc");
-    opts->video_driver_list[1] = NULL;
-
-    opts->audio_driver_list = talloc_size(NULL, sizeof(*opts->audio_driver_list) * 2);
-    opts->audio_driver_list[0] = talloc_strdup(NULL, "lavc");
-    opts->audio_driver_list[1] = NULL;
-
-    opts->fixed_vo = true;
-    opts->gapless_audio = true;
-    opts->benchmark = true;
+    m_config_set_option(mpctx->mconfig, "vo", "lavc");
+    m_config_set_option(mpctx->mconfig, "ao", "lavc");
+    m_config_set_option(mpctx->mconfig, "fixed-vo", "yes");
+    m_config_set_option(mpctx->mconfig, "gapless-audio", "yes");
+    m_config_set_option(mpctx->mconfig, "benchmark", "yes");
 
     // default osd level 0
     if (opts->osd_level < 0)
-        opts->osd_level = 0;
+        m_config_set_option(mpctx->mconfig, "osdlevel", "0");
 } else {
     // default osd level 1
     if (opts->osd_level < 0)
-        opts->osd_level = 1;
+        m_config_set_option(mpctx->mconfig, "osdlevel", "1");
 }
 #endif
 
