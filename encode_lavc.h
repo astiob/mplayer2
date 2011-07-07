@@ -25,6 +25,7 @@
 #include <libavutil/avstring.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/opt.h>
+#include <libavutil/mathematics.h>
 
 #include "mp_core.h"
 
