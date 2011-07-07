@@ -38,6 +38,7 @@ static AVFormatContext *avc;
 static AVRational timebase;
 static AVCodec *vc;
 static AVCodec *ac;
+static AVDictionary *foptions;
 
 // values created during encoding
 static int header_written; // -1 means currently writing
@@ -49,6 +50,50 @@ static struct stream *twopass_bytebuffer_a;
 static struct stream *twopass_bytebuffer_v;
 static unsigned int t0;
 static unsigned int frames;
+
+static int set_to_avdictionary(void *ctx, AVDictionary **dictp, const char *str, const char *key_val_sep, const char *pairs_sep, int dry_run)
+{
+    int good = 0;
+    int errorcode = 0;
+
+    while (*str)
+    {
+        char *key = av_get_token(&str, key_val_sep);
+        char *val;
+
+        if (*key && strspn(str, key_val_sep)) {
+            str++;
+            val = av_get_token(&str, pairs_sep);
+        } else {
+            if (!dry_run)
+                av_log(ctx, AV_LOG_ERROR, "Missing key or no key/value separator found after key '%s'\n", key);
+            av_free(key);
+            if (!errorcode)
+                errorcode = AVERROR(EINVAL);
+            if(*str)
+                ++str;
+            continue;
+        }
+
+        if (!dry_run)
+            av_log(ctx, AV_LOG_DEBUG, "Setting value '%s' for key '%s'\n", val, key);
+
+        if(av_dict_set(dictp, key, val, AV_DICT_DONT_STRDUP_KEY | AV_DICT_DONT_STRDUP_VAL) >= 0)
+        {
+            ++good;
+        }
+        else
+        {
+            av_free(key);
+            av_free(val);
+            errorcode = AVERROR(EINVAL);
+        }
+
+        if(*str)
+            ++str;
+    }
+    return errorcode ? errorcode : good;
+}
 
 static int set_avoptions(void *ctx, const void *privclass, void *privctx, const char *str, const char *key_val_sep, const char *pairs_sep, int dry_run)
 {
@@ -128,8 +173,6 @@ int encode_lavc_oformat_flags(void)
 
 void encode_lavc_init(struct MPContext *mpctx_, struct encode_output_conf *options_)
 {
-    AVFormatParameters avp;
-
     if (!options_->file)
         return;
 
@@ -150,17 +193,11 @@ void encode_lavc_init(struct MPContext *mpctx_, struct encode_output_conf *optio
 
     av_strlcpy(avc->filename, options->file, sizeof(avc->filename));
 
-    memset(&avp, 0, sizeof(avp));
-    if (av_set_parameters(avc, &avp) < 0) {
-        mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: format cannot be initialized\n");
-        encode_lavc_finish();
-        exit_player_with_rc(mpctx, EXIT_ERROR, 1);
-    }
-
+    foptions = NULL;
     if (options->fopts) {
         char **p;
         for (p = options->fopts; *p; ++p) {
-            if(set_avoptions(avc, avc->oformat->priv_class, avc->priv_data, *p, "=", "", 0) <= 0)
+            if(set_to_avdictionary(avc, &foptions, *p, "=", "", 0) <= 0)
                 mp_msg(MSGT_VO, MSGL_WARN, "encode-lavc: could not set option %s\n", *p);
         }
     }
@@ -200,6 +237,8 @@ void encode_lavc_init(struct MPContext *mpctx_, struct encode_output_conf *optio
 
 int encode_lavc_start(void)
 {
+    AVDictionaryEntry *de;
+
     if (!avc)
         return 0;
     if (header_written < 0)
@@ -221,12 +260,16 @@ int encode_lavc_start(void)
 
     t0 = GetTimerMS();
 
-    if (av_write_header(avc) < 0) {
+    if (avformat_write_header(avc, &foptions) < 0) {
         mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: could not write header\n");
         encode_lavc_finish();
         exit_player_with_rc(mpctx, EXIT_ERROR, 1);
         return 0;
     }
+
+    for (de = NULL; (de = av_dict_get(foptions, "", de, AV_DICT_IGNORE_SUFFIX)); )
+        av_log(avc, AV_LOG_ERROR, "Key '%s' not found.\n", de->key);
+    av_dict_free(&foptions);
 
     header_written = 1;
     return 1;
