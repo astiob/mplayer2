@@ -35,21 +35,24 @@
 #define ENCODE_LAVC_FLAG_COPYTS 2
 #define ENCODE_LAVC_FLAG_NEVERDROP 4
 
-void encode_lavc_init(struct MPContext *mpctx, struct encode_output_conf *options);
-void encode_lavc_finish(void);
-AVStream *encode_lavc_alloc_stream(enum AVMediaType mt);
-void encode_lavc_write_stats(AVStream *stream);
-int encode_lavc_write_frame(AVPacket *packet);
-int encode_lavc_supports_pixfmt(enum PixelFormat format);
-AVCodec *encode_lavc_get_codec(AVStream *stream);
-int encode_lavc_open_codec(AVStream *stream);
-int encode_lavc_available(void);
-void encode_lavc_failtimesync(void);
-int encode_lavc_timesyncfailed(void);
-void encode_lavc_settimesync(double a_minus_v, double dt);
-double encode_lavc_gettimesync(double initial_a_minus_v);
-int encode_lavc_start(void); // returns 1 on success
-int encode_lavc_oformat_flags(void);
+struct encode_lavc_context;
+extern struct encode_lavc_context *encode_lavc_ctx;
+
+struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx, struct encode_output_conf *options);
+void encode_lavc_finish(struct encode_lavc_context *ctx);
+AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx, enum AVMediaType mt);
+void encode_lavc_write_stats(struct encode_lavc_context *ctx, AVStream *stream);
+int encode_lavc_write_frame(struct encode_lavc_context *ctx, AVPacket *packet);
+int encode_lavc_supports_pixfmt(struct encode_lavc_context *ctx, enum PixelFormat format);
+AVCodec *encode_lavc_get_codec(struct encode_lavc_context *ctx, AVStream *stream);
+int encode_lavc_open_codec(struct encode_lavc_context *ctx, AVStream *stream);
+int encode_lavc_available(struct encode_lavc_context *ctx);
+void encode_lavc_failtimesync(struct encode_lavc_context *ctx);
+int encode_lavc_timesyncfailed(struct encode_lavc_context *ctx);
+void encode_lavc_settimesync(struct encode_lavc_context *ctx, double a_minus_v, double dt);
+double encode_lavc_gettimesync(struct encode_lavc_context *ctx, double initial_a_minus_v);
+int encode_lavc_start(struct encode_lavc_context *ctx); // returns 1 on success
+int encode_lavc_oformat_flags(struct encode_lavc_context *ctx);
 
 enum encode_lavc_showhelp_type {
     ENCODE_LAVC_SHOWHELP_F,
@@ -60,8 +63,8 @@ enum encode_lavc_showhelp_type {
     ENCODE_LAVC_SHOWHELP_ACOPTS
 };
 void encode_lavc_showhelp(enum encode_lavc_showhelp_type t);
-int encode_lavc_testflag(int flag);
-double encode_lavc_getoffset(AVStream *stream);
-const char *encode_lavc_getstatus(float relative_position, float playback_time);
+int encode_lavc_testflag(struct encode_lavc_context *ctx, int flag);
+double encode_lavc_getoffset(struct encode_lavc_context *ctx, AVStream *stream);
+const char *encode_lavc_getstatus(struct encode_lavc_context *ctx, float relative_position, float playback_time);
 
 #endif

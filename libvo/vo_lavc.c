@@ -53,13 +53,13 @@ struct priv {
 static int preinit(struct vo *vo, const char *arg)
 {
     struct priv *vc;
-    if (!encode_lavc_available()) {
+    if (!encode_lavc_available(encode_lavc_ctx)) {
         mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: the option -o (output file) must be specified\n");
         return -1;
     }
     vo->priv = talloc_zero(vo, struct priv);
     vc = vo->priv;
-    vc->harddup = encode_lavc_testflag(ENCODE_LAVC_FLAG_HARDDUP);
+    vc->harddup = encode_lavc_testflag(encode_lavc_ctx, ENCODE_LAVC_FLAG_HARDDUP);
     return 0;
 }
 
@@ -130,13 +130,13 @@ static int config(struct vo *vo, uint32_t width, uint32_t height, uint32_t d_wid
     if (pix_fmt == PIX_FMT_NONE)
         goto error; /* imgfmt2pixfmt already prints something */
 
-    vc->stream = encode_lavc_alloc_stream(AVMEDIA_TYPE_VIDEO);
+    vc->stream = encode_lavc_alloc_stream(encode_lavc_ctx, AVMEDIA_TYPE_VIDEO);
     vc->stream->sample_aspect_ratio = vc->stream->codec->sample_aspect_ratio = aspect;
     vc->stream->codec->width = width;
     vc->stream->codec->height = height;
     vc->stream->codec->pix_fmt = pix_fmt;
 
-    if (encode_lavc_open_codec(vc->stream) < 0) {
+    if (encode_lavc_open_codec(encode_lavc_ctx, vc->stream) < 0) {
         mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: unable to open encoder\n");
         goto error;
     }
@@ -166,7 +166,10 @@ static int query_format(struct vo *vo, uint32_t format)
 {
     enum PixelFormat pix_fmt = imgfmt2pixfmt(format);
 
-    return encode_lavc_supports_pixfmt(pix_fmt) ? VFCAP_CSP_SUPPORTED : 0;
+    if (!encode_lavc_ctx)
+        return 0;
+
+    return encode_lavc_supports_pixfmt(encode_lavc_ctx, pix_fmt) ? VFCAP_CSP_SUPPORTED : 0;
 }
 
 static void write_packet(struct vo *vo, int size)
@@ -201,7 +204,7 @@ static void write_packet(struct vo *vo, int size)
                 if (vc->stream->time_base.num*1000LL <= vc->stream->time_base.den)
                     packet.duration = max(1, av_rescale_q(1, vc->stream->codec->time_base, vc->stream->time_base));
 
-        if (encode_lavc_write_frame(&packet) < 0) {
+        if (encode_lavc_write_frame(encode_lavc_ctx, &packet) < 0) {
             mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: error writing\n");
             return;
         }
@@ -212,7 +215,7 @@ static void write_packet(struct vo *vo, int size)
 
 static int encode_video(struct priv *vc, AVFrame *frame)
 {
-    if (encode_lavc_oformat_flags() & AVFMT_RAWPICTURE) {
+    if (encode_lavc_oformat_flags(encode_lavc_ctx) & AVFMT_RAWPICTURE) {
         if (!frame)
             return 0;
         memcpy(vc->buffer, frame, sizeof(AVPicture));
@@ -222,7 +225,7 @@ static int encode_video(struct priv *vc, AVFrame *frame)
         int size = avcodec_encode_video(vc->stream->codec, vc->buffer, vc->buffer_size, frame);
         if (frame)
             mp_msg(MSGT_AO, MSGL_DBG2, "vo-lavc: got pts %f; out size: %d\n", frame->pts * (double) vc->stream->codec->time_base.num / (double) vc->stream->codec->time_base.den, size);
-        encode_lavc_write_stats(vc->stream);
+        encode_lavc_write_stats(encode_lavc_ctx, vc->stream);
         return size;
     }
 }
@@ -240,9 +243,9 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
 
     if (!vc)
         return;
-    if (!encode_lavc_start())
+    if (!encode_lavc_start(encode_lavc_ctx))
         return;
-    if (encode_lavc_timesyncfailed()) {
+    if (encode_lavc_timesyncfailed(encode_lavc_ctx)) {
         mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: Frame got dropped entirely because time sync did not run yet\n");
         return;
     }
@@ -280,7 +283,7 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
 
     // vc->lastpts is MP_NOPTS_VALUE, or the start time of vc->lastframe
     if (mpi) {
-        framepts = floor((pts + encode_lavc_gettimesync(-pts) + encode_lavc_getoffset(vc->stream)) * vc->worst_time_base.den / vc->worst_time_base.num + 0.5);
+        framepts = floor((pts + encode_lavc_gettimesync(encode_lavc_ctx, -pts) + encode_lavc_getoffset(encode_lavc_ctx, vc->stream)) * vc->worst_time_base.den / vc->worst_time_base.num + 0.5);
     } else {
         if (vc->lastpts == MP_NOPTS_VALUE)
             framepts = 0;
@@ -289,7 +292,7 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
     }
 
     // never-drop mode
-    if (encode_lavc_testflag(ENCODE_LAVC_FLAG_NEVERDROP) && framepts <= vc->lastpts) {
+    if (encode_lavc_testflag(encode_lavc_ctx, ENCODE_LAVC_FLAG_NEVERDROP) && framepts <= vc->lastpts) {
         mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: -oneverdrop increased pts by %d\n", (int) (vc->lastpts - framepts + 1));
         framepts = vc->lastpts + 1;
     }
@@ -337,7 +340,7 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
                 memcpy(vc->lastimg->planes[1], mpi->planes[1], 1024);
 
             vc->lastframepts = vc->lastpts = framepts;
-            if (encode_lavc_testflag(ENCODE_LAVC_FLAG_COPYTS) && vc->lastpts < 0)
+            if (encode_lavc_testflag(encode_lavc_ctx, ENCODE_LAVC_FLAG_COPYTS) && vc->lastpts < 0)
                 vc->lastpts = -1;
             vc->lastdisplaycount = 0;
         } else {

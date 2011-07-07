@@ -722,7 +722,8 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
   uninit_player(mpctx, INITIALIZED_ALL);
 
 #ifdef CONFIG_FFMPEG
-encode_lavc_finish();
+encode_lavc_finish(encode_lavc_ctx);
+encode_lavc_ctx = NULL;
 #endif
 
 #if defined(__MINGW32__) || defined(__CYGWIN__)
@@ -1309,7 +1310,7 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
     position = max(position, (get_current_time(mpctx) - seek_to_sec) / (end_at.pos - seek_to_sec));
   if (play_n_frames_mf)
     position = max(position, 1.0 - play_n_frames / (double) play_n_frames_mf);
-  if ((lavcbuf = encode_lavc_getstatus(position, get_current_time(mpctx) - seek_to_sec))) {
+  if ((lavcbuf = encode_lavc_getstatus(encode_lavc_ctx, position, get_current_time(mpctx) - seek_to_sec))) {
     // encoding stats
     saddf(line, &pos, width, "%s ", lavcbuf);
   } else {
@@ -3137,7 +3138,7 @@ static void seek_reset(struct MPContext *mpctx, bool reset_ao)
     drop_frame_cnt = 0;
 
 #ifdef CONFIG_FFMPEG
-    encode_lavc_failtimesync();
+    encode_lavc_failtimesync(encode_lavc_ctx);
 #endif
 
     current_module = NULL;
@@ -4060,7 +4061,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
 
 #ifdef CONFIG_FFMPEG
     if (opts->encode_output.file)
-        encode_lavc_init(mpctx, &opts->encode_output);
+        encode_lavc_ctx = encode_lavc_init(mpctx, &opts->encode_output);
 #endif
 
 //------ load global data first ------
@@ -5033,7 +5034,7 @@ if (mpctx->playtree_iter != NULL || opts->player_idle_mode) {
     mpctx->stop_play = 0;
 
 #ifdef CONFIG_FFMPEG
-    encode_lavc_failtimesync();
+    encode_lavc_failtimesync(encode_lavc_ctx);
 #endif
 
     goto play_next_file;
