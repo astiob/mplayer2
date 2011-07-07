@@ -4143,11 +4143,11 @@ current_module = "init_input";
 if (opts->encode_output.file) {
     // default console controls off
     if (opts->consolecontrols < 0)
-        opts->consolecontrols = 0;
+        m_config_set_option(mpctx->mconfig, "consolecontrols", "no");
 } else {
     // default console controls on
     if (opts->consolecontrols < 0)
-        opts->consolecontrols = 1;
+        m_config_set_option(mpctx->mconfig, "consolecontrols", "yes");
 }
 #endif
 
