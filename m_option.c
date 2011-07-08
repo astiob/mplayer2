@@ -668,9 +668,6 @@ static int parse_str_list(const m_option_t *opt, const char *name,
     char *ptr = (char *)param, *last_ptr, **res;
     int op = OP_NONE;
 
-    if(opt->flags & M_OPT_STRING_LIST_APPEND)
-        op = OP_ADD;
-
     if (opt->name[len - 1] == '*' && ((int)strlen(name) > len - 1)) {
         const char *n = &name[len - 1];
         if (strcasecmp(n, "-add") == 0)
