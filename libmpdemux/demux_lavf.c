@@ -825,6 +825,7 @@ static int demux_lavf_fill_buffer(demuxer_t *demux, demux_stream_t *dsds)
 static void demux_seek_lavf(demuxer_t *demuxer, float rel_seek_secs,
                             float audio_delay, int flags)
 {
+    printf("%f %f %x    \n", rel_seek_secs, audio_delay, flags);
     lavf_priv_t *priv = demuxer->priv;
     int avsflags = 0;
     mp_msg(MSGT_DEMUX, MSGL_DBG2, "demux_seek_lavf(%p, %f, %f, %d)\n",

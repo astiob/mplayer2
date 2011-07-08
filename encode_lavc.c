@@ -54,8 +54,6 @@ struct encode_lavc_context
     unsigned int frames;
 };
 
-struct encode_lavc_context *encode_lavc_ctx = NULL;
-
 static int set_to_avdictionary(void *ctx, AVDictionary **dictp, const char *str, const char *key_val_sep, const char *pairs_sep, int dry_run)
 {
     int good = 0;
@@ -182,10 +180,6 @@ struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx_, struct en
 
     if (!options_->file)
         return NULL;
-
-    if (encode_lavc_ctx) {
-        mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: WE ALREADY HAVE A CONTEXT (REMOVE THIS MESSAGE WHEN THIS SITUATION ACTUALLY MAKES SENSE)\n");
-    }
 
     ctx = talloc_zero(NULL, struct encode_lavc_context);
 

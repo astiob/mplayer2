@@ -372,7 +372,8 @@ void list_video_out(void)
 
 struct vo *init_best_video_out(struct MPOpts *opts, struct vo_x11_state *x11,
                                struct mp_fifo *key_fifo,
-                               struct input_ctx *input_ctx)
+                               struct input_ctx *input_ctx,
+                               struct encode_lavc_context *encode_lavc_ctx)
 {
     char **vo_list = opts->video_driver_list;
     int i;
@@ -381,6 +382,7 @@ struct vo *init_best_video_out(struct MPOpts *opts, struct vo_x11_state *x11,
         .opts = opts,
         .x11 = x11,
         .key_fifo = key_fifo,
+        .encode_lavc_ctx = encode_lavc_ctx,
         .input_ctx = input_ctx,
         .event_fd = -1,
         .registered_fd = -1,

@@ -722,8 +722,8 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
   uninit_player(mpctx, INITIALIZED_ALL);
 
 #ifdef CONFIG_FFMPEG
-encode_lavc_finish(encode_lavc_ctx);
-encode_lavc_ctx = NULL;
+encode_lavc_finish(mpctx->encode_lavc_ctx);
+mpctx->encode_lavc_ctx = NULL;
 #endif
 
 #if defined(__MINGW32__) || defined(__CYGWIN__)
@@ -1310,7 +1310,7 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
     position = max(position, (get_current_time(mpctx) - seek_to_sec) / (end_at.pos - seek_to_sec));
   if (play_n_frames_mf)
     position = max(position, 1.0 - play_n_frames / (double) play_n_frames_mf);
-  if ((lavcbuf = encode_lavc_getstatus(encode_lavc_ctx, position, get_current_time(mpctx) - seek_to_sec))) {
+  if ((lavcbuf = encode_lavc_getstatus(mpctx->encode_lavc_ctx, position, get_current_time(mpctx) - seek_to_sec))) {
     // encoding stats
     saddf(line, &pos, width, "%s ", lavcbuf);
   } else {
@@ -1813,6 +1813,7 @@ void reinit_audio_chain(struct MPContext *mpctx)
     if (!ao->initialized) {
         current_module="ao2_init";
         ao->buffersize = opts->ao_buffersize;
+        ao->encode_lavc_ctx = mpctx->encode_lavc_ctx;
         ao_init(ao, opts->audio_driver_list);
         if (!ao->initialized) {
             mp_tmsg(MSGT_CPLAYER,MSGL_ERR,"Could not open/initialize audio device -> no sound.\n");
@@ -2645,7 +2646,7 @@ int reinit_video_chain(struct MPContext *mpctx)
 
     //shouldn't we set dvideo->id=-2 when we fail?
     //if((mpctx->video_out->preinit(vo_subdevice))!=0){
-    if(!(mpctx->video_out=init_best_video_out(opts, mpctx->x11_state, mpctx->key_fifo, mpctx->input))){
+    if(!(mpctx->video_out=init_best_video_out(opts, mpctx->x11_state, mpctx->key_fifo, mpctx->input, mpctx->encode_lavc_ctx))){
       mp_tmsg(MSGT_CPLAYER,MSGL_FATAL,"Error opening/initializing the selected video_out (-vo) device.\n");
       goto err_out;
     }
@@ -3138,7 +3139,7 @@ static void seek_reset(struct MPContext *mpctx, bool reset_ao)
     drop_frame_cnt = 0;
 
 #ifdef CONFIG_FFMPEG
-    encode_lavc_failtimesync(encode_lavc_ctx);
+    encode_lavc_failtimesync(mpctx->encode_lavc_ctx);
 #endif
 
     current_module = NULL;
@@ -4061,7 +4062,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
 
 #ifdef CONFIG_FFMPEG
     if (opts->encode_output.file)
-        encode_lavc_ctx = encode_lavc_init(mpctx, &opts->encode_output);
+        mpctx->encode_lavc_ctx = encode_lavc_init(mpctx, &opts->encode_output);
 #endif
 
 //------ load global data first ------
@@ -5034,7 +5035,7 @@ if (mpctx->playtree_iter != NULL || opts->player_idle_mode) {
     mpctx->stop_play = 0;
 
 #ifdef CONFIG_FFMPEG
-    encode_lavc_failtimesync(encode_lavc_ctx);
+    encode_lavc_failtimesync(mpctx->encode_lavc_ctx);
 #endif
 
     goto play_next_file;

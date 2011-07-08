@@ -36,7 +36,6 @@
 #define ENCODE_LAVC_FLAG_NEVERDROP 4
 
 struct encode_lavc_context;
-extern struct encode_lavc_context *encode_lavc_ctx;
 
 struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx, struct encode_output_conf *options);
 void encode_lavc_finish(struct encode_lavc_context *ctx);

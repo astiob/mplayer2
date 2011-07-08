@@ -61,7 +61,7 @@ static int init(struct ao *ao, char *params){
     const enum AVSampleFormat *sampleformat;
     AVCodec *codec;
 
-    if (!encode_lavc_available(encode_lavc_ctx)) {
+    if (!encode_lavc_available(ao->encode_lavc_ctx)) {
         mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: the option -o (output file) must be specified\n");
         return -1;
     }
@@ -71,8 +71,9 @@ static int init(struct ao *ao, char *params){
         return -1;
     }
 
-    ac->stream = encode_lavc_alloc_stream(encode_lavc_ctx, AVMEDIA_TYPE_AUDIO);
-    codec = encode_lavc_get_codec(encode_lavc_ctx, ac->stream);
+    ac->stream = encode_lavc_alloc_stream(ao->encode_lavc_ctx,
+                                          AVMEDIA_TYPE_AUDIO);
+    codec = encode_lavc_get_codec(ao->encode_lavc_ctx, ac->stream);
 
     // ac->stream->time_base.num = 1;
     // ac->stream->time_base.den = ao->samplerate;
@@ -215,7 +216,7 @@ out_takefirst:
             break;
     }
 
-    if (encode_lavc_open_codec(encode_lavc_ctx, ac->stream) < 0) {
+    if (encode_lavc_open_codec(ao->encode_lavc_ctx, ac->stream) < 0) {
         mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: unable to open encoder\n");
         return -1;
     }
@@ -243,7 +244,8 @@ out_takefirst:
 
     ac->savepts = MP_NOPTS_VALUE;
     ac->lastpts = MP_NOPTS_VALUE;
-    ac->offset = ac->stream->codec->sample_rate * encode_lavc_getoffset(encode_lavc_ctx, ac->stream);
+    ac->offset = ac->stream->codec->sample_rate * encode_lavc_getoffset(
+                                       ao->encode_lavc_ctx, ac->stream);
     ac->offset_left = ac->offset;
 
     //fill_ao_data:
@@ -312,7 +314,8 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
     }
 
     if(data && ptsvalid)
-        encode_lavc_settimesync(encode_lavc_ctx, realapts - apts, (double) ac->aframesize / (double) ao->samplerate);
+        encode_lavc_settimesync(ao->encode_lavc_ctx, realapts - apts,
+                            (double) ac->aframesize / (double) ao->samplerate);
 
     if (ac->pcmhack && data)
         size = avcodec_encode_audio(ac->stream->codec, ac->buffer, ac->aframesize * ac->pcmhack * ao->channels, data);
@@ -321,7 +324,7 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
 
     mp_msg(MSGT_AO, MSGL_DBG2, "ao-lavc: got pts %f (playback time: %f); out size: %d\n", apts, realapts, size);
 
-    encode_lavc_write_stats(encode_lavc_ctx, ac->stream);
+    encode_lavc_write_stats(ao->encode_lavc_ctx, ac->stream);
 
     if(ac->savepts == MP_NOPTS_VALUE) {
         ac->savepts = floor(realapts * (double) ac->stream->time_base.den / (double) ac->stream->time_base.num + 0.5);
@@ -352,7 +355,8 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
         }
         ac->savepts = MP_NOPTS_VALUE;
 
-        if (encode_lavc_testflag(encode_lavc_ctx, ENCODE_LAVC_FLAG_COPYTS)) {
+        if (encode_lavc_testflag(ao->encode_lavc_ctx,
+                                 ENCODE_LAVC_FLAG_COPYTS)) {
             // we are NOT fixing video pts to match audio playback time
             // so we MUST set video-compatible pts!
             packet.pts = floor(packet.pts + (apts - realapts) * ac->stream->time_base.den / ac->stream->time_base.num + 0.5);
@@ -367,7 +371,7 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
             ac->lastpts = packet.pts;
         }
 
-        if (encode_lavc_write_frame(encode_lavc_ctx, &packet) < 0) {
+        if (encode_lavc_write_frame(ao->encode_lavc_ctx, &packet) < 0) {
             mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error writing at %f %f/%f\n", realapts, (double) ac->stream->time_base.num, (double) ac->stream->time_base.den);
             return -1;
         }
@@ -387,13 +391,13 @@ static int play(struct ao *ao, void* data,int len,int flags){
 
     len /= ac->sample_size * ao->channels;
 
-    if (!encode_lavc_start(encode_lavc_ctx))
+    if (!encode_lavc_start(ao->encode_lavc_ctx))
         return 0;
 
     ptsoffset = ac->offset;
     // this basically just edits ao->apts for syncing purposes
 
-    if (encode_lavc_testflag(encode_lavc_ctx, ENCODE_LAVC_FLAG_COPYTS)) {
+    if (encode_lavc_testflag(ao->encode_lavc_ctx, ENCODE_LAVC_FLAG_COPYTS)) {
         // we do not send time sync data to the video side, but we always need the exact pts, even if zero
     } else {
         // here we must "simulate" the pts editing
@@ -442,7 +446,8 @@ static int play(struct ao *ao, void* data,int len,int flags){
     while (len - bufpos >= ac->aframesize) {
         encode(ao,
                 ao->apts != MP_NOPTS_VALUE,
-                ao->apts + (bufpos + ptsoffset) / (double) ao->samplerate + encode_lavc_getoffset(encode_lavc_ctx, ac->stream),
+                ao->apts + (bufpos + ptsoffset) / (double) ao->samplerate +
+                    encode_lavc_getoffset(ao->encode_lavc_ctx, ac->stream),
                 (char *) data + ac->sample_size * bufpos * ao->channels);
         bufpos += ac->aframesize;
     }
