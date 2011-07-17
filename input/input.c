@@ -646,7 +646,7 @@ static const m_option_t input_conf[] = {
 };
 
 static const m_option_t mp_input_opts[] = {
-    { "input", &input_conf, CONF_TYPE_SUBCONFIG, 0, 0, 0, NULL},
+    { "input", (void *)&input_conf, CONF_TYPE_SUBCONFIG, 0, 0, 0, NULL},
     OPT_MAKE_FLAGS("joystick", input.use_joystick, CONF_GLOBAL),
     OPT_MAKE_FLAGS("lirc", input.use_lirc, CONF_GLOBAL),
     OPT_MAKE_FLAGS("lircc", input.use_lircc, CONF_GLOBAL),
@@ -1487,7 +1487,7 @@ int mp_input_get_key_from_name(const char *name)
 {
     int modifiers = 0;
     const char *p;
-    while (p = strchr(name, '+')) {
+    while ((p = strchr(name, '+'))) {
         for (struct mp_key_name *m = modifier_names; m->name; m++)
             if (!bstrcasecmp(BSTR(m->name), (struct bstr){(char *)name, p - name})) {
                 modifiers |= m->key;
@@ -1731,7 +1731,6 @@ static int parse_config(struct input_ctx *ictx, char *file)
             if (bs > (end - buffer))
                 memmove(buffer, end, bs - (end - buffer));
             bs -= (end - buffer);
-            buffer[bs - 1] = '\0';
             continue;
         }
     }
