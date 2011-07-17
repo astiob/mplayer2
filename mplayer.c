@@ -1249,7 +1249,6 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
 {
     struct MPOpts *opts = &mpctx->opts;
   sh_video_t * const sh_video = mpctx->sh_video;
-  float position;
 
   if (mpctx->sh_audio && a_pos == MP_NOPTS_VALUE)
       a_pos = playing_audio_pts(mpctx);
@@ -1269,7 +1268,6 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
 
   int width;
   char *line;
-  const char *lavcbuf;
   unsigned pos = 0;
   get_screen_size();
   if (screen_width > 0)
@@ -1305,13 +1303,14 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
     saddf(line, &pos, width, "A-V:%7.3f ct:%7.3f ",
           mpctx->last_av_difference, mpctx->total_avsync_change);
 
-  position = (get_current_time(mpctx) - seek_to_sec) / (get_time_length(mpctx) - seek_to_sec);
+  float position = (get_current_time(mpctx) - seek_to_sec) / (get_time_length(mpctx) - seek_to_sec);
   if (end_at.type == END_AT_TIME)
     position = max(position, (get_current_time(mpctx) - seek_to_sec) / (end_at.pos - seek_to_sec));
   if (play_n_frames_mf)
     position = max(position, 1.0 - play_n_frames / (double) play_n_frames_mf);
 #ifdef CONFIG_ENCODING
-  if ((lavcbuf = encode_lavc_getstatus(mpctx->encode_lavc_ctx, position, get_current_time(mpctx) - seek_to_sec))) {
+  char lavcbuf[80];
+  if (encode_lavc_getstatus(mpctx->encode_lavc_ctx, lavcbuf, sizeof(lavcbuf), position, get_current_time(mpctx) - seek_to_sec) >= 0) {
     // encoding stats
     saddf(line, &pos, width, "%s ", lavcbuf);
   } else

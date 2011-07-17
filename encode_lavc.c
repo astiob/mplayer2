@@ -186,9 +186,6 @@ struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx_, struct en
     ctx->mpctx = mpctx_;
     ctx->options = options_;
 
-    avcodec_register_all();
-    av_register_all();
-
     ctx->avc = avformat_alloc_context();
 
     if (!(ctx->avc->oformat = av_guess_format(ctx->options->format, ctx->options->file, NULL))) {
@@ -869,12 +866,6 @@ static void encode_lavc_printoptions(void *obj, const char *indent, const char *
 
 void encode_lavc_showhelp(enum encode_lavc_showhelp_type t)
 {
-    static int registered = 0;
-    if (!registered) {
-        avcodec_register_all();
-        av_register_all();
-        registered = 1;
-    }
     switch (t) {
     case ENCODE_LAVC_SHOWHELP_F: {
         AVOutputFormat *c = NULL;
@@ -1023,23 +1014,26 @@ double encode_lavc_getoffset(struct encode_lavc_context *ctx, AVStream *stream)
     return 0;
 }
 
-const char *encode_lavc_getstatus(struct encode_lavc_context *ctx, float relative_position, float playback_time)
+int encode_lavc_getstatus(struct encode_lavc_context *ctx,
+                          char *buf, int bufsize,
+                          float relative_position, float playback_time)
 {
-    static char buf[80];
     float minutes, megabytes, fps, x;
     float f = max(0.0001, relative_position);
     if (!ctx)
-        return NULL;
+        return -1;
     minutes = (GetTimerMS() - ctx->t0) / 60000.0 * (1-f) / f;
     megabytes = ctx->avc->pb ? (avio_size(ctx->avc->pb) / 1048576.0 / f) : 0;
     fps = ctx->frames / ((GetTimerMS() - ctx->t0) / 1000.0);
     x = playback_time / ((GetTimerMS() - ctx->t0) / 1000.0);
     if (ctx->frames)
-        snprintf(buf, sizeof(buf), "{%.1f%% %.1fmin %.1ffps %.1fMB}", relative_position * 100.0, minutes, fps, megabytes);
+        snprintf(buf, bufsize, "{%.1f%% %.1fmin %.1ffps %.1fMB}",
+                 relative_position * 100.0, minutes, fps, megabytes);
     else
-        snprintf(buf, sizeof(buf), "{%.1f%% %.1fmin %.2fx %.1fMB}", relative_position * 100.0, minutes, x, megabytes);
-    buf[sizeof(buf)-1] = 0;
-    return buf;
+        snprintf(buf, bufsize, "{%.1f%% %.1fmin %.2fx %.1fMB}",
+                 relative_position * 100.0, minutes, x, megabytes);
+    buf[bufsize-1] = 0;
+    return 0;
 }
 
 // vim: ts=4 sw=4 et
