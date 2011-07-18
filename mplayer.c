@@ -3762,7 +3762,7 @@ static void run_playloop(struct MPContext *mpctx)
 static int read_keys(void *ctx, int fd)
 {
     getch2(ctx);
-    return mplayer_get_key(ctx, 0);
+    return MP_INPUT_NOTHING;
 }
 
 static bool attachment_is_font(struct demux_attachment *att)
@@ -3875,7 +3875,7 @@ int i;
   srand(GetTimerMS());
 
   mp_msg_init();
-  set_av_log_callback();
+  init_libav();
 
 #ifdef CONFIG_X11
   mpctx->x11_state = vo_x11_init_state();
@@ -3917,7 +3917,6 @@ int i;
       }
     }
     }
-    mpctx->key_fifo = mp_fifo_create(opts);
 
   print_version("MPlayer2");
 
@@ -4154,13 +4153,8 @@ if (opts->encode_output.file) {
 #endif
 
  mpctx->input = mp_input_init(&opts->input);
- mp_input_add_key_fd(mpctx->input, -1,0,mplayer_get_key,NULL, mpctx->key_fifo);
+ mpctx->key_fifo = mp_fifo_create(mpctx->input, opts);
  if(slave_mode) {
-#if USE_FD0_CMD_SELECT
-    int flags = fcntl(0, F_GETFL);
-    if (flags != -1)
-        fcntl(0, F_SETFL, flags | O_NONBLOCK);
-#endif
     mp_input_add_cmd_fd(mpctx->input, 0,USE_FD0_CMD_SELECT,MP_INPUT_SLAVE_CMD_FUNC,NULL);
  }
 else if (opts->consolecontrols)
