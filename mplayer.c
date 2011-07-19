@@ -103,7 +103,7 @@
 
 #include "input/input.h"
 
-#ifdef CONFIG_FFMPEG_ENCODING
+#ifdef CONFIG_ENCODING
 #include "encode_lavc.h"
 #endif
 
@@ -721,7 +721,7 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
   if (mpctx->user_muted && !mpctx->edl_muted) mixer_mute(&mpctx->mixer);
   uninit_player(mpctx, INITIALIZED_ALL);
 
-#ifdef CONFIG_FFMPEG_ENCODING
+#ifdef CONFIG_ENCODING
 encode_lavc_finish(mpctx->encode_lavc_ctx);
 mpctx->encode_lavc_ctx = NULL;
 #endif
@@ -1310,10 +1310,13 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
     position = max(position, (get_current_time(mpctx) - seek_to_sec) / (end_at.pos - seek_to_sec));
   if (play_n_frames_mf)
     position = max(position, 1.0 - play_n_frames / (double) play_n_frames_mf);
+#ifdef CONFIG_ENCODING
   if ((lavcbuf = encode_lavc_getstatus(mpctx->encode_lavc_ctx, position, get_current_time(mpctx) - seek_to_sec))) {
     // encoding stats
     saddf(line, &pos, width, "%s ", lavcbuf);
-  } else {
+  } else
+#endif
+         {
     // Video stats
     if (sh_video)
       saddf(line, &pos, width, "%3d/%3d ",
@@ -3138,7 +3141,7 @@ static void seek_reset(struct MPContext *mpctx, bool reset_ao)
     audio_time_usage = 0; video_time_usage = 0; vout_time_usage = 0;
     drop_frame_cnt = 0;
 
-#ifdef CONFIG_FFMPEG_ENCODING
+#ifdef CONFIG_ENCODING
     encode_lavc_failtimesync(mpctx->encode_lavc_ctx);
 #endif
 
@@ -4013,7 +4016,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
       opt_exit = 1;
     }
 
-#ifdef CONFIG_FFMPEG_ENCODING
+#ifdef CONFIG_ENCODING
     if (opts->encode_output.format && strcmp(opts->encode_output.format,"help")==0) {
         encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_F);
         opt_exit = 1;
@@ -4059,7 +4062,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
       mp_msg(MSGT_CPLAYER, MSGL_INFO, "\n");
     }
 
-#ifdef CONFIG_FFMPEG_ENCODING
+#ifdef CONFIG_ENCODING
     if (opts->encode_output.file)
         mpctx->encode_lavc_ctx = encode_lavc_init(mpctx, &opts->encode_output);
 #endif
@@ -4140,7 +4143,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
 // Init input system
 current_module = "init_input";
 
-#ifdef CONFIG_FFMPEG_ENCODING
+#ifdef CONFIG_ENCODING
 if (opts->encode_output.file) {
     // default console controls off
     if (opts->consolecontrols < 0)
@@ -4235,7 +4238,7 @@ play_next_file:
     load_per_output_config (mpctx->mconfig, PROFILE_CFG_AO, opts->audio_driver_list[0]);
 
 // do we want to encode?
-#ifdef CONFIG_FFMPEG_ENCODING
+#ifdef CONFIG_ENCODING
 if (opts->encode_output.file) {
     m_config_set_option(mpctx->mconfig, "vo", "lavc");
     m_config_set_option(mpctx->mconfig, "ao", "lavc");
@@ -5029,7 +5032,7 @@ if (mpctx->playtree_iter != NULL || opts->player_idle_mode) {
     if(!mpctx->playtree_iter) mpctx->filename = NULL;
     mpctx->stop_play = 0;
 
-#ifdef CONFIG_FFMPEG_ENCODING
+#ifdef CONFIG_ENCODING
     encode_lavc_failtimesync(mpctx->encode_lavc_ctx);
 #endif
 

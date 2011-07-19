@@ -6029,7 +6029,9 @@ if test "$ffmpeg" = auto ; then
 fi
 
 ffmpeg_eval_api=no
+encoding=no
 def_ffmpeg_eval_api="#undef CONFIG_FFMPEG_EVAL_API"
+def_encoding="#undef CONFIG_ENCODING"
 if test "$ffmpeg" = yes; then
   def_ffmpeg='#define CONFIG_FFMPEG 1'
   codecmodules="ffmpeg $codecmodules"
@@ -6038,8 +6040,8 @@ if test "$ffmpeg" = yes; then
     def_ffmpeg_eval_api="#define CONFIG_FFMPEG_EVAL_API 1"
   fi
   if $_pkg_config --atleast-version=53.2.0 libavformat ; then
-    ffmpeg_encoding=yes
-    def_ffmpeg_encoding="#define CONFIG_FFMPEG_ENCODING 1"
+    encoding=yes
+    def_encoding="#define CONFIG_ENCODING 1"
   fi
 else
   def_ffmpeg='#undef CONFIG_FFMPEG'
@@ -6827,7 +6829,7 @@ YUV4MPEG = $_yuv4mpeg
 # FFmpeg
 FFMPEG     = $ffmpeg
 FFMPEG_EVAL_API = $ffmpeg_eval_api
-FFMPEG_ENCODING = $ffmpeg_encoding
+ENCODING = $encoding
 FFMPEG_INTERNALS = $ffmpeg_internals
 FFMPEG_SOURCE_PATH = $_ffmpeg_source
 
@@ -7185,7 +7187,7 @@ $def_yuv4mpeg
 /* FFmpeg */
 $def_ffmpeg
 $def_ffmpeg_eval_api
-$def_ffmpeg_encoding
+$def_encoding
 $def_ffmpeg_internals
 
 $def_arpa_inet_h
