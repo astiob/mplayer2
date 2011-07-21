@@ -1007,7 +1007,7 @@ const m_option_t mplayer_opts[]={
 
     {"vd", (void *) vd_conf, CONF_TYPE_SUBCONFIG, 0, 0, 0, NULL},
 
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_ENCODING
     OPT_STRING("o", encode_output.file, CONF_GLOBAL),
     OPT_STRING("of", encode_output.format, CONF_GLOBAL),
     OPT_STRINGLIST("ofopts*", encode_output.fopts, CONF_GLOBAL),
