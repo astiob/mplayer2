@@ -119,7 +119,7 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #ifdef CONFIG_V4L2_DECODER
     &audio_out_v4l2,
 #endif
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_ENCODING
     &audio_out_lavc,
 #endif
     &audio_out_null,

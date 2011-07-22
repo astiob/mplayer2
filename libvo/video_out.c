@@ -236,6 +236,8 @@ const struct vo_driver *video_out_drivers[] =
 #endif
 #ifdef CONFIG_FFMPEG
         &video_out_png,
+#endif
+#ifdef CONFIG_ENCODING
         &video_out_lavc,
 #endif
 #ifdef CONFIG_JPEG

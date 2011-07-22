@@ -64,6 +64,8 @@ enum encode_lavc_showhelp_type {
 void encode_lavc_showhelp(enum encode_lavc_showhelp_type t);
 int encode_lavc_testflag(struct encode_lavc_context *ctx, int flag);
 double encode_lavc_getoffset(struct encode_lavc_context *ctx, AVStream *stream);
-const char *encode_lavc_getstatus(struct encode_lavc_context *ctx, float relative_position, float playback_time);
+int encode_lavc_getstatus(struct encode_lavc_context *ctx,
+                          char *buf, int bufsize,
+                          float relative_position, float playback_time);
 
 #endif
