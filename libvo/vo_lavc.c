@@ -243,9 +243,6 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
     AVCodecContext *avc;
     int64_t framepts;
 
-    if (pts == MP_NOPTS_VALUE)
-        pts = vo_pts / 90000.0;
-
     if (!vc)
         return;
     if (!encode_lavc_start(vo->encode_lavc_ctx))
@@ -287,7 +284,10 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
     }
 
     // vc->lastpts is MP_NOPTS_VALUE, or the start time of vc->lastframe
-    if (mpi) {
+    if (pts == MP_NOPTS_VALUE) {
+        framepts = vc->lastpts + 1;
+        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: pts was missing, using %d - consider using -ofps or -vf fixpts\n", (int) framepts);
+    } else if (mpi) {
         framepts = floor((pts + encode_lavc_gettimesync(vo->encode_lavc_ctx,
                 -pts) + encode_lavc_getoffset(vo->encode_lavc_ctx, vc->stream))
                 * vc->worst_time_base.den / vc->worst_time_base.num + 0.5);
