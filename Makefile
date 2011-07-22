@@ -75,12 +75,11 @@ SRCS_COMMON-$(FFMPEG)                += libmpcodecs/vf_pp.c \
 
 # Requires a new enough libavutil that installs eval.h
 SRCS_COMMON-$(FFMPEG_EVAL_API)          += libmpcodecs/vf_geq.c \
+                                           libmpcodecs/vf_qp.c \
 
 # These filters use private headers and do not work with shared libavcodec.
 SRCS_COMMON-$(FFMPEG_INTERNALS)      += libmpcodecs/vf_fspp.c \
-                                        libmpcodecs/vf_geq.c \
                                         libmpcodecs/vf_mcdeint.c \
-                                        libmpcodecs/vf_qp.c \
                                         libmpcodecs/vf_spp.c \
 
 SRCS_COMMON-$(FREETYPE)              += sub/font_load_ft.c
@@ -452,7 +451,8 @@ SRCS_MPLAYER-$(DIRECTX)      += libao2/ao_dsound.c libvo/vo_directx.c
 SRCS_MPLAYER-$(DXR3)         += libvo/vo_dxr3.c
 SRCS_MPLAYER-$(ESD)          += libao2/ao_esd.c
 SRCS_MPLAYER-$(FBDEV)        += libvo/vo_fbdev.c libvo/vo_fbdev2.c
-SRCS_MPLAYER-$(FFMPEG)       += libvo/vo_png.c libvo/vo_lavc.c libao2/ao_lavc.c encode_lavc.c
+SRCS_MPLAYER-$(FFMPEG)       += libvo/vo_png.c
+SRCS_MPLAYER-$(FFMPEG_ENCODING) += libvo/vo_lavc.c libao2/ao_lavc.c encode_lavc.c
 SRCS_MPLAYER-$(GGI)          += libvo/vo_ggi.c
 SRCS_MPLAYER-$(GIF)          += libvo/vo_gif89a.c
 SRCS_MPLAYER-$(GL)           += libvo/gl_common.c libvo/vo_gl.c \
@@ -654,11 +654,8 @@ checkheaders: $(ALLHEADERS:.h=.ho)
 codec-cfg.o: codecs.conf.h
 mpcommon.o osdep/mplayer-rc.o: version.h
 
-# Files that depend on libswscale internals
-libmpcodecs/vf_palette.o: CFLAGS := -I$(FFMPEG_SOURCE_PATH) $(CFLAGS)
-
 # Files that depend on libavcodec internals
-libmpcodecs/vf_fspp.o libmpcodecs/vf_geq.o libmpcodecs/vf_mcdeint.o libmpcodecs/vf_qp.o libmpcodecs/vf_spp.o libvo/jpeg_enc.o: CFLAGS := -I$(FFMPEG_SOURCE_PATH) $(CFLAGS)
+libmpcodecs/vf_fspp.o libmpcodecs/vf_mcdeint.o libmpcodecs/vf_spp.o: CFLAGS := -I$(FFMPEG_SOURCE_PATH) $(CFLAGS)
 
 osdep/mplayer-rc.o: osdep/mplayer.exe.manifest
 

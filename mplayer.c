@@ -103,7 +103,7 @@
 
 #include "input/input.h"
 
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_FFMPEG_ENCODING
 #include "encode_lavc.h"
 #endif
 
@@ -721,7 +721,7 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
   if (mpctx->user_muted && !mpctx->edl_muted) mixer_mute(&mpctx->mixer);
   uninit_player(mpctx, INITIALIZED_ALL);
 
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_FFMPEG_ENCODING
 encode_lavc_finish(mpctx->encode_lavc_ctx);
 mpctx->encode_lavc_ctx = NULL;
 #endif
@@ -3138,7 +3138,7 @@ static void seek_reset(struct MPContext *mpctx, bool reset_ao)
     audio_time_usage = 0; video_time_usage = 0; vout_time_usage = 0;
     drop_frame_cnt = 0;
 
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_FFMPEG_ENCODING
     encode_lavc_failtimesync(mpctx->encode_lavc_ctx);
 #endif
 
@@ -3762,7 +3762,7 @@ static void run_playloop(struct MPContext *mpctx)
 static int read_keys(void *ctx, int fd)
 {
     getch2(ctx);
-    return mplayer_get_key(ctx, 0);
+    return MP_INPUT_NOTHING;
 }
 
 static bool attachment_is_font(struct demux_attachment *att)
@@ -3875,7 +3875,7 @@ int i;
   srand(GetTimerMS());
 
   mp_msg_init();
-  set_av_log_callback();
+  init_libav();
 
 #ifdef CONFIG_X11
   mpctx->x11_state = vo_x11_init_state();
@@ -3917,7 +3917,6 @@ int i;
       }
     }
     }
-    mpctx->key_fifo = mp_fifo_create(opts);
 
   print_version("MPlayer2");
 
@@ -4014,7 +4013,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
       opt_exit = 1;
     }
 
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_FFMPEG_ENCODING
     if (opts->encode_output.format && strcmp(opts->encode_output.format,"help")==0) {
         encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_F);
         opt_exit = 1;
@@ -4060,7 +4059,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
       mp_msg(MSGT_CPLAYER, MSGL_INFO, "\n");
     }
 
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_FFMPEG_ENCODING
     if (opts->encode_output.file)
         mpctx->encode_lavc_ctx = encode_lavc_init(mpctx, &opts->encode_output);
 #endif
@@ -4141,7 +4140,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
 // Init input system
 current_module = "init_input";
 
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_FFMPEG_ENCODING
 if (opts->encode_output.file) {
     // default console controls off
     if (opts->consolecontrols < 0)
@@ -4154,13 +4153,8 @@ if (opts->encode_output.file) {
 #endif
 
  mpctx->input = mp_input_init(&opts->input);
- mp_input_add_key_fd(mpctx->input, -1,0,mplayer_get_key,NULL, mpctx->key_fifo);
+ mpctx->key_fifo = mp_fifo_create(mpctx->input, opts);
  if(slave_mode) {
-#if USE_FD0_CMD_SELECT
-    int flags = fcntl(0, F_GETFL);
-    if (flags != -1)
-        fcntl(0, F_SETFL, flags | O_NONBLOCK);
-#endif
     mp_input_add_cmd_fd(mpctx->input, 0,USE_FD0_CMD_SELECT,MP_INPUT_SLAVE_CMD_FUNC,NULL);
  }
 else if (opts->consolecontrols)
@@ -4241,7 +4235,7 @@ play_next_file:
     load_per_output_config (mpctx->mconfig, PROFILE_CFG_AO, opts->audio_driver_list[0]);
 
 // do we want to encode?
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_FFMPEG_ENCODING
 if (opts->encode_output.file) {
     m_config_set_option(mpctx->mconfig, "vo", "lavc");
     m_config_set_option(mpctx->mconfig, "ao", "lavc");
@@ -5035,7 +5029,7 @@ if (mpctx->playtree_iter != NULL || opts->player_idle_mode) {
     if(!mpctx->playtree_iter) mpctx->filename = NULL;
     mpctx->stop_play = 0;
 
-#ifdef CONFIG_FFMPEG
+#ifdef CONFIG_FFMPEG_ENCODING
     encode_lavc_failtimesync(mpctx->encode_lavc_ctx);
 #endif
 
