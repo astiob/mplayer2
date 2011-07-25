@@ -31,13 +31,11 @@
 #include <ass/ass.h>
 #include <ass/ass_types.h>
 
-extern ASS_Library *ass_library;
 extern float ass_font_scale;
 extern float ass_line_spacing;
 extern int ass_top_margin;
 extern int ass_bottom_margin;
 extern int use_embedded_fonts;
-extern char **ass_force_style_list;
 extern int ass_use_margins;
 extern char *ass_color;
 extern char *ass_border_color;
