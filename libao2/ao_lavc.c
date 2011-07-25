@@ -303,9 +303,11 @@ static int get_space(struct ao *ao){
 static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must be exactly ac->aframesize amount of data
 {
     struct priv *ac = ao->priv;
+    struct encode_lavc_context *ectx = ao->encode_lavc_ctx;
     int size;
-    double realapts = ac->aframecount++ * (double) ac->aframesize / (double) ao->samplerate;
+    double realapts = ac->aframecount * (double) ac->aframesize / ao->samplerate;
 
+    ac->aframecount++;
     if (data && (ao->channels == 5 || ao->channels == 6 || ao->channels == 8)) {
         reorder_channel_nch(data, AF_CHANNEL_LAYOUT_MPLAYER_DEFAULT,
                             AF_CHANNEL_LAYOUT_LAVC_DEFAULT,
@@ -313,9 +315,8 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
                             ac->aframesize * ao->channels, ac->sample_size);
     }
 
-    if(data && ptsvalid)
-        encode_lavc_settimesync(ao->encode_lavc_ctx, realapts - apts,
-                            (double) ac->aframesize / (double) ao->samplerate);
+    if (data && ptsvalid)
+        ectx->audio_pts_offset = realapts - apts;
 
     if (ac->pcmhack && data)
         size = avcodec_encode_audio(ac->stream->codec, ac->buffer, ac->aframesize * ac->pcmhack * ao->channels, data);

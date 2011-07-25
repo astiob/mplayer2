@@ -45,8 +45,8 @@ struct encode_lavc_context {
 
     // values created during encoding
     int header_written; // -1 means currently writing
-    double timesync_delta;
-    int timesync_available;
+    double audio_pts_offset;
+    double last_video_in_pts;
     size_t abytes;
     size_t vbytes;
     struct stream *twopass_bytebuffer_a;

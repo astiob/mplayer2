@@ -3140,7 +3140,7 @@ static void seek_reset(struct MPContext *mpctx, bool reset_ao)
     drop_frame_cnt = 0;
 
 #ifdef CONFIG_ENCODING
-    encode_lavc_failtimesync(mpctx->encode_lavc_ctx);
+    encode_lavc_discontinuity(mpctx->encode_lavc_ctx);
 #endif
 
     current_module = NULL;
@@ -5012,7 +5012,7 @@ if (mpctx->playtree_iter != NULL || opts->player_idle_mode) {
     mpctx->stop_play = 0;
 
 #ifdef CONFIG_ENCODING
-    encode_lavc_failtimesync(mpctx->encode_lavc_ctx);
+    encode_lavc_discontinuity(mpctx->encode_lavc_ctx);
 #endif
 
     goto play_next_file;

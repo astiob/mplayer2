@@ -158,7 +158,7 @@ struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options_
         return NULL;
 
     ctx = talloc_zero(NULL, struct encode_lavc_context);
-
+    encode_lavc_discontinuity(ctx);
     ctx->options = options_;
 
     ctx->avc = avformat_alloc_context();
@@ -707,65 +707,12 @@ int encode_lavc_supports_pixfmt(struct encode_lavc_context *ctx, enum PixelForma
     return 0;
 }
 
-void encode_lavc_failtimesync(struct encode_lavc_context *ctx)
+void encode_lavc_discontinuity(struct encode_lavc_context *ctx)
 {
     if (!ctx)
         return;
-
-    if (encode_lavc_testflag(ctx, ENCODE_LAVC_FLAG_COPYTS) || !ctx->avc || ctx->avc->nb_streams < 2)
-        return;
-
-    if (ctx->timesync_available > 0)
-        ctx->timesync_available = -1;
-}
-
-int encode_lavc_timesyncfailed(struct encode_lavc_context *ctx)
-{
-    if (encode_lavc_testflag(ctx, ENCODE_LAVC_FLAG_COPYTS) || !ctx->avc || ctx->avc->nb_streams < 2)
-        return 0;
-
-    return ctx->timesync_available < 0;
-}
-
-void encode_lavc_settimesync(struct encode_lavc_context *ctx, double a_minus_v, double dt)
-{
-    double factor = dt * 1;
-    double diff = fabs(a_minus_v - ctx->timesync_delta);
-
-    if (encode_lavc_testflag(ctx, ENCODE_LAVC_FLAG_COPYTS) || !ctx->avc || ctx->avc->nb_streams < 2)
-        return;
-
-    // correct large diffs immediately
-    if (diff > 1 || ctx->timesync_available <= 0) {
-        mp_msg(MSGT_AO, MSGL_WARN, "encode-lavc: settimesync: %sjump from %f to %f\n", ctx->timesync_available == 0 ? "initial " : ctx->timesync_available < 0 ? "forced " : "discontinuity ", ctx->timesync_delta, a_minus_v);
-        ctx->timesync_delta = a_minus_v;
-        ctx->timesync_available = 1;
-    } else {
-        mp_msg(MSGT_AO, MSGL_DBG3, "encode-lavc: settimesync: adjust from %f to %f\n", ctx->timesync_delta, a_minus_v);
-        ctx->timesync_delta = a_minus_v * factor + ctx->timesync_delta * (1 - factor);
-    }
-}
-
-double encode_lavc_gettimesync(struct encode_lavc_context *ctx, double initial_a_minus_v)
-{
-    if (encode_lavc_testflag(ctx, ENCODE_LAVC_FLAG_COPYTS) || !ctx->avc || ctx->avc->nb_streams < 2)
-        return 0;
-
-    if (ctx->timesync_available <= 0) {
-
-        // if we have no audio stream, better pass through video pts as is instead of "syncing" by setting the initial pts to 0
-        int i;
-        for (i = 0; i < ctx->avc->nb_streams; ++i)
-            if (ctx->avc->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO)
-                break;
-        if (i >= ctx->avc->nb_streams)
-            initial_a_minus_v = 0;
-
-        mp_msg(MSGT_AO, MSGL_INFO, "encode-lavc: settimesync: init from %f to %f\n", ctx->timesync_delta, initial_a_minus_v);
-        ctx->timesync_delta = initial_a_minus_v;
-        ctx->timesync_available = 1;
-    }
-    return ctx->timesync_delta;
+    ctx->audio_pts_offset = MP_NOPTS_VALUE;
+    ctx->last_video_in_pts = MP_NOPTS_VALUE;
 }
 
 static void encode_lavc_printoptions(void *obj, const char *indent, const char *subindent, const char *unit, int filter_and, int filter_eq)

@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "mpcommon.h"
+#include "options.h"
 #include "fmt-conversion.h"
 #include "libmpcodecs/mp_image.h"
 #include "libmpcodecs/vfcap.h"
@@ -41,9 +42,9 @@ struct priv {
 
     int harddup;
 
-    int64_t lastpts;
-    int64_t lastframepts;
-    int64_t lastframepts_stream;
+    double lastpts;
+    int64_t lastipts;
+    int64_t lastframeipts;
     mp_image_t *lastimg;
     int lastdisplaycount;
 
@@ -72,7 +73,7 @@ static void uninit(struct vo *vo)
     if (!vc)
         return;
 
-    if(vc->lastpts >= 0 && vc->stream)
+    if(vc->lastipts >= 0 && vc->stream)
         draw_image(vo, NULL, MP_NOPTS_VALUE);
 
     if(vc->lastimg) {
@@ -125,9 +126,8 @@ static int config(struct vo *vo, uint32_t width, uint32_t height, uint32_t d_wid
         goto error;
     }
 
-    vc->lastpts = MP_NOPTS_VALUE;
-    vc->lastframepts = MP_NOPTS_VALUE;
-    vc->lastframepts_stream = MP_NOPTS_VALUE;
+    vc->lastipts = MP_NOPTS_VALUE;
+    vc->lastframeipts = MP_NOPTS_VALUE;
 
     if (pix_fmt == PIX_FMT_NONE)
         goto error; /* imgfmt2pixfmt already prints something */
@@ -197,7 +197,7 @@ static void write_packet(struct vo *vo, int size)
             packet.pts = av_rescale_q(vc->stream->codec->coded_frame->pts, vc->stream->codec->time_base, vc->stream->time_base);
         } else {
             mp_msg(MSGT_VO, MSGL_WARN, "vo-lavc: codec did not provide pts\n");
-            packet.pts = av_rescale_q(vc->lastpts, vc->worst_time_base, vc->stream->time_base);
+            packet.pts = av_rescale_q(vc->lastipts, vc->worst_time_base, vc->stream->time_base);
         }
 
         // HACK: libavformat calculates dts wrong if the initial packet
@@ -238,19 +238,16 @@ static int encode_video(struct vo *vo, AVFrame *frame)
 static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
 {
     struct priv *vc = vo->priv;
+    struct encode_lavc_context *ectx = vo->encode_lavc_ctx;
     int i, size;
     AVFrame frame;
     AVCodecContext *avc;
-    int64_t framepts;
+    int64_t frameipts;
 
     if (!vc)
         return;
-    if (!encode_lavc_start(vo->encode_lavc_ctx))
+    if (!encode_lavc_start(ectx))
         return;
-    if (encode_lavc_timesyncfailed(vo->encode_lavc_ctx)) {
-        mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: Frame got dropped entirely because time sync did not run yet\n");
-        return;
-    }
 
     avc = vc->stream->codec;
 
@@ -283,39 +280,62 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
         // Absurd, as this range MUST contain at least one multiple of B.
     }
 
-    // vc->lastpts is MP_NOPTS_VALUE, or the start time of vc->lastframe
+    double timeunit = (double)vc->worst_time_base.num / vc->worst_time_base.den;
+    // vc->lastipts is MP_NOPTS_VALUE, or the start time of vc->lastframe
     if (pts == MP_NOPTS_VALUE) {
-        framepts = vc->lastpts + 1;
-        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: pts was missing, using %d - consider using -ofps or -vf fixpts\n", (int) framepts);
+        frameipts = vc->lastipts + 1;
+        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: pts was missing, using %d - consider using -ofps or -vf fixpts\n", (int) frameipts);
+        if (ectx->last_video_in_pts != MP_NOPTS_VALUE)
+            ectx->last_video_in_pts += timeunit;
     } else if (mpi) {
-        framepts = floor((pts + encode_lavc_gettimesync(vo->encode_lavc_ctx,
-                -pts) + encode_lavc_getoffset(vo->encode_lavc_ctx, vc->stream))
-                * vc->worst_time_base.den / vc->worst_time_base.num + 0.5);
+        double outpts;
+        if (ectx->options->copyts)
+            outpts = pts;
+        else {
+            double duration = 0;
+            if (ectx->last_video_in_pts != MP_NOPTS_VALUE)
+                duration = pts - ectx->last_video_in_pts;
+            if (duration < 0)
+                duration = timeunit;   // XXX warn about discontinuity?
+            outpts = vc->lastpts + duration;
+            if (ectx->audio_pts_offset != MP_NOPTS_VALUE) {
+                double adj = outpts - pts - ectx->audio_pts_offset;
+                adj = FFMIN(adj, duration * 0.1);
+                adj = FFMAX(adj, - duration * 0.1);
+                outpts -= adj;
+            }
+        }
+        vc->lastpts = outpts;
+        ectx->last_video_in_pts = pts;
+        frameipts = floor((outpts + encode_lavc_getoffset(ectx, vc->stream))
+                           / timeunit + 0.5);
     } else {
-        if (vc->lastpts == MP_NOPTS_VALUE)
-            framepts = 0;
+        if (vc->lastipts == MP_NOPTS_VALUE)
+            frameipts = 0;
         else
-            framepts = vc->lastpts + 1;
+            frameipts = vc->lastipts + 1;
+        vc->lastpts = frameipts * timeunit;
     }
 
     // never-drop mode
     if (encode_lavc_testflag(vo->encode_lavc_ctx, ENCODE_LAVC_FLAG_NEVERDROP)
-            && framepts <= vc->lastpts) {
-        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: -oneverdrop increased pts by %d\n", (int) (vc->lastpts - framepts + 1));
-        framepts = vc->lastpts + 1;
+            && frameipts <= vc->lastipts) {
+        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: -oneverdrop increased pts by %d\n", (int) (vc->lastipts - frameipts + 1));
+        frameipts = vc->lastipts + 1;
+        vc->lastpts = frameipts * timeunit;
     }
 
-    if (vc->lastpts != MP_NOPTS_VALUE) {
+    if (vc->lastipts != MP_NOPTS_VALUE) {
         avcodec_get_frame_defaults(&frame);
 
         // we have a valid image in lastimg
-        while (vc->lastpts < framepts) {
-            int64_t thisduration = (vc->harddup ? 1 : (framepts - vc->lastpts));
+        while (vc->lastipts < frameipts) {
+            int64_t thisduration = (vc->harddup ? 1 : (frameipts - vc->lastipts));
 
             avcodec_get_frame_defaults(&frame);
 
             // this is a nop, unless the worst time base is the STREAM time base
-            frame.pts = av_rescale_q(vc->lastpts, vc->worst_time_base, avc->time_base);
+            frame.pts = av_rescale_q(vc->lastipts, vc->worst_time_base, avc->time_base);
 
             for (i = 0; i < 4; i++) {
                 frame.data[i] = vc->lastimg->planes[i];
@@ -326,7 +346,7 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
             size = encode_video(vo, &frame);
             write_packet(vo, size);
 
-            vc->lastpts += thisduration;
+            vc->lastipts += thisduration;
             ++vc->lastdisplaycount;
         }
     }
@@ -338,22 +358,22 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
             write_packet(vo, size);
         } while (size > 0);
     } else {
-        if (framepts >= vc->lastframepts) {
-            if (vc->lastframepts != MP_NOPTS_VALUE && vc->lastdisplaycount != 1)
-                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: Frame at pts %d got displayed %d times\n", (int) vc->lastframepts, vc->lastdisplaycount);
+        if (frameipts >= vc->lastframeipts) {
+            if (vc->lastframeipts != MP_NOPTS_VALUE && vc->lastdisplaycount != 1)
+                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: Frame at pts %d got displayed %d times\n", (int) vc->lastframeipts, vc->lastdisplaycount);
             copy_mpi(vc->lastimg, mpi);
 
             // palette hack
             if (vc->lastimg->imgfmt == IMGFMT_RGB8 || vc->lastimg->imgfmt == IMGFMT_BGR8)
                 memcpy(vc->lastimg->planes[1], mpi->planes[1], 1024);
 
-            vc->lastframepts = vc->lastpts = framepts;
+            vc->lastframeipts = vc->lastipts = frameipts;
             if (encode_lavc_testflag(vo->encode_lavc_ctx,
-                    ENCODE_LAVC_FLAG_COPYTS) && vc->lastpts < 0)
-                vc->lastpts = -1;
+                    ENCODE_LAVC_FLAG_COPYTS) && vc->lastipts < 0)
+                vc->lastipts = -1;
             vc->lastdisplaycount = 0;
         } else {
-            mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: Frame at pts %d got dropped entirely because pts went backwards\n", (int) framepts);
+            mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: Frame at pts %d got dropped entirely because pts went backwards\n", (int) frameipts);
         }
     }
 }
