@@ -53,15 +53,8 @@ double encode_lavc_gettimesync(struct encode_lavc_context *ctx, double initial_a
 int encode_lavc_start(struct encode_lavc_context *ctx); // returns 1 on success
 int encode_lavc_oformat_flags(struct encode_lavc_context *ctx);
 
-enum encode_lavc_showhelp_type {
-    ENCODE_LAVC_SHOWHELP_F,
-    ENCODE_LAVC_SHOWHELP_FOPTS,
-    ENCODE_LAVC_SHOWHELP_VC,
-    ENCODE_LAVC_SHOWHELP_VCOPTS,
-    ENCODE_LAVC_SHOWHELP_AC,
-    ENCODE_LAVC_SHOWHELP_ACOPTS
-};
-void encode_lavc_showhelp(enum encode_lavc_showhelp_type t);
+struct MPOpts;
+bool encode_lavc_showhelp(struct MPOpts *opts);
 int encode_lavc_testflag(struct encode_lavc_context *ctx, int flag);
 double encode_lavc_getoffset(struct encode_lavc_context *ctx, AVStream *stream);
 int encode_lavc_getstatus(struct encode_lavc_context *ctx,

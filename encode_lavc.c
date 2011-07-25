@@ -864,19 +864,20 @@ static void encode_lavc_printoptions(void *obj, const char *indent, const char *
     }
 }
 
-void encode_lavc_showhelp(enum encode_lavc_showhelp_type t)
+bool encode_lavc_showhelp(struct MPOpts *opts)
 {
-    switch (t) {
-    case ENCODE_LAVC_SHOWHELP_F: {
+    bool help_output = false;
+#define CHECKS(str) ((str) && strcmp((str), "help") == 0 ? (help_output |= 1) : 0)
+#define CHECKV(strv) ((strv) && (strv)[0] && strcmp((strv)[0], "help") == 0 ? (help_output |= 1) : 0)
+    if (CHECKS(opts->encode_output.format)) {
         AVOutputFormat *c = NULL;
         mp_msg(MSGT_VO, MSGL_INFO, "Available output formats:\n");
         while ((c = av_oformat_next(c))) {
             mp_msg(MSGT_VO, MSGL_INFO, "  -of %-13s %s\n", c->name, c->long_name ? c->long_name : "");
         }
         av_free(c);
-        break;
     }
-    case ENCODE_LAVC_SHOWHELP_FOPTS: {
+    if (CHECKV(opts->encode_output.fopts)) {
         AVFormatContext *c = avformat_alloc_context();
         AVOutputFormat *format = NULL;
         mp_msg(MSGT_VO, MSGL_INFO, "Available output format ctx->options:\n");
@@ -888,9 +889,8 @@ void encode_lavc_showhelp(enum encode_lavc_showhelp_type t)
                 encode_lavc_printoptions(&format->priv_class, "  -ofopts ", "          ", NULL, AV_OPT_FLAG_ENCODING_PARAM, AV_OPT_FLAG_ENCODING_PARAM);
             }
         }
-        break;
     }
-    case ENCODE_LAVC_SHOWHELP_VCOPTS: {
+    if (CHECKV(opts->encode_output.vopts)) {
         AVCodecContext *c = avcodec_alloc_context();
         AVCodec *codec = NULL;
         mp_msg(MSGT_VO, MSGL_INFO, "Available output video codec ctx->options:\n");
@@ -928,9 +928,8 @@ void encode_lavc_showhelp(enum encode_lavc_showhelp_type t)
         mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts profile=baseline                  profile for decoder requirements\n");
         mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts profile=main                      profile for decoder requirements\n");
         mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts profile=high                      profile for decoder requirements\n");
-        break;
     }
-    case ENCODE_LAVC_SHOWHELP_ACOPTS: {
+    if (CHECKV(opts->encode_output.aopts)) {
         AVCodecContext *c = avcodec_alloc_context();
         AVCodec *codec = NULL;
         mp_msg(MSGT_VO, MSGL_INFO, "Available output audio codec ctx->options:\n");
@@ -946,9 +945,8 @@ void encode_lavc_showhelp(enum encode_lavc_showhelp_type t)
                 encode_lavc_printoptions(&codec->priv_class, "  -oacopts ", "           ", NULL, AV_OPT_FLAG_ENCODING_PARAM | AV_OPT_FLAG_AUDIO_PARAM, AV_OPT_FLAG_ENCODING_PARAM | AV_OPT_FLAG_AUDIO_PARAM);
             }
         }
-        break;
     }
-    case ENCODE_LAVC_SHOWHELP_VC: {
+    if (CHECKS(opts->encode_output.vcodec)) {
         AVCodec *c = NULL;
         mp_msg(MSGT_VO, MSGL_INFO, "Available output video codecs:\n");
         while ((c = av_codec_next(c))) {
@@ -961,9 +959,8 @@ void encode_lavc_showhelp(enum encode_lavc_showhelp_type t)
                 encode_lavc_printoptions(&c->priv_class, "    -ovcopts ", "             ", NULL, AV_OPT_FLAG_ENCODING_PARAM | AV_OPT_FLAG_VIDEO_PARAM, AV_OPT_FLAG_ENCODING_PARAM | AV_OPT_FLAG_VIDEO_PARAM);
         }
         av_free(c);
-        break;
     }
-    case ENCODE_LAVC_SHOWHELP_AC: {
+    if (CHECKS(opts->encode_output.acodec)) {
         AVCodec *c = NULL;
         mp_msg(MSGT_VO, MSGL_INFO, "Available output audio codecs:\n");
         while ((c = av_codec_next(c))) {
@@ -976,10 +973,8 @@ void encode_lavc_showhelp(enum encode_lavc_showhelp_type t)
                 encode_lavc_printoptions(&c->priv_class, "    -oacopts ", "             ", NULL, AV_OPT_FLAG_ENCODING_PARAM | AV_OPT_FLAG_AUDIO_PARAM, AV_OPT_FLAG_ENCODING_PARAM | AV_OPT_FLAG_AUDIO_PARAM);
         }
         av_free(c);
-        break;
     }
-    }
-    return;
+    return help_output;
 }
 
 int encode_lavc_testflag(struct encode_lavc_context *ctx, int flag)

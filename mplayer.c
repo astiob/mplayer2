@@ -4017,30 +4017,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
     }
 
 #ifdef CONFIG_ENCODING
-    if (opts->encode_output.format && strcmp(opts->encode_output.format,"help")==0) {
-        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_F);
-        opt_exit = 1;
-    }
-    if (opts->encode_output.fopts && opts->encode_output.fopts[0] && strcmp(opts->encode_output.fopts[0],"help")==0) {
-        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_FOPTS);
-        opt_exit = 1;
-    }
-    if (opts->encode_output.vcodec && strcmp(opts->encode_output.vcodec,"help")==0) {
-        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_VC);
-        opt_exit = 1;
-    }
-    if (opts->encode_output.vopts && opts->encode_output.vopts[0] && strcmp(opts->encode_output.vopts[0],"help")==0) {
-        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_VCOPTS);
-        opt_exit = 1;
-    }
-    if (opts->encode_output.acodec && strcmp(opts->encode_output.acodec,"help")==0) {
-        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_AC);
-        opt_exit = 1;
-    }
-    if (opts->encode_output.aopts && opts->encode_output.aopts[0] && strcmp(opts->encode_output.aopts[0],"help")==0) {
-        encode_lavc_showhelp(ENCODE_LAVC_SHOWHELP_ACOPTS);
-        opt_exit = 1;
-    }
+    opt_exit |= encode_lavc_showhelp(&mpctx->opts);
 #endif
 
     if(opt_exit)
