@@ -30,29 +30,6 @@
 #include "talloc.h"
 #include "stream/stream.h"
 
-struct encode_lavc_context
-{
-    struct encode_output_conf *options;
-
-    // these are processed from the options
-    AVFormatContext *avc;
-    AVRational timebase;
-    AVCodec *vc;
-    AVCodec *ac;
-    AVDictionary *foptions;
-
-    // values created during encoding
-    int header_written; // -1 means currently writing
-    double timesync_delta;
-    int timesync_available;
-    size_t abytes;
-    size_t vbytes;
-    struct stream *twopass_bytebuffer_a;
-    struct stream *twopass_bytebuffer_v;
-    unsigned int t0;
-    unsigned int frames;
-};
-
 static int set_to_avdictionary(void *ctx, AVDictionary **dictp, const char *str, const char *key_val_sep, const char *pairs_sep, int dry_run)
 {
     int good = 0;

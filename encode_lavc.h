@@ -33,6 +33,28 @@
 #define ENCODE_LAVC_FLAG_COPYTS 2
 #define ENCODE_LAVC_FLAG_NEVERDROP 4
 
+struct encode_lavc_context {
+    struct encode_output_conf *options;
+
+    // these are processed from the options
+    AVFormatContext *avc;
+    AVRational timebase;
+    AVCodec *vc;
+    AVCodec *ac;
+    AVDictionary *foptions;
+
+    // values created during encoding
+    int header_written; // -1 means currently writing
+    double timesync_delta;
+    int timesync_available;
+    size_t abytes;
+    size_t vbytes;
+    struct stream *twopass_bytebuffer_a;
+    struct stream *twopass_bytebuffer_v;
+    unsigned int t0;
+    unsigned int frames;
+};
+
 AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx, enum AVMediaType mt);
 void encode_lavc_write_stats(struct encode_lavc_context *ctx, AVStream *stream);
 int encode_lavc_write_frame(struct encode_lavc_context *ctx, AVPacket *packet);
