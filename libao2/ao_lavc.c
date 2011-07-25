@@ -240,7 +240,7 @@ out_takefirst:
     // enough frames for at least 0.25 seconds
     ac->framecount = ceil(ao->samplerate * 0.25 / ac->aframesize);
     // but at least one!
-    ac->framecount = max(ac->framecount, 1);
+    ac->framecount = FFMAX(ac->framecount, 1);
 
     ac->savepts = MP_NOPTS_VALUE;
     ac->lastpts = MP_NOPTS_VALUE;

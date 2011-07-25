@@ -206,7 +206,7 @@ static void write_packet(struct vo *vo, int size)
         if (!vc->have_first_packet)
             if (vc->stream->codec->has_b_frames || vc->stream->codec->max_b_frames)
                 if (vc->stream->time_base.num*1000LL <= vc->stream->time_base.den)
-                    packet.duration = max(1, av_rescale_q(1, vc->stream->codec->time_base, vc->stream->time_base));
+                    packet.duration = FFMAX(1, av_rescale_q(1, vc->stream->codec->time_base, vc->stream->time_base));
 
         if (encode_lavc_write_frame(vo->encode_lavc_ctx, &packet) < 0) {
             mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: error writing\n");

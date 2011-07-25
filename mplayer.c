@@ -103,9 +103,7 @@
 
 #include "input/input.h"
 
-#ifdef CONFIG_ENCODING
-#include "encode_lavc.h"
-#endif
+#include "encode.h"
 
 int slave_mode=0;
 int enable_mouse_movements=0;
@@ -4041,7 +4039,7 @@ if(!codecs_file || !parse_codec_cfg(codecs_file)){
 
 #ifdef CONFIG_ENCODING
     if (opts->encode_output.file)
-        mpctx->encode_lavc_ctx = encode_lavc_init(mpctx, &opts->encode_output);
+        mpctx->encode_lavc_ctx = encode_lavc_init(&opts->encode_output);
 #endif
 
 //------ load global data first ------

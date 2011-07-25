@@ -33,7 +33,6 @@
 struct encode_lavc_context
 {
     struct encode_output_conf *options;
-    struct MPContext *mpctx;
 
     // these are processed from the options
     AVFormatContext *avc;
@@ -174,7 +173,7 @@ int encode_lavc_oformat_flags(struct encode_lavc_context *ctx)
     return ctx->avc ? ctx->avc->oformat->flags : 0;
 }
 
-struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx_, struct encode_output_conf *options_)
+struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options_)
 {
     struct encode_lavc_context *ctx;
 
@@ -183,7 +182,6 @@ struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx_, struct en
 
     ctx = talloc_zero(NULL, struct encode_lavc_context);
 
-    ctx->mpctx = mpctx_;
     ctx->options = options_;
 
     ctx->avc = avformat_alloc_context();
@@ -191,7 +189,7 @@ struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx_, struct en
     if (!(ctx->avc->oformat = av_guess_format(ctx->options->format, ctx->options->file, NULL))) {
         mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: format not found\n");
         encode_lavc_finish(ctx);
-        exit_player_with_rc(mpctx_, EXIT_ERROR, 1);
+        abort(); // XXXXXXXXXXXXXXXXXXXXXXX
         return NULL;
     }
 
@@ -211,7 +209,7 @@ struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx_, struct en
         if (!ctx->vc) {
             mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: video codec not found\n");
             encode_lavc_finish(ctx);
-            exit_player_with_rc(mpctx_, EXIT_ERROR, 1);
+            abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
     } else {
@@ -223,7 +221,7 @@ struct encode_lavc_context *encode_lavc_init(struct MPContext *mpctx_, struct en
         if (!ctx->ac) {
             mp_msg(MSGT_VO, MSGL_ERR, "ao-lavc: audio codec not found\n");
             encode_lavc_finish(ctx);
-            exit_player_with_rc(mpctx_, EXIT_ERROR, 1);
+            abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
     } else {
@@ -254,11 +252,10 @@ int encode_lavc_start(struct encode_lavc_context *ctx)
 
     if (!(ctx->avc->oformat->flags & AVFMT_NOFILE)) {
         if (avio_open(&ctx->avc->pb, ctx->avc->filename, URL_WRONLY) < 0) {
-            struct MPContext *mpctx_ = ctx->mpctx;
             mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: could not open '%s'\n",
                     ctx->avc->filename);
             encode_lavc_finish(ctx);
-            exit_player_with_rc(mpctx_, EXIT_ERROR, 1);
+            abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return 0;
         }
     }
@@ -266,10 +263,9 @@ int encode_lavc_start(struct encode_lavc_context *ctx)
     ctx->t0 = GetTimerMS();
 
     if (avformat_write_header(ctx->avc, &ctx->foptions) < 0) {
-        struct MPContext *mpctx_ = ctx->mpctx;
         mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: could not write header\n");
         encode_lavc_finish(ctx);
-        exit_player_with_rc(mpctx_, EXIT_ERROR, 1);
+        abort(); // XXXXXXXXXXXXXXXXXXXXXXX
         return 0;
     }
 
@@ -518,10 +514,9 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx, enum AVMedia
     switch (mt) {
     case AVMEDIA_TYPE_VIDEO:
         if (!ctx->vc) {
-            struct MPContext *mpctx_ = ctx->mpctx;
             mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: encoder not found\n");
             encode_lavc_finish(ctx);
-            exit_player_with_rc(mpctx_, EXIT_ERROR, 1);
+            abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
 
@@ -607,10 +602,9 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx, enum AVMedia
 
     case AVMEDIA_TYPE_AUDIO:
         if (!ctx->ac) {
-            struct MPContext *mpctx_ = ctx->mpctx;
             mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: encoder not found\n");
             encode_lavc_finish(ctx);
-            exit_player_with_rc(mpctx_, EXIT_ERROR, 1);
+            abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
 
@@ -634,10 +628,9 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx, enum AVMedia
         break;
     default:
         {
-            struct MPContext *mpctx_ = ctx->mpctx;
             mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: requested invalid stream type\n");
             encode_lavc_finish(ctx);
-            exit_player_with_rc(mpctx_, EXIT_ERROR, 1);
+            abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
     }
@@ -1014,7 +1007,7 @@ int encode_lavc_getstatus(struct encode_lavc_context *ctx,
                           float relative_position, float playback_time)
 {
     float minutes, megabytes, fps, x;
-    float f = max(0.0001, relative_position);
+    float f = FFMAX(0.0001, relative_position);
     if (!ctx)
         return -1;
     minutes = (GetTimerMS() - ctx->t0) / 60000.0 * (1-f) / f;
