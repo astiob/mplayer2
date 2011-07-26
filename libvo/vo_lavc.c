@@ -282,33 +282,36 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
 
     double timeunit = (double)vc->worst_time_base.num / vc->worst_time_base.den;
     // vc->lastipts is MP_NOPTS_VALUE, or the start time of vc->lastframe
-    if (pts == MP_NOPTS_VALUE) {
-        frameipts = vc->lastipts + 1;
-        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: pts was missing, using %d - consider using -ofps or -vf fixpts\n", (int) frameipts);
-        if (ectx->last_video_in_pts != MP_NOPTS_VALUE)
-            ectx->last_video_in_pts += timeunit;
-    } else if (mpi) {
-        double outpts;
-        if (ectx->options->copyts)
-            outpts = pts;
-        else {
-            double duration = 0;
+    if (mpi) {
+        if (pts == MP_NOPTS_VALUE) {
+            // NOTE: this even applies to ectx->options->copyts!
+            frameipts = vc->lastipts + 1;
+            mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: pts was missing, using %d - consider using -ofps or -vf fixpts\n", (int) frameipts);
             if (ectx->last_video_in_pts != MP_NOPTS_VALUE)
-                duration = pts - ectx->last_video_in_pts;
-            if (duration < 0)
-                duration = timeunit;   // XXX warn about discontinuity?
-            outpts = vc->lastpts + duration;
-            if (ectx->audio_pts_offset != MP_NOPTS_VALUE) {
-                double adj = outpts - pts - ectx->audio_pts_offset;
-                adj = FFMIN(adj, duration * 0.1);
-                adj = FFMAX(adj, - duration * 0.1);
-                outpts -= adj;
+                ectx->last_video_in_pts += timeunit;
+        } else {
+            double outpts;
+            if (ectx->options->copyts)
+                outpts = pts;
+            else {
+                double duration = 0;
+                if (ectx->last_video_in_pts != MP_NOPTS_VALUE)
+                    duration = pts - ectx->last_video_in_pts;
+                if (duration < 0)
+                    duration = timeunit;   // XXX warn about discontinuity?
+                outpts = vc->lastpts + duration;
+                if (ectx->audio_pts_offset != MP_NOPTS_VALUE) {
+                    double adj = outpts - pts - ectx->audio_pts_offset;
+                    adj = FFMIN(adj, duration * 0.1);
+                    adj = FFMAX(adj, - duration * 0.1);
+                    outpts -= adj;
+                }
             }
+            vc->lastpts = outpts;
+            ectx->last_video_in_pts = pts;
+            frameipts = floor((outpts + encode_lavc_getoffset(ectx, vc->stream))
+                               / timeunit + 0.5);
         }
-        vc->lastpts = outpts;
-        ectx->last_video_in_pts = pts;
-        frameipts = floor((outpts + encode_lavc_getoffset(ectx, vc->stream))
-                           / timeunit + 0.5);
     } else {
         if (vc->lastipts == MP_NOPTS_VALUE)
             frameipts = 0;
