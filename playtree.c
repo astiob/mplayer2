@@ -28,6 +28,9 @@
 #ifdef MP_DEBUG
 #include <assert.h>
 #endif
+
+#include "talloc.h"
+
 #include "m_config.h"
 #include "playtree.h"
 #include "mp_msg.h"
@@ -68,14 +71,8 @@ play_tree_free(play_tree_t* pt, int children) {
   for(iter = pt->child ; iter != NULL ; iter = iter->next)
     iter->parent = NULL;
 
-  if (pt->params) {
-    int i;
-    for(i = 0 ; pt->params[i].name != NULL ; i++) {
-      free(pt->params[i].name);
-      free(pt->params[i].value);
-    }
-    free(pt->params);
-  }
+  talloc_free(pt->params);
+
   if(pt->files) {
     int i;
     for(i = 0 ; pt->files[i] != NULL ; i++)
@@ -349,7 +346,7 @@ play_tree_remove_file(play_tree_t* pt,const char* file) {
 }
 
 void
-play_tree_set_param(play_tree_t* pt, const char* name, const char* val) {
+play_tree_set_param(play_tree_t* pt, struct bstr name, struct bstr val) {
   int n = 0;
 
 #ifdef MP_DEBUG
@@ -360,13 +357,9 @@ play_tree_set_param(play_tree_t* pt, const char* name, const char* val) {
   if(pt->params)
     for ( ; pt->params[n].name != NULL ; n++ ) { }
 
-  pt->params = realloc(pt->params, (n + 2) * sizeof(play_tree_param_t));
-  if(pt->params == NULL) {
-      mp_msg(MSGT_PLAYTREE,MSGL_ERR,"Can't realloc params (%d bytes of memory)\n",(n+2)*(int)sizeof(play_tree_param_t));
-      return;
-  }
-  pt->params[n].name = strdup(name);
-  pt->params[n].value = val != NULL ? strdup(val) : NULL;
+  pt->params = talloc_realloc(NULL, pt->params, struct play_tree_param, n + 2);
+  pt->params[n].name = bstrdup0(pt->params, name);
+  pt->params[n].value = bstrdup0(pt->params, val);
   memset(&pt->params[n+1],0,sizeof(play_tree_param_t));
 
   return;
@@ -390,18 +383,14 @@ play_tree_unset_param(play_tree_t* pt, const char* name) {
   if(ni < 0)
     return 0;
 
-  free(pt->params[ni].name);
-  free(pt->params[ni].value);
+  talloc_free(pt->params[ni].name);
+  talloc_free(pt->params[ni].value);
 
   if(n > 1) {
     memmove(&pt->params[ni],&pt->params[ni+1],(n-ni)*sizeof(play_tree_param_t));
-    pt->params = realloc(pt->params, n * sizeof(play_tree_param_t));
-    if(pt->params == NULL) {
-      mp_msg(MSGT_PLAYTREE,MSGL_ERR,"Can't allocate %d bytes of memory\n",n*(int)sizeof(play_tree_param_t));
-      return -1;
-    }
+    pt->params = talloc_realloc(NULL, pt->params, struct play_tree_param, n);
   } else {
-    free(pt->params);
+    talloc_free(pt->params);
     pt->params = NULL;
   }
 
@@ -421,7 +410,7 @@ play_tree_set_params_from(play_tree_t* dest,play_tree_t* src) {
     return;
 
   for(i = 0; src->params[i].name != NULL ; i++)
-    play_tree_set_param(dest,src->params[i].name,src->params[i].value);
+      play_tree_set_param(dest, bstr(src->params[i].name), bstr(src->params[i].value));
   if(src->flags & PLAY_TREE_RND) // pass the random flag too
     dest->flags |= PLAY_TREE_RND;
 
@@ -465,7 +454,8 @@ play_tree_iter_push_params(play_tree_iter_t* iter) {
 
   for(n = 0; pt->params[n].name != NULL ; n++) {
     int e;
-    if((e = m_config_set_option(iter->config,pt->params[n].name,pt->params[n].value)) < 0) {
+    if((e = m_config_set_option0(iter->config, pt->params[n].name,
+                                 pt->params[n].value, false)) < 0) {
       mp_msg(MSGT_PLAYTREE,MSGL_ERR,"Error %d while setting option '%s' with value '%s'\n",e,
 	     pt->params[n].name,pt->params[n].value);
     }

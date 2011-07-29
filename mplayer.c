@@ -284,7 +284,6 @@ static int drop_frame_cnt=0; // total number of dropped frames
 static int output_quality=0;
 
 // seek:
-static double seek_to_sec;
 static off_t seek_to_byte=0;
 static off_t step_sec=0;
 
@@ -1061,7 +1060,7 @@ static int libmpdemux_was_interrupted(struct MPContext *mpctx, int stop_play)
 
 static int playtree_add_playlist(struct MPContext *mpctx, play_tree_t* entry)
 {
-  play_tree_add_bpf(entry,mpctx->filename);
+    play_tree_add_bpf(entry, bstr(mpctx->filename));
 
   {
   if(!entry) {
@@ -1301,14 +1300,14 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
     saddf(line, &pos, width, "A-V:%7.3f ct:%7.3f ",
           mpctx->last_av_difference, mpctx->total_avsync_change);
 
-  float position = (get_current_time(mpctx) - seek_to_sec) / (get_time_length(mpctx) - seek_to_sec);
+  float position = (get_current_time(mpctx) - opts->seek_to_sec) / (get_time_length(mpctx) - opts->seek_to_sec);
   if (end_at.type == END_AT_TIME)
-    position = max(position, (get_current_time(mpctx) - seek_to_sec) / (end_at.pos - seek_to_sec));
+    position = max(position, (get_current_time(mpctx) - opts->seek_to_sec) / (end_at.pos - opts->seek_to_sec));
   if (play_n_frames_mf)
     position = max(position, 1.0 - play_n_frames / (double) play_n_frames_mf);
 #ifdef CONFIG_ENCODING
   char lavcbuf[80];
-  if (encode_lavc_getstatus(mpctx->encode_lavc_ctx, lavcbuf, sizeof(lavcbuf), position, get_current_time(mpctx) - seek_to_sec) >= 0) {
+  if (encode_lavc_getstatus(mpctx->encode_lavc_ctx, lavcbuf, sizeof(lavcbuf), position, get_current_time(mpctx) - opts->seek_to_sec) >= 0) {
     // encoding stats
     saddf(line, &pos, width, "%s ", lavcbuf);
   } else
@@ -3741,7 +3740,8 @@ static void run_playloop(struct MPContext *mpctx)
     edl_update(mpctx);
 
     /* Looping. */
-    if (mpctx->stop_play==AT_END_OF_FILE && opts->loop_times>=0) {
+    if (opts->loop_times >= 0 && (mpctx->stop_play == AT_END_OF_FILE ||
+                                  mpctx->stop_play == PT_NEXT_ENTRY)) {
         mp_msg(MSGT_CPLAYER, MSGL_V, "loop_times = %d\n", opts->loop_times);
 
         if (opts->loop_times>1)
@@ -3750,7 +3750,7 @@ static void run_playloop(struct MPContext *mpctx)
             opts->loop_times = -1;
         play_n_frames = play_n_frames_mf;
         mpctx->stop_play = 0;
-        queue_seek(mpctx, MPSEEK_ABSOLUTE, 0, 0);
+        queue_seek(mpctx, MPSEEK_ABSOLUTE, opts->seek_to_sec, 0);
     }
 
     if (mpctx->seek.type) {
@@ -4123,11 +4123,11 @@ current_module = "init_input";
 if (opts->encode_output.file) {
     // default console controls off
     if (opts->consolecontrols < 0)
-        m_config_set_option(mpctx->mconfig, "noconsolecontrols", "yes");
+        m_config_set_option0(mpctx->mconfig, "consolecontrols", "no", false);
 } else {
     // default console controls on
     if (opts->consolecontrols < 0)
-        m_config_set_option(mpctx->mconfig, "consolecontrols", "yes");
+        m_config_set_option0(mpctx->mconfig, "consolecontrols", "yes", false);
 }
 #endif
 
@@ -4216,19 +4216,19 @@ play_next_file:
 // do we want to encode?
 #ifdef CONFIG_ENCODING
 if (opts->encode_output.file) {
-    m_config_set_option(mpctx->mconfig, "vo", "lavc");
-    m_config_set_option(mpctx->mconfig, "ao", "lavc");
-    m_config_set_option(mpctx->mconfig, "fixed-vo", "yes");
-    m_config_set_option(mpctx->mconfig, "gapless-audio", "yes");
-    m_config_set_option(mpctx->mconfig, "benchmark", "yes");
+    m_config_set_option0(mpctx->mconfig, "vo", "lavc", false);
+    m_config_set_option0(mpctx->mconfig, "ao", "lavc", false);
+    m_config_set_option0(mpctx->mconfig, "fixed-vo", "yes", false);
+    m_config_set_option0(mpctx->mconfig, "gapless-audio", "yes", false);
+    m_config_set_option0(mpctx->mconfig, "benchmark", "yes", false);
 
     // default osd level 0
     if (opts->osd_level < 0)
-        m_config_set_option(mpctx->mconfig, "osdlevel", "0");
+        m_config_set_option0(mpctx->mconfig, "osdlevel", "0", false);
 } else {
     // default osd level 1
     if (opts->osd_level < 0)
-        m_config_set_option(mpctx->mconfig, "osdlevel", "1");
+        m_config_set_option0(mpctx->mconfig, "osdlevel", "1", false);
 }
 #endif
 
@@ -4262,7 +4262,7 @@ while (opts->player_idle_mode && !mpctx->filename) {
             // The entry is added to the main playtree after the switch().
             break;
         case MP_CMD_LOADLIST:
-            entry = parse_playlist_file(mpctx->mconfig, cmd->args[0].v.s);
+            entry = parse_playlist_file(mpctx->mconfig, bstr(cmd->args[0].v.s));
             break;
         case MP_CMD_QUIT:
             exit_player_with_rc(mpctx, EXIT_QUIT, (cmd->nargs > 0)? cmd->args[0].v.i : 0);
@@ -4863,10 +4863,10 @@ if(play_n_frames==0){
  mpctx->last_chapter_seek = -1;
 
 // If there's a timeline force an absolute seek to initialize state
-if (seek_to_sec || mpctx->timeline) {
-    queue_seek(mpctx, MPSEEK_ABSOLUTE, seek_to_sec, 0);
+if (opts->seek_to_sec || mpctx->timeline) {
+    queue_seek(mpctx, MPSEEK_ABSOLUTE, opts->seek_to_sec, 0);
     seek(mpctx, mpctx->seek, false);
-    end_at.pos += seek_to_sec;
+    end_at.pos += opts->seek_to_sec;
 }
 if (opts->chapterrange[0] > 0) {
     double pts;

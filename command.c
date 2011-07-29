@@ -232,7 +232,8 @@ static int mp_property_generic_option(struct m_option *prop, int action,
                                       void *arg, MPContext *mpctx)
 {
     char *optname = prop->priv;
-    const struct m_option *opt = m_config_get_option(mpctx->mconfig, optname);
+    const struct m_option *opt = m_config_get_option(mpctx->mconfig,
+                                                     bstr(optname));
     void *valptr = m_option_get_ptr(opt, &mpctx->opts);
 
     switch (action) {
@@ -3017,7 +3018,8 @@ void run_command(MPContext *mpctx, mp_cmd_t *cmd)
             break;
 
         case MP_CMD_LOADLIST:{
-            play_tree_t *e = parse_playlist_file(mpctx->mconfig, cmd->args[0].v.s);
+            play_tree_t *e = parse_playlist_file(mpctx->mconfig,
+                                                 bstr(cmd->args[0].v.s));
                 if (!e)
                     mp_tmsg(MSGT_CPLAYER, MSGL_ERR,
                            "\nUnable to load playlist %s.\n", cmd->args[0].v.s);
