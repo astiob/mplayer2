@@ -274,13 +274,13 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data);
 static void uninit(struct ao *ao, bool cut_audio){
     struct priv *ac = ao->priv;
     if (ac->buffer) {
-        double pts = ao->apts + ac->offset / (double) ao->samplerate;
+        double pts = ao->pts + ac->offset / (double) ao->samplerate;
         if (ao->buffer.len > 0) {
             void *paddingbuf = talloc_size(ao, ac->aframesize * ao->channels * ac->sample_size);
             memcpy(paddingbuf, ao->buffer.start, ao->buffer.len);
             fill_with_padding((char *) paddingbuf + ao->buffer.len, (ac->aframesize * ao->channels * ac->sample_size - ao->buffer.len) / ac->sample_size, ac->sample_size, ac->sample_padding);
             encode(ao,
-                    ao->apts != MP_NOPTS_VALUE,
+                    ao->pts != MP_NOPTS_VALUE,
                     pts,
                     paddingbuf);
             pts += ac->aframesize / (double) ao->samplerate;
@@ -446,8 +446,8 @@ static int play(struct ao *ao, void* data,int len,int flags){
 
     while (len - bufpos >= ac->aframesize) {
         encode(ao,
-                ao->apts != MP_NOPTS_VALUE,
-                ao->apts + (bufpos + ptsoffset) / (double) ao->samplerate +
+                ao->pts != MP_NOPTS_VALUE,
+                ao->pts + (bufpos + ptsoffset) / (double) ao->samplerate +
                     encode_lavc_getoffset(ao->encode_lavc_ctx, ac->stream),
                 (char *) data + ac->sample_size * bufpos * ao->channels);
         bufpos += ac->aframesize;
