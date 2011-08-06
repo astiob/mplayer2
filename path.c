@@ -205,7 +205,7 @@ struct bstr mp_dirname(const char *path)
     return ret;
 }
 
-char *mp_path_join(void *talloc_ctx, struct bstr p1, struct bstr p2)
+char *mp_path_join0(void *talloc_ctx, struct bstr p1, struct bstr p2)
 {
     if (p1.len == 0)
         return bstrdup0(talloc_ctx, p2);

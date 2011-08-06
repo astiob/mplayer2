@@ -120,7 +120,7 @@ static void append_dir_subtitles(struct MPOpts *opts,
             char *idxname = talloc_asprintf(tmpmem2, "%.*s.idx",
                                             (int)tmp_fname_noext.len,
                                             de->d_name);
-            char *idx = mp_path_join(tmpmem2, path, bstr(idxname));
+            char *idx = mp_path_join0(tmpmem2, path, bstr(idxname));
             f = fopen(idx, "rt");
             if (f) {
                 fclose(f);
@@ -183,7 +183,7 @@ static void append_dir_subtitles(struct MPOpts *opts,
             if (i < 3) // prefer UTF-8 coded
                 prio++;
 #endif
-            char *subpath = mp_path_join(*slist, path, dename);
+            char *subpath = mp_path_join0(*slist, path, dename);
             if ((f = fopen(subpath, "rt"))) {
                 MP_GROW_ARRAY(*slist, *nsub);
                 struct subfn *sub = *slist + (*nsub)++;
@@ -216,8 +216,8 @@ char **find_text_subtitles(struct MPOpts *opts, const char *fname)
     // Load subtitles in dirs specified by sub-paths option
     if (opts->sub_paths) {
         for (int i = 0; opts->sub_paths[i]; i++) {
-            char *path = mp_path_join(slist, mp_dirname(fname),
-                                      bstr(opts->sub_paths[i]));
+            char *path = mp_path_join0(slist, mp_dirname(fname),
+                                       bstr(opts->sub_paths[i]));
             append_dir_subtitles(opts, &slist, &n, bstr(path), fname, 0);
         }
     }
@@ -249,15 +249,15 @@ char **find_vob_subtitles(struct MPOpts *opts, const char *fname)
     int pdot = bstrrchr(bname, '.');
     if (pdot >= 0)
         bname.len = pdot;
-    vobs[n++] = mp_path_join(vobs, mp_dirname(fname), bname);
+    vobs[n++] = mp_path_join0(vobs, mp_dirname(fname), bname);
 
     // Potential vobsubs in directories specified by sub-paths option
     if (opts->sub_paths) {
         for (int i = 0; opts->sub_paths[i]; i++) {
-            char *path = mp_path_join(NULL, mp_dirname(fname),
-                                      bstr(opts->sub_paths[i]));
+            char *path = mp_path_join0(NULL, mp_dirname(fname),
+                                       bstr(opts->sub_paths[i]));
             MP_GROW_ARRAY(vobs, n);
-            vobs[n++] = mp_path_join(vobs, bstr(path), bname);
+            vobs[n++] = mp_path_join0(vobs, bstr(path), bname);
             talloc_free(path);
         }
     }
@@ -266,7 +266,7 @@ char **find_vob_subtitles(struct MPOpts *opts, const char *fname)
     char *mp_subdir = get_path("sub/");
     if (mp_subdir) {
         MP_GROW_ARRAY(vobs, n);
-        vobs[n++] = mp_path_join(vobs, bstr(mp_subdir), bname);
+        vobs[n++] = mp_path_join0(vobs, bstr(mp_subdir), bname);
     }
 
     free(mp_subdir);

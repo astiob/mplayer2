@@ -124,7 +124,7 @@ void build_edl_timeline(struct MPContext *mpctx)
             goto out;
         }
         struct bstr dirname = mp_dirname(mpctx->demuxer->filename);
-        char *fullname = mp_path_join(tmpmem, dirname, bstr(filename));
+        char *fullname = mp_path_join0(tmpmem, dirname, bstr(filename));
         edl_ids[num_sources++] = (struct edl_source){id, fullname, i+1};
     }
 

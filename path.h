@@ -42,6 +42,12 @@ struct bstr mp_dirname(const char *path);
  * for the result. '/' is inserted between the components if needed.
  * If p2 is an absolute path then the value of p1 is ignored.
  */
-char *mp_path_join(void *talloc_ctx, struct bstr p1, struct bstr p2);
+char *mp_path_join0(void *talloc_ctx, struct bstr p1, struct bstr p2);
+
+static inline struct bstr mp_path_join(void *talloc_ctx, struct bstr p1,
+                                       struct bstr p2)
+{
+    return bstr(mp_path_join0(talloc_ctx, p1, p2));
+}
 
 #endif /* MPLAYER_PATH_H */
