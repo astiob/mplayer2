@@ -27,14 +27,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <errno.h>
+
 #include "config.h"
 #include "mp_msg.h"
 #include "path.h"
+#include "mpcommon.h"
 
 #ifdef CONFIG_MACOSX_BUNDLE
 #include <CoreFoundation/CoreFoundation.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #elif defined(__MINGW32__)
 #include <windows.h>
@@ -46,6 +49,130 @@
 #include "talloc.h"
 
 #include "osdep/osdep.h"
+
+#define SUBDIRNAME "mplayer2"
+static const struct bstr subdirname = BSTR_CONST(SUBDIRNAME);
+
+static struct bstr mp_basenameb(struct bstr path)
+{
+    int idx;
+
+#if HAVE_DOS_PATHS
+    idx = bstrrchr(path, '\\');
+    if (idx >= 0)
+        path = bstr_cut(path, idx + 1);
+    idx = bstrrchr(path, ':');
+    if (idx >= 0)
+        path = bstr_cut(path, idx + 1);
+#endif
+    idx = bstrrchr(path, '/');
+    if (idx >= 0)
+        path = bstr_cut(path, idx + 1);
+    return path;
+}
+
+static int mkdir_bstr(struct bstr dirname)
+{
+    char *dir0 = bstrdup0(NULL, dirname);
+    int res = mkdir(dir0, 0700);
+    int err = errno;
+    talloc_free(dir0);
+    errno = err;
+    return res;
+}
+
+// Just clip last pathname component ("abc" does not change to ".")
+static struct bstr parentdir(struct bstr dirname)
+{
+    struct bstr ret = dirname;
+#if HAVE_DOS_PATHS
+    if (bstr_endswith0(ret, "\\"))
+        ret = bstr_splice(ret, 0, -1);
+#endif
+    if (bstr_endswith0(dirname, "/"))
+        ret = bstr_splice(ret, 0, -1);
+    ret = bstr_splice(ret, 0, ret.len - mp_basenameb(ret).len);
+    if (ret.len == 0 || ret.len == dirname.len)
+        return bstr(NULL);
+    return ret;
+}
+
+// create parent directories as needed ("mkdir -p /a/b/c" behavior)
+static int makedirs(struct bstr dirname)
+{
+    int created = 0;
+    struct bstr parent = bstr(NULL);
+    while (1) {
+        int res = mkdir_bstr(dirname);
+        if (res >= 0)
+            return created + 1;
+        if (errno == EEXIST)
+            return created;
+        if (errno != ENOENT)
+            return -1;
+        if (parent.start)
+            return -1;
+        parent = parentdir(dirname);
+        if (!parent.start)
+            return -1;
+        created = makedirs(parent);
+        if (created < 0)
+            return created;
+    }
+}
+
+static struct bstr path_get_config_home(void *talloc_ctx)
+{
+    struct bstr res = bstr(getenv("XDG_CONFIG_HOME"));
+    if (res.len)
+        return mp_path_join(talloc_ctx, res, subdirname);
+    struct bstr homedir = bstr(getenv("HOME"));
+    if (!homedir.start)
+        return bstr(NULL);
+    return mp_path_join(talloc_ctx, homedir, bstr(".config/"SUBDIRNAME));
+}
+
+struct bstr path_create_config_home(void *talloc_ctx)
+{
+    struct bstr path = path_get_config_home(talloc_ctx);
+    if (!path.start)
+        return path;
+    if (makedirs(path) < 0) {
+        mp_tmsg(MSGT_GLOBAL, MSGL_INFO,
+                "Could not create configuration directory %.*s: %s\n",
+                BSTR_P(path), strerror(errno));
+        talloc_free(path.start);
+        return bstr(NULL);
+    }
+    return path;
+}
+
+struct bstr *path_get_configdirs(void *talloc_ctx, int noconfig)
+{
+    struct bstr *ret = talloc_array_ptrtype(talloc_ctx, ret, 1);
+    int n = 0;
+    struct bstr config_home = bstr(NULL);
+    if (!(noconfig & 1))
+        config_home = path_get_config_home(talloc_ctx);
+    if (config_home.start)
+        ret[n++] = config_home;
+    struct bstr dirs = bstr(NULL);
+    if (!(noconfig & 2)) {
+        dirs = bstr(getenv("XDG_CONFIG_DIRS"));
+        if (!dirs.len)
+            dirs = bstr("/etc/xdg");
+    }
+    while (dirs.len) {
+        struct bstr dir = bstr_split(dirs, ":", &dirs);
+        if (!dir.len)
+            continue;
+        MP_GROW_ARRAY(ret, n);
+        ret[n++] = mp_path_join(talloc_ctx, dir, subdirname);
+    }
+    MP_RESIZE_ARRAY(talloc_ctx, ret, n);
+    return ret;
+}
+
 
 char *get_path(const char *filename){
 	char *homedir;
@@ -183,18 +310,7 @@ char *codec_path = BINARY_CODECS_PATH;
 
 char *mp_basename(const char *path)
 {
-    char *s;
-
-#if HAVE_DOS_PATHS
-    s = strrchr(path, '\\');
-    if (s)
-        path = s + 1;
-    s = strrchr(path, ':');
-    if (s)
-        path = s + 1;
-#endif
-    s = strrchr(path, '/');
-    return s ? s + 1 : (char *)path;
+    return mp_basenameb(bstr(path)).start;
 }
 
 struct bstr mp_dirname(const char *path)

@@ -43,6 +43,7 @@
 #include "talloc.h"
 #include "options.h"
 #include "bstr.h"
+#include "mpcommon.h"
 
 #include "joystick.h"
 
@@ -1625,7 +1626,7 @@ static int parse_config(struct input_ctx *ictx, char *file)
     if (fd < 0) {
         mp_msg(MSGT_INPUT, MSGL_V, "Can't open input config file %s: %s\n",
                file, strerror(errno));
-        return 0;
+        return -1;
     }
 
     mp_msg(MSGT_INPUT, MSGL_V, "Parsing input config file %s\n", file);
@@ -1649,7 +1650,7 @@ static int parse_config(struct input_ctx *ictx, char *file)
                 mp_tmsg(MSGT_INPUT, MSGL_ERR, "Error while reading "
                         "input config file %s: %s\n", file, strerror(errno));
                 close(fd);
-                return 0;
+                return -1;
             } else if (r == 0) {
                 eof = true;
             } else {
@@ -1661,7 +1662,7 @@ static int parse_config(struct input_ctx *ictx, char *file)
             mp_msg(MSGT_INPUT, MSGL_V, "Input config file %s parsed: "
                    "%d binds\n", file, n_binds);
             close(fd);
-            return 1;
+            return 0;
         }
         if (comments) {
             int idx = bstrchr(buf, '\n');
@@ -1740,8 +1741,9 @@ char *mp_input_get_section(struct input_ctx *ictx)
     return ictx->section;
 }
 
-struct input_ctx *mp_input_init(struct input_conf *input_conf)
+struct input_ctx *mp_input_init(struct MPOpts *opts)
 {
+    struct input_conf *input_conf = &opts->input;
     struct input_ctx *ictx = talloc_ptrtype(NULL, ictx);
     *ictx = (struct input_ctx){
         .key_fifo_size = input_conf->key_fifo_size,
@@ -1751,27 +1753,24 @@ struct input_ctx *mp_input_init(struct input_conf *input_conf)
         .default_bindings = input_conf->default_bindings,
     };
 
-    char *file;
-    char *config_file = input_conf->config_file;
-    file = config_file[0] != '/' ? get_path(config_file) : config_file;
-    if (!file)
-        return ictx;
-
-    if (!parse_config(ictx, file)) {
-        // free file if it was allocated by get_path(),
-        // before it gets overwritten
-        if (file != config_file)
-            free(file);
-        // Try global conf dir
-        file = MPLAYER_CONFDIR "/input.conf";
-        if (!parse_config(ictx, file))
-            mp_msg(MSGT_INPUT, MSGL_V, "Falling back on default (hardcoded) "
-                   "input config\n");
-    } else {
-        // free file if it was allocated by get_path()
-        if (file != config_file)
-            free(file);
+    void *tmpmem = talloc_new(NULL);
+    char *configname = input_conf->config_file;
+    struct bstr *dirs;
+    if (configname[0] == '/') {
+        dirs = talloc(tmpmem, struct bstr);
+        *dirs = bstr("/");
+    } else
+        dirs = path_get_configdirs(tmpmem, opts->noconfig);
+    // Only first file found is parsed
+    for (int i = 0; i < MP_TALLOC_ELEMS(dirs); i++) {
+        char *file = mp_path_join0(tmpmem, dirs[i], bstr(configname));
+        if (parse_config(ictx, file) >= 0)
+            goto parsed;
     }
+    mp_msg(MSGT_INPUT, MSGL_V, "Falling back on default (hardcoded) "
+           "input config\n");
+ parsed:
+    talloc_free(tmpmem);
 
 #ifdef CONFIG_JOYSTICK
     if (input_conf->use_joystick) {

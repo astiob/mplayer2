@@ -911,39 +911,37 @@ static int cfg_include(m_option_t *conf, char *filename)
 
 #define DEF_CONFIG "# Write your default config options here!\n\n\n"
 
+static void create_default_cfgfiles(void)
+{
+    void *tmpmem = talloc_new(NULL);
+    struct bstr config_home = path_create_config_home(tmpmem);
+    if (!config_home.start)
+        goto out;
+    char *conffile = mp_path_join0(tmpmem, config_home, bstr("config"));
+    int fd;
+    if ((fd = open(conffile, O_CREAT | O_EXCL | O_WRONLY, 0666)) != -1) {
+        mp_tmsg(MSGT_CPLAYER, MSGL_INFO,
+                "Creating config file: %s\n", conffile);
+        write(fd, DEF_CONFIG, sizeof(DEF_CONFIG) - 1);
+        close(fd);
+    }
+ out:
+    talloc_free(tmpmem);
+}
+
 static void parse_cfgfiles(struct MPContext *mpctx, m_config_t *conf)
 {
     struct MPOpts *opts = &mpctx->opts;
-    char *conffile;
-    int conffile_fd;
-    if (!(opts->noconfig & 2) &&
-        m_config_parse_config_file(conf, MPLAYER_CONFDIR "/mplayer.conf") < 0)
-        exit_player(mpctx, EXIT_NONE);
-    if ((conffile = get_path("")) == NULL)
-        mp_tmsg(MSGT_CPLAYER, MSGL_WARN, "Cannot find HOME directory.\n");
-    else {
-#ifdef __MINGW32__
-        mkdir(conffile);
-#else
-        mkdir(conffile, 0777);
-#endif
-        free(conffile);
-        if ((conffile = get_path("config")) == NULL)
-            mp_tmsg(MSGT_CPLAYER, MSGL_ERR, "get_path(\"config\") problem\n");
-        else {
-            if ((conffile_fd = open(conffile, O_CREAT | O_EXCL | O_WRONLY,
-                        0666)) != -1) {
-                mp_tmsg(MSGT_CPLAYER, MSGL_INFO,
-                        "Creating config file: %s\n", conffile);
-                write(conffile_fd, DEF_CONFIG, sizeof(DEF_CONFIG) - 1);
-                close(conffile_fd);
-            }
-            if (!(opts->noconfig & 1) &&
-                m_config_parse_config_file(conf, conffile) < 0)
-                exit_player(mpctx, EXIT_NONE);
-            free(conffile);
-        }
+    create_default_cfgfiles();
+    void *tmpmem = talloc_new(NULL);
+    struct bstr *dirs = path_get_configdirs(tmpmem, opts->noconfig);
+    // Parse from least to most important (latest option setting wins).
+    for (int i = MP_TALLOC_ELEMS(dirs) - 1; i >= 0; i--) {
+        char *conffile = mp_path_join0(tmpmem, dirs[i], bstr("config"));
+        if (m_config_parse_config_file(conf, conffile) < 0)
+            exit_player(mpctx, EXIT_NONE);
     }
+    talloc_free(tmpmem);
 }
 
 #define PROFILE_CFG_PROTOCOL "protocol."
@@ -4224,7 +4222,7 @@ int main(int argc, char *argv[])
 
     // Init input system
     current_module = "init_input";
-    mpctx->input = mp_input_init(&opts->input);
+    mpctx->input = mp_input_init(opts);
     mpctx->key_fifo = mp_fifo_create(mpctx->input, opts);
     if (slave_mode)
         mp_input_add_cmd_fd(mpctx->input, 0, USE_FD0_CMD_SELECT, MP_INPUT_SLAVE_CMD_FUNC, NULL);

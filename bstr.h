@@ -117,6 +117,9 @@ static inline int bstr_find0(struct bstr haystack, const char *needle)
 
 #endif
 
+// constant initializer from string constant
+#define BSTR_CONST(str) {(str), sizeof(str) - 1}
+
 // create a pair (not single value!) for "%.*s" printf syntax
 #define BSTR_P(bstr) (int)((bstr).len), (bstr).start
 

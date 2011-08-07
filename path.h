@@ -25,6 +25,8 @@
 
 extern char *codec_path;
 
+struct bstr path_create_config_home(void *talloc_ctx);
+struct bstr *path_get_configdirs(void *talloc_ctx, int noconfig);
 char *get_path(const char *filename);
 void set_path_env(void);
 void set_codec_path(const char *path);
