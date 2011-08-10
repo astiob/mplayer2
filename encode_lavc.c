@@ -278,18 +278,20 @@ void encode_lavc_finish(struct encode_lavc_context *ctx)
         for (i = 0; i < ctx->avc->nb_streams; i++) {
             switch (ctx->avc->streams[i]->codec->codec_type) {
             case AVMEDIA_TYPE_VIDEO:
-                if (ctx->twopass_bytebuffer_v)
-                    if (ctx->avc->streams[i]->codec->stats_out)
+                if (ctx->twopass_bytebuffer_v) {
+                    char *stats = ctx->avc->streams[i]->codec->stats_out;
+                    if (stats)
                         stream_write_buffer(ctx->twopass_bytebuffer_v,
-                                ctx->avc->streams[i]->codec->stats_out,
-                                strlen(ctx->avc->streams[i]->codec->stats_out));
+                                            stats, strlen(stats));
+                }
                 break;
             case AVMEDIA_TYPE_AUDIO:
-                if (ctx->twopass_bytebuffer_a)
-                    if (ctx->avc->streams[i]->codec->stats_out)
+                if (ctx->twopass_bytebuffer_a) {
+                    char *stats = ctx->avc->streams[i]->codec->stats_out;
+                    if (stats)
                         stream_write_buffer(ctx->twopass_bytebuffer_a,
-                                ctx->avc->streams[i]->codec->stats_out,
-                                strlen(ctx->avc->streams[i]->codec->stats_out));
+                                            stats, strlen(stats));
+                }
                 break;
             default:
                 break;
