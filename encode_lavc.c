@@ -996,24 +996,6 @@ bool encode_lavc_showhelp(struct MPOpts *opts)
     return help_output;
 }
 
-int encode_lavc_testflag(struct encode_lavc_context *ctx, int flag)
-{
-    if (!ctx)
-        return 0;
-
-    switch (flag) {
-    case ENCODE_LAVC_FLAG_HARDDUP:
-        return ctx->options->harddup;
-    case ENCODE_LAVC_FLAG_COPYTS:
-        return ctx->options->copyts;
-    case ENCODE_LAVC_FLAG_NEVERDROP:
-        return ctx->options->neverdrop;
-    default:
-        break;
-    }
-    return 0;
-}
-
 double encode_lavc_getoffset(struct encode_lavc_context *ctx, AVStream *stream)
 {
     switch (stream->codec->codec_type) {

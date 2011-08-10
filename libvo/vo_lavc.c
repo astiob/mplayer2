@@ -62,8 +62,7 @@ static int preinit(struct vo *vo, const char *arg)
     }
     vo->priv = talloc_zero(vo, struct priv);
     vc = vo->priv;
-    vc->harddup = encode_lavc_testflag(vo->encode_lavc_ctx,
-                                       ENCODE_LAVC_FLAG_HARDDUP);
+    vc->harddup = vo->encode_lavc_ctx->options->harddup;
     return 0;
 }
 
@@ -351,8 +350,7 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
     }
 
     // never-drop mode
-    if (encode_lavc_testflag(vo->encode_lavc_ctx, ENCODE_LAVC_FLAG_NEVERDROP)
-            && frameipts <= vc->lastipts) {
+    if (ectx->options->neverdrop && frameipts <= vc->lastipts) {
         mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: -oneverdrop increased pts by %d\n",
                (int) (vc->lastipts - frameipts + 1));
         frameipts = vc->lastipts + 1;
@@ -406,8 +404,7 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
                 memcpy(vc->lastimg->planes[1], mpi->planes[1], 1024);
 
             vc->lastframeipts = vc->lastipts = frameipts;
-            if (encode_lavc_testflag(vo->encode_lavc_ctx,
-                    ENCODE_LAVC_FLAG_COPYTS) && vc->lastipts < 0)
+            if (ectx->options->copyts && vc->lastipts < 0)
                 vc->lastipts = -1;
             vc->lastdisplaycount = 0;
         } else

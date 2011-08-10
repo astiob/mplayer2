@@ -20,12 +20,14 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <libavutil/common.h>
+
+#include "config.h"
+#include "options.h"
 #include "mpcommon.h"
-#include "libavutil/common.h"
 #include "fmt-conversion.h"
 #include "libaf/af_format.h"
 #include "libaf/reorder_ch.h"
@@ -374,8 +376,7 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data)
             packet.pts = ac->savepts;
         ac->savepts = MP_NOPTS_VALUE;
 
-        if (encode_lavc_testflag(ao->encode_lavc_ctx,
-                                 ENCODE_LAVC_FLAG_COPYTS)) {
+        if (ao->encode_lavc_ctx->options->copyts) {
             // we are NOT fixing video pts to match audio playback time
             // so we MUST set video-compatible pts!
             packet.pts = floor(packet.pts + (apts - realapts) *
@@ -425,7 +426,7 @@ static int play(struct ao *ao, void *data, int len, int flags)
     ptsoffset = ac->offset;
     // this basically just edits ao->apts for syncing purposes
 
-    if (encode_lavc_testflag(ao->encode_lavc_ctx, ENCODE_LAVC_FLAG_COPYTS)) {
+    if (ao->encode_lavc_ctx->options->copyts) {
         // we do not send time sync data to the video side,
         // but we always need the exact pts, even if zero
     } else {
