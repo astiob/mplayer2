@@ -571,11 +571,17 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
                 }
             }
             if (preset)
-                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of ffmpeg/libav/ffmpeg-mt does not support preset=, using a hardcoded legacy preset instead\n");
+                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of libavcodec "
+                       "does not support preset=, using a hardcoded legacy "
+                       "preset instead\n");
             if (tune)
-                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of ffmpeg/libav/ffmpeg-mt does not support tune=, using a hardcoded legacy tune instead\n");
+                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of libavcodec "
+                       "does not support tune=, using a hardcoded legacy "
+                       "tune instead\n");
             if (profile)
-                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of ffmpeg/libav/ffmpeg-mt does not support profile=, using a hardcoded legacy profile instead\n");
+                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of libavcodec"
+                       "does not support profile=, using a hardcoded legacy "
+                       "profile instead\n");
             if (preset)
                 if (!encode_lavc_apply_preset(stream->codec, ctx->vc, preset,
                                               STEP_PRESET))
