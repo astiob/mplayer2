@@ -311,15 +311,15 @@ void encode_lavc_finish(struct encode_lavc_context *ctx)
             ctx->twopass_bytebuffer_a = NULL;
         }
 
-        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: encoded %lu bytes\n",
-               (unsigned long) ctx->vbytes);
-        mp_msg(MSGT_AO, MSGL_INFO, "ao-lavc: encoded %lu bytes\n",
-               (unsigned long) ctx->abytes);
+        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: encoded %lld bytes\n",
+               ctx->vbytes);
+        mp_msg(MSGT_AO, MSGL_INFO, "ao-lavc: encoded %lld bytes\n",
+               ctx->abytes);
         if (ctx->avc->pb) {
             mp_msg(MSGT_AO, MSGL_INFO,
-                   "encode-lavc: muxing overhead %ld bytes\n",
-                   (signed long) (avio_tell(ctx->avc->pb) - ctx->vbytes
-                                  - ctx->abytes));
+                   "encode-lavc: muxing overhead %lld bytes\n",
+                   (long long) (avio_tell(ctx->avc->pb) - ctx->vbytes
+                                                        - ctx->abytes));
             avio_close(ctx->avc->pb);
         }
 

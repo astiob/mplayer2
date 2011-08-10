@@ -47,8 +47,8 @@ struct encode_lavc_context {
     int header_written; // -1 means currently writing
     double audio_pts_offset;
     double last_video_in_pts;
-    size_t abytes;
-    size_t vbytes;
+    long long abytes;
+    long long vbytes;
     struct stream *twopass_bytebuffer_a;
     struct stream *twopass_bytebuffer_v;
     unsigned int t0;
