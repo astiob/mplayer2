@@ -56,13 +56,15 @@ struct priv {
 };
 
 // open & setup audio device
-static int init(struct ao *ao, char *params){
+static int init(struct ao *ao, char *params)
+{
     struct priv *ac = talloc_zero(ao, struct priv);
     const enum AVSampleFormat *sampleformat;
     AVCodec *codec;
 
     if (!encode_lavc_available(ao->encode_lavc_ctx)) {
-        mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: the option -o (output file) must be specified\n");
+        mp_msg(MSGT_AO, MSGL_ERR,
+               "ao-lavc: the option -o (output file) must be specified\n");
         return -1;
     }
 
@@ -92,32 +94,34 @@ static int init(struct ao *ao, char *params){
     {
         // first check if the selected format is somewhere in the list of
         // supported formats by the codec
-        for (sampleformat = codec->sample_fmts; sampleformat && *sampleformat != SAMPLE_FMT_NONE; ++sampleformat) {
+        for (sampleformat = codec->sample_fmts;
+             sampleformat && *sampleformat != SAMPLE_FMT_NONE;
+             ++sampleformat) {
             switch (*sampleformat) {
-                case SAMPLE_FMT_U8:
-                    if (ao->format == AF_FORMAT_U8)
-                        goto out_search;
-                    break;
-                case SAMPLE_FMT_S16:
-                    if (ao->format == AF_FORMAT_S16_BE)
-                        goto out_search;
-                    if (ao->format == AF_FORMAT_S16_LE)
-                        goto out_search;
-                    break;
-                case SAMPLE_FMT_S32:
-                    if (ao->format == AF_FORMAT_S32_BE)
-                        goto out_search;
-                    if (ao->format == AF_FORMAT_S32_LE)
-                        goto out_search;
-                    break;
-                case SAMPLE_FMT_FLT:
-                    if (ao->format == AF_FORMAT_FLOAT_BE)
-                        goto out_search;
-                    if (ao->format == AF_FORMAT_FLOAT_LE)
-                        goto out_search;
-                    break;
-                default:
-                    break;
+            case SAMPLE_FMT_U8:
+                if (ao->format == AF_FORMAT_U8)
+                    goto out_search;
+                break;
+            case SAMPLE_FMT_S16:
+                if (ao->format == AF_FORMAT_S16_BE)
+                    goto out_search;
+                if (ao->format == AF_FORMAT_S16_LE)
+                    goto out_search;
+                break;
+            case SAMPLE_FMT_S32:
+                if (ao->format == AF_FORMAT_S32_BE)
+                    goto out_search;
+                if (ao->format == AF_FORMAT_S32_LE)
+                    goto out_search;
+                break;
+            case SAMPLE_FMT_FLT:
+                if (ao->format == AF_FORMAT_FLOAT_BE)
+                    goto out_search;
+                if (ao->format == AF_FORMAT_FLOAT_LE)
+                    goto out_search;
+                break;
+            default:
+                break;
             }
         }
 out_search:
@@ -129,22 +133,24 @@ out_search:
         // one we CAN support
         // note: not needing to select endianness here, as the switch() below
         // does that anyway for us
-        for (sampleformat = codec->sample_fmts; sampleformat && *sampleformat != SAMPLE_FMT_NONE; ++sampleformat) {
+        for (sampleformat = codec->sample_fmts;
+             sampleformat && *sampleformat != SAMPLE_FMT_NONE;
+             ++sampleformat) {
             switch (*sampleformat) {
-                case SAMPLE_FMT_U8:
-                    ao->format = AF_FORMAT_U8;
-                    goto out_takefirst;
-                case SAMPLE_FMT_S16:
-                    ao->format = AF_FORMAT_S16_NE;
-                    goto out_takefirst;
-                case SAMPLE_FMT_S32:
-                    ao->format = AF_FORMAT_S32_NE;
-                    goto out_takefirst;
-                case SAMPLE_FMT_FLT:
-                    ao->format = AF_FORMAT_FLOAT_NE;
-                    goto out_takefirst;
-                default:
-                    break;
+            case SAMPLE_FMT_U8:
+                ao->format = AF_FORMAT_U8;
+                goto out_takefirst;
+            case SAMPLE_FMT_S16:
+                ao->format = AF_FORMAT_S16_NE;
+                goto out_takefirst;
+            case SAMPLE_FMT_S32:
+                ao->format = AF_FORMAT_S32_NE;
+                goto out_takefirst;
+            case SAMPLE_FMT_FLT:
+                ao->format = AF_FORMAT_FLOAT_NE;
+                goto out_takefirst;
+            default:
+                break;
             }
         }
 out_takefirst:
@@ -152,68 +158,69 @@ out_takefirst:
     }
 
     switch (ao->format) {
-        // now that we have chosen a format, set up the fields for it, boldly
-        // switching endianness if needed (mplayer code will convert for us
-        // anyway, but ffmpeg always expects native endianness)
-        case AF_FORMAT_U8:
-            ac->stream->codec->sample_fmt = SAMPLE_FMT_U8;
-            ac->sample_size = 1;
-            ac->sample_padding = sample_padding_u8;
-            ao->format = AF_FORMAT_U8;
-            break;
-        default:
-        case AF_FORMAT_S16_BE:
-        case AF_FORMAT_S16_LE:
-            ac->stream->codec->sample_fmt = SAMPLE_FMT_S16;
-            ac->sample_size = 2;
-            ac->sample_padding = sample_padding_signed;
-            ao->format = AF_FORMAT_S16_NE;
-            break;
-        case AF_FORMAT_S32_BE:
-        case AF_FORMAT_S32_LE:
-            ac->stream->codec->sample_fmt = SAMPLE_FMT_S32;
-            ac->sample_size = 4;
-            ac->sample_padding = sample_padding_signed;
-            ao->format = AF_FORMAT_S32_NE;
-            break;
-        case AF_FORMAT_FLOAT_BE:
-        case AF_FORMAT_FLOAT_LE:
-            ac->stream->codec->sample_fmt = SAMPLE_FMT_FLT;
-            ac->sample_size = 4;
-            ac->sample_padding = sample_padding_float;
-            ao->format = AF_FORMAT_FLOAT_NE;
-            break;
+    // now that we have chosen a format, set up the fields for it, boldly
+    // switching endianness if needed (mplayer code will convert for us
+    // anyway, but ffmpeg always expects native endianness)
+    case AF_FORMAT_U8:
+        ac->stream->codec->sample_fmt = SAMPLE_FMT_U8;
+        ac->sample_size = 1;
+        ac->sample_padding = sample_padding_u8;
+        ao->format = AF_FORMAT_U8;
+        break;
+    default:
+    case AF_FORMAT_S16_BE:
+    case AF_FORMAT_S16_LE:
+        ac->stream->codec->sample_fmt = SAMPLE_FMT_S16;
+        ac->sample_size = 2;
+        ac->sample_padding = sample_padding_signed;
+        ao->format = AF_FORMAT_S16_NE;
+        break;
+    case AF_FORMAT_S32_BE:
+    case AF_FORMAT_S32_LE:
+        ac->stream->codec->sample_fmt = SAMPLE_FMT_S32;
+        ac->sample_size = 4;
+        ac->sample_padding = sample_padding_signed;
+        ao->format = AF_FORMAT_S32_NE;
+        break;
+    case AF_FORMAT_FLOAT_BE:
+    case AF_FORMAT_FLOAT_LE:
+        ac->stream->codec->sample_fmt = SAMPLE_FMT_FLT;
+        ac->sample_size = 4;
+        ac->sample_padding = sample_padding_float;
+        ao->format = AF_FORMAT_FLOAT_NE;
+        break;
     }
 
     ac->stream->codec->bits_per_raw_sample = ac->sample_size * 8;
 
     switch (ao->channels) {
-        case 1:
-            ac->stream->codec->channel_layout = AV_CH_LAYOUT_MONO;
-            break;
-        case 2:
-            ac->stream->codec->channel_layout = AV_CH_LAYOUT_STEREO;
-            break;
-        /* someone please check if these are what mplayer normally assumes
-        case 3:
-            ac->stream->codec->channel_layout = AV_CH_LAYOUT_SURROUND;
-            break;
-        case 4:
-            ac->stream->codec->channel_layout = AV_CH_LAYOUT_2_2;
-            break;
-        */
-        case 5:
-            ac->stream->codec->channel_layout = AV_CH_LAYOUT_5POINT0;
-            break;
-        case 6:
-            ac->stream->codec->channel_layout = AV_CH_LAYOUT_5POINT1;
-            break;
-        case 8:
-            ac->stream->codec->channel_layout = AV_CH_LAYOUT_7POINT1;
-            break;
-        default:
-            mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: unknown channel layout; hoping for the best\n");
-            break;
+    case 1:
+        ac->stream->codec->channel_layout = AV_CH_LAYOUT_MONO;
+        break;
+    case 2:
+        ac->stream->codec->channel_layout = AV_CH_LAYOUT_STEREO;
+        break;
+    /* someone please check if these are what mplayer normally assumes
+       case 3:
+        ac->stream->codec->channel_layout = AV_CH_LAYOUT_SURROUND;
+        break;
+       case 4:
+        ac->stream->codec->channel_layout = AV_CH_LAYOUT_2_2;
+        break;
+     */
+    case 5:
+        ac->stream->codec->channel_layout = AV_CH_LAYOUT_5POINT0;
+        break;
+    case 6:
+        ac->stream->codec->channel_layout = AV_CH_LAYOUT_5POINT1;
+        break;
+    case 8:
+        ac->stream->codec->channel_layout = AV_CH_LAYOUT_7POINT1;
+        break;
+    default:
+        mp_msg(MSGT_AO, MSGL_ERR,
+               "ao-lavc: unknown channel layout; hoping for the best\n");
+        break;
     }
 
     if (encode_lavc_open_codec(ao->encode_lavc_ctx, ac->stream) < 0) {
@@ -222,16 +229,16 @@ out_takefirst:
     }
 
     ac->pcmhack = 0;
-    if(ac->stream->codec->frame_size <= 1) {
+    if (ac->stream->codec->frame_size <= 1)
         ac->pcmhack = av_get_bits_per_sample(ac->stream->codec->codec_id) / 8;
-    }
 
     if (ac->pcmhack) {
         ac->aframesize = 16384; // "enough"
         ac->buffer_size = ac->aframesize * ac->pcmhack * ao->channels * 2 + 200;
     } else {
         ac->aframesize = ac->stream->codec->frame_size;
-        ac->buffer_size = ac->aframesize * ac->sample_size * ao->channels * 2 + 200;
+        ac->buffer_size = ac->aframesize * ac->sample_size * ao->channels * 2 +
+                          200;
     }
     if (ac->buffer_size < FF_MIN_BUFFER_SIZE)
         ac->buffer_size = FF_MIN_BUFFER_SIZE;
@@ -244,12 +251,13 @@ out_takefirst:
 
     ac->savepts = MP_NOPTS_VALUE;
     ac->lastpts = MP_NOPTS_VALUE;
-    ac->offset = ac->stream->codec->sample_rate * encode_lavc_getoffset(
-                                       ao->encode_lavc_ctx, ac->stream);
+    ac->offset = ac->stream->codec->sample_rate *
+                 encode_lavc_getoffset(ao->encode_lavc_ctx, ac->stream);
     ac->offset_left = ac->offset;
 
     //fill_ao_data:
-    ao->outburst = ac->aframesize * ac->sample_size * ao->channels * ac->framecount;
+    ao->outburst = ac->aframesize * ac->sample_size * ao->channels *
+                   ac->framecount;
     ao->buffersize = ao->outburst * 2;
     ao->bps = ao->channels * ao->samplerate * ac->sample_size;
     ao->untimed = true;
@@ -271,41 +279,43 @@ static void fill_with_padding(void *buf, int cnt, int sz, const void *padding)
 
 // close audio device
 static int encode(struct ao *ao, int ptsvalid, double apts, void *data);
-static void uninit(struct ao *ao, bool cut_audio){
+static void uninit(struct ao *ao, bool cut_audio)
+{
     struct priv *ac = ao->priv;
     if (ac->buffer) {
         double pts = ao->pts + ac->offset / (double) ao->samplerate;
         if (ao->buffer.len > 0) {
-            void *paddingbuf = talloc_size(ao, ac->aframesize * ao->channels * ac->sample_size);
+            void *paddingbuf = talloc_size(ao,
+                    ac->aframesize * ao->channels * ac->sample_size);
             memcpy(paddingbuf, ao->buffer.start, ao->buffer.len);
-            fill_with_padding((char *) paddingbuf + ao->buffer.len, (ac->aframesize * ao->channels * ac->sample_size - ao->buffer.len) / ac->sample_size, ac->sample_size, ac->sample_padding);
-            encode(ao,
-                    ao->pts != MP_NOPTS_VALUE,
-                    pts,
-                    paddingbuf);
+            fill_with_padding((char *) paddingbuf + ao->buffer.len,
+                              (ac->aframesize * ao->channels * ac->sample_size
+                               - ao->buffer.len) / ac->sample_size,
+                              ac->sample_size, ac->sample_padding);
+            encode(ao, ao->pts != MP_NOPTS_VALUE, pts, paddingbuf);
             pts += ac->aframesize / (double) ao->samplerate;
             talloc_free(paddingbuf);
         }
-        while (encode(ao, 
-                    true,
-                    pts,
-                    NULL) > 0);
+        while (encode(ao, true, pts, NULL) > 0) ;
     }
 
     ao->priv = NULL;
 }
 
 // return: how many bytes can be played without blocking
-static int get_space(struct ao *ao){
+static int get_space(struct ao *ao)
+{
     return ao->outburst;
 }
 
-static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must be exactly ac->aframesize amount of data
+// must get exactly ac->aframesize amount of data
+static int encode(struct ao *ao, int ptsvalid, double apts, void *data)
 {
     struct priv *ac = ao->priv;
     struct encode_lavc_context *ectx = ao->encode_lavc_ctx;
     int size;
-    double realapts = ac->aframecount * (double) ac->aframesize / ao->samplerate;
+    double realapts = ac->aframecount * (double) ac->aframesize /
+                      ao->samplerate;
 
     ac->aframecount++;
     if (data && (ao->channels == 5 || ao->channels == 6 || ao->channels == 8)) {
@@ -319,21 +329,24 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
         ectx->audio_pts_offset = realapts - apts;
 
     if (ac->pcmhack && data)
-        size = avcodec_encode_audio(ac->stream->codec, ac->buffer, ac->aframesize * ac->pcmhack * ao->channels, data);
+        size = avcodec_encode_audio(ac->stream->codec, ac->buffer,
+                ac->aframesize * ac->pcmhack * ao->channels, data);
     else
-        size = avcodec_encode_audio(ac->stream->codec, ac->buffer, ac->buffer_size, data);
+        size = avcodec_encode_audio(ac->stream->codec, ac->buffer,
+                                    ac->buffer_size, data);
 
-    mp_msg(MSGT_AO, MSGL_DBG2, "ao-lavc: got pts %f (playback time: %f); out size: %d\n", apts, realapts, size);
+    mp_msg(MSGT_AO, MSGL_DBG2,
+           "ao-lavc: got pts %f (playback time: %f); out size: %d\n",
+           apts, realapts, size);
 
     encode_lavc_write_stats(ao->encode_lavc_ctx, ac->stream);
 
-    if(ac->savepts == MP_NOPTS_VALUE) {
-        ac->savepts = floor(realapts * (double) ac->stream->time_base.den / (double) ac->stream->time_base.num + 0.5);
-    }
+    if (ac->savepts == MP_NOPTS_VALUE)
+        ac->savepts = floor(realapts * (double) ac->stream->time_base.den /
+                            (double) ac->stream->time_base.num + 0.5);
 
-    if (size < 0) {
+    if (size < 0)
         mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error encoding\n");
-    }
 
     if (size > 0) {
         AVPacket packet;
@@ -342,38 +355,51 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
         packet.data = ac->buffer;
         packet.size = size;
 
-        /* TODO: enable this code once ffmpeg.c adds something similar; till then, do the same as ffmpeg.c: mark ALL audio frames as key frames
-           if(ac->stream->codec->coded_frame && ac->stream->codec->coded_frame->keyframe)
-           packet.flags |= AV_PKT_FLAG_KEY;
-           else if(!ac->stream->codec->coded_frame)
+        /* TODO: enable this code once ffmpeg.c adds something similar;
+         * till then, do the same as ffmpeg.c:
+         * mark ALL audio frames as key frames
+         *
+         * if(ac->stream->codec->coded_frame &&
+         *         ac->stream->codec->coded_frame->keyframe)
+         * packet.flags |= AV_PKT_FLAG_KEY;
+         * else if(!ac->stream->codec->coded_frame)
          */
         packet.flags |= AV_PKT_FLAG_KEY;
 
-        if (ac->stream->codec->coded_frame && ac->stream->codec->coded_frame->pts != AV_NOPTS_VALUE) {
-            packet.pts = av_rescale_q(ac->stream->codec->coded_frame->pts, ac->stream->codec->time_base, ac->stream->time_base);
-        } else {
+        if (ac->stream->codec->coded_frame &&
+                ac->stream->codec->coded_frame->pts != AV_NOPTS_VALUE)
+            packet.pts = av_rescale_q(ac->stream->codec->coded_frame->pts,
+                          ac->stream->codec->time_base, ac->stream->time_base);
+        else
             packet.pts = ac->savepts;
-        }
         ac->savepts = MP_NOPTS_VALUE;
 
         if (encode_lavc_testflag(ao->encode_lavc_ctx,
                                  ENCODE_LAVC_FLAG_COPYTS)) {
             // we are NOT fixing video pts to match audio playback time
             // so we MUST set video-compatible pts!
-            packet.pts = floor(packet.pts + (apts - realapts) * ac->stream->time_base.den / ac->stream->time_base.num + 0.5);
+            packet.pts = floor(packet.pts + (apts - realapts) *
+                               ac->stream->time_base.den /
+                               ac->stream->time_base.num + 0.5);
         }
 
         if (packet.pts != AV_NOPTS_VALUE) {
             if (ac->lastpts != MP_NOPTS_VALUE && packet.pts <= ac->lastpts) {
-                // this indicates broken video (video pts failing to increase fast enough to match audio)
-                mp_msg(MSGT_AO, MSGL_WARN, "ao-lavc: audio pts went backwards (%d <- %d), autofixed\n", (int)packet.pts, (int)ac->lastpts);
+                // this indicates broken video
+                // (video pts failing to increase fast enough to match audio)
+                // XXX what does this have to do with video pts? -uau
+                mp_msg(MSGT_AO, MSGL_WARN, "ao-lavc: audio pts went backwards "
+                       "(%d <- %d), autofixed\n", (int)packet.pts,
+                       (int)ac->lastpts);
                 packet.pts = ac->lastpts + 1;
             }
             ac->lastpts = packet.pts;
         }
 
         if (encode_lavc_write_frame(ao->encode_lavc_ctx, &packet) < 0) {
-            mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error writing at %f %f/%f\n", realapts, (double) ac->stream->time_base.num, (double) ac->stream->time_base.den);
+            mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error writing at %f %f/%f\n",
+                   realapts, (double) ac->stream->time_base.num,
+                   (double) ac->stream->time_base.den);
             return -1;
         }
     }
@@ -384,7 +410,8 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data) // must 
 // plays 'len' bytes of 'data'
 // it should round it down to outburst*n
 // return: number of bytes played
-static int play(struct ao *ao, void* data,int len,int flags){
+static int play(struct ao *ao, void *data, int len, int flags)
+{
     struct priv *ac = ao->priv;
     int bufpos = 0;
     int64_t ptsoffset;
@@ -399,7 +426,8 @@ static int play(struct ao *ao, void* data,int len,int flags){
     // this basically just edits ao->apts for syncing purposes
 
     if (encode_lavc_testflag(ao->encode_lavc_ctx, ENCODE_LAVC_FLAG_COPYTS)) {
-        // we do not send time sync data to the video side, but we always need the exact pts, even if zero
+        // we do not send time sync data to the video side,
+        // but we always need the exact pts, even if zero
     } else {
         // here we must "simulate" the pts editing
         // 1. if we have to skip stuff, we skip it
@@ -420,36 +448,39 @@ static int play(struct ao *ao, void* data,int len,int flags){
                 ac->offset_left = 0;
             }
         } else if (ac->offset_left > 0) {
-            // make a temporary buffer, filled with zeroes at the start (don't worry, only happens once)
+            // make a temporary buffer, filled with zeroes at the start
+            // (don't worry, only happens once)
 
-            paddingbuf = talloc_size(ac, ac->sample_size * ao->channels * (ac->offset_left + len));
-            fill_with_padding(paddingbuf, ac->offset_left, ac->sample_size, ac->sample_padding);
-            data = (char *) paddingbuf + ac->sample_size * ao->channels * ac->offset_left;
+            paddingbuf = talloc_size(ac, ac->sample_size * ao->channels *
+                                         (ac->offset_left + len));
+            fill_with_padding(paddingbuf, ac->offset_left, ac->sample_size,
+                              ac->sample_padding);
+            data = (char *) paddingbuf + ac->sample_size * ao->channels *
+                                         ac->offset_left;
             bufpos -= ac->offset_left; // yes, negative!
             ptsoffset += ac->offset_left;
             ac->offset_left = 0;
 
             // now adjust the bufpos so the final value of bufpos is positive!
-            {
-                /*
-                int cnt = (len - bufpos) / ac->aframesize;
-                int finalbufpos = bufpos + cnt * ac->aframesize;
-                */
-                int finalbufpos = len - (len - bufpos) % ac->aframesize;
-                if (finalbufpos < 0) {
-                    mp_msg(MSGT_AO, MSGL_WARN, "ao-lavc: cannot attain the exact requested audio sync; shifting by %d frames\n", -finalbufpos);
-                    bufpos -= finalbufpos;
-                }
+            /*
+              int cnt = (len - bufpos) / ac->aframesize;
+              int finalbufpos = bufpos + cnt * ac->aframesize;
+            */
+            int finalbufpos = len - (len - bufpos) % ac->aframesize;
+            if (finalbufpos < 0) {
+                mp_msg(MSGT_AO, MSGL_WARN, "ao-lavc: cannot attain the "
+                       "exact requested audio sync; shifting by %d frames\n",
+                       -finalbufpos);
+                bufpos -= finalbufpos;
             }
         }
     }
 
     while (len - bufpos >= ac->aframesize) {
-        encode(ao,
-                ao->pts != MP_NOPTS_VALUE,
-                ao->pts + (bufpos + ptsoffset) / (double) ao->samplerate +
-                    encode_lavc_getoffset(ao->encode_lavc_ctx, ac->stream),
-                (char *) data + ac->sample_size * bufpos * ao->channels);
+        encode(ao, ao->pts != MP_NOPTS_VALUE,
+               ao->pts + (bufpos + ptsoffset) / (double) ao->samplerate +
+               encode_lavc_getoffset(ao->encode_lavc_ctx, ac->stream),
+               (char *) data + ac->sample_size * bufpos * ao->channels);
         bufpos += ac->aframesize;
     }
 
