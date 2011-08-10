@@ -909,28 +909,29 @@ bool encode_lavc_showhelp(struct MPOpts *opts)
                         AV_OPT_FLAG_ENCODING_PARAM | AV_OPT_FLAG_VIDEO_PARAM);
             }
         }
-        mp_msg(MSGT_VO, MSGL_INFO, "Additionally, for -ovc libx264:\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=ultrafast                  preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=superfast                  preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=veryfast                   preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=faster                     preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=fast                       preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=medium                     preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=slow                       preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=slower                     preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=veryslow                   preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts preset=placebo                    preset for encoding speed\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts tune=film                         tuning for input source\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts tune=animation                    tuning for input source\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts tune=grain                        tuning for input source\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts tune=stillimage                   tuning for input source\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts tune=psnr                         tuning for input source\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts tune=ssim                         tuning for input source\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts tune=fastdecode                   tuning for output device\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts tune=zerolatency                  tuning for output device\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts profile=baseline                  profile for decoder requirements\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts profile=main                      profile for decoder requirements\n");
-        mp_msg(MSGT_VO, MSGL_INFO, "  -ovcopts profile=high                      profile for decoder requirements\n");
+        mp_msg(MSGT_VO, MSGL_INFO, "Additionally, for -ovc libx264:\n"
+"  -ovcopts preset=ultrafast                  preset for encoding speed\n"
+"  -ovcopts preset=superfast                  preset for encoding speed\n"
+"  -ovcopts preset=veryfast                   preset for encoding speed\n"
+"  -ovcopts preset=faster                     preset for encoding speed\n"
+"  -ovcopts preset=fast                       preset for encoding speed\n"
+"  -ovcopts preset=medium                     preset for encoding speed\n"
+"  -ovcopts preset=slow                       preset for encoding speed\n"
+"  -ovcopts preset=slower                     preset for encoding speed\n"
+"  -ovcopts preset=veryslow                   preset for encoding speed\n"
+"  -ovcopts preset=placebo                    preset for encoding speed\n"
+"  -ovcopts tune=film                         tuning for input source\n"
+"  -ovcopts tune=animation                    tuning for input source\n"
+"  -ovcopts tune=grain                        tuning for input source\n"
+"  -ovcopts tune=stillimage                   tuning for input source\n"
+"  -ovcopts tune=psnr                         tuning for input source\n"
+"  -ovcopts tune=ssim                         tuning for input source\n"
+"  -ovcopts tune=fastdecode                   tuning for output device\n"
+"  -ovcopts tune=zerolatency                  tuning for output device\n"
+"  -ovcopts profile=baseline                  profile for decoder requirements\n"
+"  -ovcopts profile=main                      profile for decoder requirements\n"
+"  -ovcopts profile=high                      profile for decoder requirements\n"
+               );
     }
     if (CHECKV(opts->encode_output.aopts)) {
         AVCodecContext *c = avcodec_alloc_context();
