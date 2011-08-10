@@ -56,7 +56,8 @@ static int preinit(struct vo *vo, const char *arg)
 {
     struct priv *vc;
     if (!encode_lavc_available(vo->encode_lavc_ctx)) {
-        mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: the option -o (output file) must be specified\n");
+        mp_msg(MSGT_VO, MSGL_ERR,
+               "vo-lavc: the option -o (output file) must be specified\n");
         return -1;
     }
     vo->priv = talloc_zero(vo, struct priv);
@@ -73,14 +74,14 @@ static void uninit(struct vo *vo)
     if (!vc)
         return;
 
-    if(vc->lastipts >= 0 && vc->stream)
+    if (vc->lastipts >= 0 && vc->stream)
         draw_image(vo, NULL, MP_NOPTS_VALUE);
 
-    if(vc->lastimg) {
+    if (vc->lastimg) {
         // palette hack
-        if (vc->lastimg->imgfmt == IMGFMT_RGB8 || vc->lastimg->imgfmt == IMGFMT_BGR8) {
+        if (vc->lastimg->imgfmt == IMGFMT_RGB8
+                || vc->lastimg->imgfmt == IMGFMT_BGR8)
             vc->lastimg->planes[1] = NULL;
-        }
         free_mp_image(vc->lastimg);
         vc->lastimg = NULL;
     }
@@ -88,9 +89,9 @@ static void uninit(struct vo *vo)
     vo->priv = NULL;
 }
 
-static int config(struct vo *vo, uint32_t width, uint32_t height, uint32_t d_width,
-        uint32_t d_height, uint32_t flags, char *title,
-        uint32_t format)
+static int config(struct vo *vo, uint32_t width, uint32_t height,
+                  uint32_t d_width, uint32_t d_height, uint32_t flags,
+                  char *title, uint32_t format)
 {
     struct priv *vc = vo->priv;
     enum PixelFormat pix_fmt = imgfmt2pixfmt(format);
@@ -108,21 +109,27 @@ static int config(struct vo *vo, uint32_t width, uint32_t height, uint32_t d_wid
 
     if (vc->stream) {
         /* NOTE:
-           in debug builds we get a "comparison between signed and unsigned"
-           warning here. We choose to ignore that; just because ffmpeg currently
-           uses a plain 'int' for these struct fields, it doesn't mean it always
-           will */
-        if (width == vc->stream->codec->width && height == vc->stream->codec->height) {
-            if (aspect.num != vc->stream->codec->sample_aspect_ratio.num || aspect.den != vc->stream->codec->sample_aspect_ratio.den) {
+         * in debug builds we get a "comparison between signed and unsigned"
+         * warning here. We choose to ignore that; just because ffmpeg currently
+         * uses a plain 'int' for these struct fields, it doesn't mean it always
+         * will */
+        if (width == vc->stream->codec->width &&
+                height == vc->stream->codec->height) {
+            if (aspect.num != vc->stream->codec->sample_aspect_ratio.num ||
+                    aspect.den != vc->stream->codec->sample_aspect_ratio.den) {
                 /* aspect-only changes are not critical */
-                mp_msg(MSGT_VO, MSGL_WARN, "vo-lavc: unsupported pixel aspect ratio change from %d:%d to %d:%d\n", vc->stream->codec->sample_aspect_ratio.num, vc->stream->codec->sample_aspect_ratio.den, aspect.num, aspect.den);
+                mp_msg(MSGT_VO, MSGL_WARN, "vo-lavc: unsupported pixel aspect "
+                       "ratio change from %d:%d to %d:%d\n",
+                       vc->stream->codec->sample_aspect_ratio.num,
+                       vc->stream->codec->sample_aspect_ratio.den,
+                       aspect.num, aspect.den);
             }
             return 0;
         }
 
         /* FIXME Is it possible with raw video? */
         mp_msg(MSGT_VO, MSGL_ERR,
-                "vo-lavc: resolution changes not supported.\n");
+               "vo-lavc: resolution changes not supported.\n");
         goto error;
     }
 
@@ -130,11 +137,12 @@ static int config(struct vo *vo, uint32_t width, uint32_t height, uint32_t d_wid
     vc->lastframeipts = MP_NOPTS_VALUE;
 
     if (pix_fmt == PIX_FMT_NONE)
-        goto error; /* imgfmt2pixfmt already prints something */
+        goto error;  /* imgfmt2pixfmt already prints something */
 
     vc->stream = encode_lavc_alloc_stream(vo->encode_lavc_ctx,
                                           AVMEDIA_TYPE_VIDEO);
-    vc->stream->sample_aspect_ratio = vc->stream->codec->sample_aspect_ratio = aspect;
+    vc->stream->sample_aspect_ratio = vc->stream->codec->sample_aspect_ratio =
+            aspect;
     vc->stream->codec->width = width;
     vc->stream->codec->height = height;
     vc->stream->codec->pix_fmt = pix_fmt;
@@ -155,7 +163,8 @@ static int config(struct vo *vo, uint32_t width, uint32_t height, uint32_t d_wid
     vc->lastimg = alloc_mpi(width, height, format);
 
     // palette hack
-    if (vc->lastimg->imgfmt == IMGFMT_RGB8 || vc->lastimg->imgfmt == IMGFMT_BGR8)
+    if (vc->lastimg->imgfmt == IMGFMT_RGB8 ||
+            vc->lastimg->imgfmt == IMGFMT_BGR8)
         vc->lastimg->planes[1] = talloc_zero_size(vc, 1024);
 
     return 0;
@@ -173,7 +182,7 @@ static int query_format(struct vo *vo, uint32_t format)
         return 0;
 
     return encode_lavc_supports_pixfmt(vo->encode_lavc_ctx, pix_fmt) ?
-        VFCAP_CSP_SUPPORTED : 0;
+           VFCAP_CSP_SUPPORTED : 0;
 }
 
 static void write_packet(struct vo *vo, int size)
@@ -194,19 +203,25 @@ static void write_packet(struct vo *vo, int size)
         if (vc->stream->codec->coded_frame->key_frame)
             packet.flags |= AV_PKT_FLAG_KEY;
         if (vc->stream->codec->coded_frame->pts != AV_NOPTS_VALUE) {
-            packet.pts = av_rescale_q(vc->stream->codec->coded_frame->pts, vc->stream->codec->time_base, vc->stream->time_base);
+            packet.pts = av_rescale_q(vc->stream->codec->coded_frame->pts,
+                                      vc->stream->codec->time_base,
+                                      vc->stream->time_base);
         } else {
             mp_msg(MSGT_VO, MSGL_WARN, "vo-lavc: codec did not provide pts\n");
-            packet.pts = av_rescale_q(vc->lastipts, vc->worst_time_base, vc->stream->time_base);
+            packet.pts = av_rescale_q(vc->lastipts, vc->worst_time_base,
+                                      vc->stream->time_base);
         }
 
         // HACK: libavformat calculates dts wrong if the initial packet
         // duration is not set, but ONLY if the time base is "high" and if we
         // have b-frames!
         if (!vc->have_first_packet)
-            if (vc->stream->codec->has_b_frames || vc->stream->codec->max_b_frames)
-                if (vc->stream->time_base.num*1000LL <= vc->stream->time_base.den)
-                    packet.duration = FFMAX(1, av_rescale_q(1, vc->stream->codec->time_base, vc->stream->time_base));
+            if (vc->stream->codec->has_b_frames
+                    || vc->stream->codec->max_b_frames)
+                if (vc->stream->time_base.num * 1000LL <=
+                        vc->stream->time_base.den)
+                    packet.duration = FFMAX(1, av_rescale_q(1,
+                         vc->stream->codec->time_base, vc->stream->time_base));
 
         if (encode_lavc_write_frame(vo->encode_lavc_ctx, &packet) < 0) {
             mp_msg(MSGT_VO, MSGL_ERR, "vo-lavc: error writing\n");
@@ -224,12 +239,17 @@ static int encode_video(struct vo *vo, AVFrame *frame)
         if (!frame)
             return 0;
         memcpy(vc->buffer, frame, sizeof(AVPicture));
-        mp_msg(MSGT_AO, MSGL_DBG2, "vo-lavc: got pts %f\n", frame->pts * (double) vc->stream->codec->time_base.num / (double) vc->stream->codec->time_base.den);
+        mp_msg(MSGT_AO, MSGL_DBG2, "vo-lavc: got pts %f\n",
+               frame->pts * (double) vc->stream->codec->time_base.num /
+                            (double) vc->stream->codec->time_base.den);
         return sizeof(AVPicture);
     } else {
-        int size = avcodec_encode_video(vc->stream->codec, vc->buffer, vc->buffer_size, frame);
+        int size = avcodec_encode_video(vc->stream->codec, vc->buffer,
+                                        vc->buffer_size, frame);
         if (frame)
-            mp_msg(MSGT_AO, MSGL_DBG2, "vo-lavc: got pts %f; out size: %d\n", frame->pts * (double) vc->stream->codec->time_base.num / (double) vc->stream->codec->time_base.den, size);
+            mp_msg(MSGT_AO, MSGL_DBG2, "vo-lavc: got pts %f; out size: %d\n",
+                   frame->pts * (double) vc->stream->codec->time_base.num /
+                   (double) vc->stream->codec->time_base.den, size);
         encode_lavc_write_stats(vo->encode_lavc_ctx, vc->stream);
         return size;
     }
@@ -253,12 +273,21 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
 
     if (vc->worst_time_base.den == 0) {
         //if (avc->time_base.num / avc->time_base.den >= vc->stream->time_base.num / vc->stream->time_base.den)
-        if (avc->time_base.num * (double) vc->stream->time_base.den >= vc->stream->time_base.num * (double) avc->time_base.den) {
-            mp_msg(MSGT_VO, MSGL_V, "vo-lavc: NOTE: using codec time base (%d/%d) for frame dropping; the stream base (%d/%d) is not worse.\n", (int)avc->time_base.num, (int)avc->time_base.den, (int)vc->stream->time_base.num, (int)vc->stream->time_base.den);
+        if (avc->time_base.num * (double) vc->stream->time_base.den >=
+                vc->stream->time_base.num * (double) avc->time_base.den) {
+            mp_msg(MSGT_VO, MSGL_V, "vo-lavc: NOTE: using codec time base "
+                   "(%d/%d) for frame dropping; the stream base (%d/%d) is "
+                   "not worse.\n", (int)avc->time_base.num,
+                   (int)avc->time_base.den, (int)vc->stream->time_base.num,
+                   (int)vc->stream->time_base.den);
             vc->worst_time_base = avc->time_base;
             vc->worst_time_base_is_stream = 0;
         } else {
-            mp_msg(MSGT_VO, MSGL_WARN, "vo-lavc: NOTE: not using codec time base (%d/%d) for frame dropping; the stream base (%d/%d) is worse.\n", (int)avc->time_base.num, (int)avc->time_base.den, (int)vc->stream->time_base.num, (int)vc->stream->time_base.den);
+            mp_msg(MSGT_VO, MSGL_WARN, "vo-lavc: NOTE: not using codec time "
+                   "base (%d/%d) for frame dropping; the stream base (%d/%d) "
+                   "is worse.\n", (int)avc->time_base.num,
+                   (int)avc->time_base.den, (int)vc->stream->time_base.num,
+                   (int)vc->stream->time_base.den);
             vc->worst_time_base = vc->stream->time_base;
             vc->worst_time_base_is_stream = 1;
         }
@@ -286,7 +315,8 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
         if (pts == MP_NOPTS_VALUE) {
             // NOTE: this even applies to ectx->options->copyts!
             frameipts = vc->lastipts + 1;
-            mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: pts was missing, using %d - consider using -ofps or -vf fixpts\n", (int) frameipts);
+            mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: pts was missing, using %d - "
+                   "consider using -ofps or -vf fixpts\n", (int) frameipts);
             if (ectx->last_video_in_pts != MP_NOPTS_VALUE)
                 ectx->last_video_in_pts += timeunit;
         } else {
@@ -303,14 +333,14 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
                 if (ectx->audio_pts_offset != MP_NOPTS_VALUE) {
                     double adj = outpts - pts - ectx->audio_pts_offset;
                     adj = FFMIN(adj, duration * 0.1);
-                    adj = FFMAX(adj, - duration * 0.1);
+                    adj = FFMAX(adj, -duration * 0.1);
                     outpts -= adj;
                 }
             }
             vc->lastpts = outpts;
             ectx->last_video_in_pts = pts;
             frameipts = floor((outpts + encode_lavc_getoffset(ectx, vc->stream))
-                               / timeunit + 0.5);
+                              / timeunit + 0.5);
         }
     } else {
         if (vc->lastipts == MP_NOPTS_VALUE)
@@ -323,7 +353,8 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
     // never-drop mode
     if (encode_lavc_testflag(vo->encode_lavc_ctx, ENCODE_LAVC_FLAG_NEVERDROP)
             && frameipts <= vc->lastipts) {
-        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: -oneverdrop increased pts by %d\n", (int) (vc->lastipts - frameipts + 1));
+        mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: -oneverdrop increased pts by %d\n",
+               (int) (vc->lastipts - frameipts + 1));
         frameipts = vc->lastipts + 1;
         vc->lastpts = frameipts * timeunit;
     }
@@ -333,12 +364,13 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
 
         // we have a valid image in lastimg
         while (vc->lastipts < frameipts) {
-            int64_t thisduration = (vc->harddup ? 1 : (frameipts - vc->lastipts));
+            int64_t thisduration = vc->harddup ? 1 : (frameipts - vc->lastipts);
 
             avcodec_get_frame_defaults(&frame);
 
             // this is a nop, unless the worst time base is the STREAM time base
-            frame.pts = av_rescale_q(vc->lastipts, vc->worst_time_base, avc->time_base);
+            frame.pts = av_rescale_q(vc->lastipts, vc->worst_time_base,
+                                     avc->time_base);
 
             for (i = 0; i < 4; i++) {
                 frame.data[i] = vc->lastimg->planes[i];
@@ -363,11 +395,14 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
     } else {
         if (frameipts >= vc->lastframeipts) {
             if (vc->lastframeipts != MP_NOPTS_VALUE && vc->lastdisplaycount != 1)
-                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: Frame at pts %d got displayed %d times\n", (int) vc->lastframeipts, vc->lastdisplaycount);
+                mp_msg(MSGT_VO, MSGL_INFO,
+                       "vo-lavc: Frame at pts %d got displayed %d times\n",
+                       (int) vc->lastframeipts, vc->lastdisplaycount);
             copy_mpi(vc->lastimg, mpi);
 
             // palette hack
-            if (vc->lastimg->imgfmt == IMGFMT_RGB8 || vc->lastimg->imgfmt == IMGFMT_BGR8)
+            if (vc->lastimg->imgfmt == IMGFMT_RGB8 ||
+                    vc->lastimg->imgfmt == IMGFMT_BGR8)
                 memcpy(vc->lastimg->planes[1], mpi->planes[1], 1024);
 
             vc->lastframeipts = vc->lastipts = frameipts;
@@ -375,20 +410,20 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
                     ENCODE_LAVC_FLAG_COPYTS) && vc->lastipts < 0)
                 vc->lastipts = -1;
             vc->lastdisplaycount = 0;
-        } else {
-            mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: Frame at pts %d got dropped entirely because pts went backwards\n", (int) frameipts);
-        }
+        } else
+            mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: Frame at pts %d got dropped "
+                   "entirely because pts went backwards\n", (int) frameipts);
     }
 }
 
 static int control(struct vo *vo, uint32_t request, void *data)
 {
     switch (request) {
-        case VOCTRL_QUERY_FORMAT:
-            return query_format(vo, *((uint32_t*)data));
-        case VOCTRL_DRAW_IMAGE:
-            draw_image(vo, (mp_image_t *)data, vo->next_pts);
-            return 0;
+    case VOCTRL_QUERY_FORMAT:
+        return query_format(vo, *((uint32_t *)data));
+    case VOCTRL_DRAW_IMAGE:
+        draw_image(vo, (mp_image_t *)data, vo->next_pts);
+        return 0;
     }
     return VO_NOTIMPL;
 }
