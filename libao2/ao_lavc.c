@@ -453,8 +453,7 @@ static int play(struct ao *ao, void* data,int len,int flags){
         bufpos += ac->aframesize;
     }
 
-    if(paddingbuf)
-        talloc_free(paddingbuf);
+    talloc_free(paddingbuf);
 
     return bufpos * ac->sample_size * ao->channels;
 }

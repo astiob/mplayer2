@@ -154,16 +154,16 @@ int encode_lavc_oformat_flags(struct encode_lavc_context *ctx)
     return ctx->avc ? ctx->avc->oformat->flags : 0;
 }
 
-struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options_)
+struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options)
 {
     struct encode_lavc_context *ctx;
 
-    if (!options_->file)
+    if (!options->file)
         return NULL;
 
     ctx = talloc_zero(NULL, struct encode_lavc_context);
     encode_lavc_discontinuity(ctx);
-    ctx->options = options_;
+    ctx->options = options;
 
     ctx->avc = avformat_alloc_context();
 
@@ -295,8 +295,7 @@ void encode_lavc_finish(struct encode_lavc_context *ctx)
                 break;
             }
             avcodec_close(ctx->avc->streams[i]->codec);
-            if (ctx->avc->streams[i]->codec->stats_in)
-                talloc_free(ctx->avc->streams[i]->codec->stats_in);
+            talloc_free(ctx->avc->streams[i]->codec->stats_in);
             av_free(ctx->avc->streams[i]->codec);
             av_free(ctx->avc->streams[i]->info);
             av_free(ctx->avc->streams[i]);
