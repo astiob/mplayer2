@@ -75,7 +75,7 @@ static int set_to_avdictionary(void *ctx, AVDictionary **dictp,
 
 static int set_avoptions(void *ctx, const void *privclass, void *privctx,
                          const char *str, const char *key_val_sep,
-                         const char *pairs_sep, int dry_run)
+                         const char *pairs_sep)
 {
     int good = 0;
     int errorcode = 0;
@@ -92,9 +92,8 @@ static int set_avoptions(void *ctx, const void *privclass, void *privctx,
             str++;
             val = av_get_token(&str, pairs_sep);
         } else {
-            if (!dry_run)
-                av_log(ctx, AV_LOG_ERROR, "Missing key or no key/value "
-                       "separator found after key '%s'\n", key);
+            av_log(ctx, AV_LOG_ERROR, "Missing key or no key/value "
+                   "separator found after key '%s'\n", key);
             av_free(key);
             if (!errorcode)
                 errorcode = AVERROR(EINVAL);
@@ -103,29 +102,16 @@ static int set_avoptions(void *ctx, const void *privclass, void *privctx,
             continue;
         }
 
-        if (!dry_run)
-            av_log(ctx, AV_LOG_DEBUG,
-                   "Setting value '%s' for key '%s'\n", val, key);
+        av_log(ctx, AV_LOG_DEBUG,
+               "Setting value '%s' for key '%s'\n", val, key);
 
         ret = AVERROR_OPTION_NOT_FOUND;
-        if (dry_run) {
-            char buf[256];
-            const AVOption *opt;
-            const char *p = NULL;
-            if (privctx)
-                p = av_get_string(privctx, key, &opt, buf, sizeof(buf));
-            if (p == NULL)
-                p = av_get_string(ctx, key, &opt, buf, sizeof(buf));
-            if (p)
-                ret = 0;
-        } else {
-            if (privctx)
-                ret = av_set_string3(privctx, key, val, 1, NULL);
-            if (ret == AVERROR_OPTION_NOT_FOUND)
-                ret = av_set_string3(ctx, key, val, 1, NULL);
-            if (ret == AVERROR_OPTION_NOT_FOUND)
-                av_log(ctx, AV_LOG_ERROR, "Key '%s' not found.\n", key);
-        }
+        if (privctx)
+            ret = av_set_string3(privctx, key, val, 1, NULL);
+        if (ret == AVERROR_OPTION_NOT_FOUND)
+            ret = av_set_string3(ctx, key, val, 1, NULL);
+        if (ret == AVERROR_OPTION_NOT_FOUND)
+            av_log(ctx, AV_LOG_ERROR, "Key '%s' not found.\n", key);
 
         av_free(key);
         av_free(val);
@@ -449,7 +435,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         // libx264: default to preset=medium
         if (!strcmp(ctx->vc->name, "libx264") &&
                 set_avoptions(stream->codec, ctx->vc->priv_class,
-                    stream->codec->priv_data, "preset=medium", "=", "", 0)
+                    stream->codec->priv_data, "preset=medium", "=", "")
                 <= 0)
             mp_msg(MSGT_VO, MSGL_WARN,
                    "vo-lavc: could not set option preset=medium\n");
@@ -457,7 +443,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         if (ctx->options->vopts)
             for (p = ctx->options->vopts; *p; ++p)
                 if (set_avoptions(stream->codec, ctx->vc->priv_class,
-                        stream->codec->priv_data, *p, "=", "", 0) <= 0)
+                        stream->codec->priv_data, *p, "=", "") <= 0)
                     mp_msg(MSGT_VO, MSGL_WARN,
                            "vo-lavc: could not set option %s\n", *p);
 
@@ -485,7 +471,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         if (ctx->options->aopts)
             for (p = ctx->options->aopts; *p; ++p)
                 if (set_avoptions(stream->codec, ctx->ac->priv_class,
-                        stream->codec->priv_data, *p, "=", "", 0) <= 0)
+                        stream->codec->priv_data, *p, "=", "") <= 0)
                     mp_msg(MSGT_VO, MSGL_WARN,
                            "ao-lavc: could not set option %s\n", *p);
 
