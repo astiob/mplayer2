@@ -60,7 +60,7 @@ static int set_to_avdictionary(void *ctx, AVDictionary **dictp, void *octx,
                val, key);
 
         if((o = av_opt_find(octx, key, NULL, 0, AV_OPT_SEARCH_CHILDREN))) {
-            if (av_dict_set(dictp, key, val, (o->type == FF_OPT_TYPE_FLAGS && (val[0] == '+' || val[0] == '-')) ? AV_DICT_APPEND : 0) >= 0)
+            if (av_dict_set(dictp, key, *val ? val : NULL, (o->type == FF_OPT_TYPE_FLAGS && (val[0] == '+' || val[0] == '-')) ? AV_DICT_APPEND : 0) >= 0)
                 ++good;
             else
                 errorcode = AVERROR(EINVAL);
@@ -332,8 +332,6 @@ static void encode_2pass_prepare(struct encode_lavc_context *ctx, AVDictionary *
     }
 }
 
-// like in ffmpeg.c
-#define QSCALE_NONE "-99999"
 AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
                                    enum AVMediaType mt)
 {
@@ -407,9 +405,9 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         stream->codec->codec_type = AVMEDIA_TYPE_VIDEO;
 
         dummy = avcodec_alloc_context3(ctx->vc);
+        dummy->codec = ctx->vc; // FIXME remove this once we can, caused by a bug in libav, elenril is aware of this
 
         ctx->voptions = NULL;
-        set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "global_quality=0", "=", "");
 
         // libx264: default to preset=medium
         if (!strcmp(ctx->vc->name, "libx264"))
@@ -423,11 +421,11 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
                            "vo-lavc: could not set option %s\n", *p);
 
         de = av_dict_get(ctx->voptions, "global_quality", NULL, 0);
-        if(de && !strcmp(de->value, "0"))
+        if(de)
             set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "flags=+qscale", "=", "");
 
         if (ctx->avc->oformat->flags & AVFMT_GLOBALHEADER)
-            set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "flags=+global_header", "=", "");
+            set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "flags=+global_header", "=", "");
 
         encode_2pass_prepare(ctx, &ctx->voptions, dummy, stream, &ctx->twopass_bytebuffer_v, MSGT_VO,
                              "vo-lavc");
@@ -448,9 +446,9 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         stream->codec->codec_type = AVMEDIA_TYPE_AUDIO;
 
         dummy = avcodec_alloc_context3(ctx->ac);
+        dummy->codec = ctx->ac; // FIXME remove this once we can, caused by a bug in libav, elenril is aware of this
 
         ctx->aoptions = NULL;
-        set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "global_quality=" QSCALE_NONE, "=", "");
 
         // libx264: default to preset=medium
         if (!strcmp(ctx->vc->name, "libx264"))
@@ -464,7 +462,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
                            "vo-lavc: could not set option %s\n", *p);
 
         de = av_dict_get(ctx->aoptions, "global_quality", NULL, 0);
-        if(de && !strcmp(de->value, QSCALE_NONE))
+        if(de)
             set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "flags=+qscale", "=", "");
 
         if (ctx->avc->oformat->flags & AVFMT_GLOBALHEADER)
