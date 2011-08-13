@@ -329,103 +329,6 @@ void encode_lavc_finish(struct encode_lavc_context *ctx)
     talloc_free(ctx);
 }
 
-/* Use TOOLS/encode_lavc.sh to update this table */
-static const char *x264_presets[][2] = {
-    {"ultrafast", "coder=0 flags=-loop cmp=+chroma partitions=-parti8x8-parti4x4-partp8x8-partb8x8 me_method=dia subq=0 me_range=16 g=250 keyint_min=25 sc_threshold=0 i_qfactor=0.71 b_strategy=0 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=0 refs=1 directpred=1 trellis=0 flags2=-bpyramid-mixed_refs-wpred-dct8x8+fastpskip-mbtree wpredp=0 aq_mode=0 rc_lookahead=0"},
-    {"superfast", "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4-partp8x8-partb8x8 me_method=dia subq=1 me_range=16 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=1 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=3 refs=1 directpred=1 trellis=0 flags2=+bpyramid-mixed_refs+wpred+dct8x8+fastpskip-mbtree wpredp=0 rc_lookahead=0"},
-    {"veryfast",  "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4+partp8x8+partb8x8 me_method=hex subq=2 me_range=16 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=1 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=3 refs=1 directpred=1 trellis=0 flags2=+bpyramid-mixed_refs+wpred+dct8x8+fastpskip wpredp=0 rc_lookahead=10"},
-    {"faster",    "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4+partp8x8+partb8x8 me_method=hex subq=4 me_range=16 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=1 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=3 refs=2 directpred=1 trellis=1 flags2=+bpyramid-mixed_refs+wpred+dct8x8+fastpskip wpredp=1 rc_lookahead=20"},
-    {"fast",      "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4+partp8x8+partb8x8 me_method=hex subq=6 me_range=16 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=1 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=3 refs=2 directpred=1 trellis=1 flags2=+bpyramid+mixed_refs+wpred+dct8x8+fastpskip wpredp=2 rc_lookahead=30"},
-    {"medium",    "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4+partp8x8+partb8x8 me_method=hex subq=7 me_range=16 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=1 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=3 refs=3 directpred=1 trellis=1 flags2=+bpyramid+mixed_refs+wpred+dct8x8+fastpskip wpredp=2"},
-    {"slow",      "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4+partp8x8+partb8x8 me_method=umh subq=8 me_range=16 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=2 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=3 refs=5 directpred=3 trellis=1 flags2=+bpyramid+mixed_refs+wpred+dct8x8+fastpskip wpredp=2 rc_lookahead=50"},
-    {"slower",    "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4+partp8x8+partp4x4+partb8x8 me_method=umh subq=9 me_range=16 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=2 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=3 refs=8 directpred=3 trellis=2 flags2=+bpyramid+mixed_refs+wpred+dct8x8+fastpskip wpredp=2 rc_lookahead=60"},
-    {"veryslow",  "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4+partp8x8+partp4x4+partb8x8 me_method=umh subq=10 me_range=24 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=2 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=8 refs=16 directpred=3 trellis=2 flags2=+bpyramid+mixed_refs+wpred+dct8x8+fastpskip wpredp=2 rc_lookahead=60"},
-    {"placebo",   "coder=1 flags=+loop cmp=+chroma partitions=+parti8x8+parti4x4+partp8x8+partp4x4+partb8x8 me_method=tesa subq=10 me_range=24 g=250 keyint_min=25 sc_threshold=40 i_qfactor=0.71 b_strategy=2 qcomp=0.6 qmin=10 qmax=51 qdiff=4 bf=16 refs=16 directpred=3 trellis=2 flags2=+bpyramid+mixed_refs+wpred+dct8x8-fastpskip wpredp=2 rc_lookahead=60"},
-};
-
-/* Tunes values are taken from x264 sources */
-// XXX:"grain"       tuning not fully supported yet (no access to --no-dct-decimate)
-// XXX:"zerolatency" tuning not fully supported yet (no access to --sync-lookahead --sliced-threads)
-static const char *x264_tunes[][2] = {
-    {"film",        "deblockalpha=-1 deblockbeta=-1 psy_trellis=0.15"},
-    {"animation",   "deblockalpha=1 deblockbeta=1 psy_rd=0.4 aq_strength=0.6"},
-    {"grain",       "aq_strength=0.5 deblockalpha=-2 deblockbeta=-2 i_qfactor=0.9090909 b_qfactor=1.1 psy_trellis=0.25 qcomp=0.8"},
-    {"stillimage",  "aq_strength=1.2 deblockalpha=-3 deblockbeta=-3 psy_rd=2.0 psy_trellis=0.7"},
-    {"psnr",        "aq_mode=0 flags2=-psy"},
-    {"ssim",        "aq_mode=2 flags2=-psy"},
-    {"fastdecode",  "coder=0 flags=-loop flags2=-wpred wpredp=0"},
-    {"zerolatency", "bf=0 flags2=-mbtree rc_lookahead=0"},
-};
-
-static const char *x264_profiles[][2] = {
-    {"baseline", "coder=0 bf=0 flags2=-wpred-dct8x8 wpredp=0"},
-    {"main",     "flags2=-dct8x8"},
-    {"high",     ""},
-};
-
-#define CHECK_PRESET(array, step) do {                    \
-        for (int i = 0; i < FF_ARRAY_ELEMS(array); i++) { \
-            if (strcmp(preset, array[i][0]) == 0) {       \
-                commands    = array[i][1];                \
-                commandstep = step;                       \
-                break;                                    \
-            }                                             \
-        }                                                 \
-} while (0)
-
-#define STEP_MIN 1
-#define STEP_PRESET 1
-#define STEP_TUNE 2
-#define STEP_PROFILE 3
-#define STEP_MAX 3
-// step is: -1 = never apply, 0 = always apply,
-// otherwise a number from STEP_MIN to STEP_MAX
-static int encode_lavc_apply_preset(AVCodecContext *cc, AVCodec *codec,
-                                    const char *preset, int step)
-{
-    const char *commands = NULL;
-    int commandstep = 0;
-    int boost_bf_and_refs = 0;
-
-    // TODO also provide presets for other codecs?
-    if (!strcmp(codec->name, "libx264")) {
-        if (!strcmp(preset, "animation"))
-            boost_bf_and_refs = 1;
-
-        CHECK_PRESET(x264_presets,  1);
-        CHECK_PRESET(x264_tunes,    2);
-        CHECK_PRESET(x264_profiles, 3);
-    }
-
-    if (!commandstep)
-        return 0;
-
-    if (step < 0)
-        return -1;  // step < 0 means do not apply, just query
-
-    if (step && step != commandstep)
-        return -1;  // -1 means not applied
-
-    if (set_avoptions(cc, codec->priv_class, cc->priv_data, commands, "=",
-            " ", 0) <= 0) {
-        // can't really happen
-        mp_msg(MSGT_VO, MSGL_WARN,
-               "encode-lavc: could not set preset %s\n", preset);
-    }
-    if (boost_bf_and_refs) {
-        int64_t o;
-        o = av_get_int(cc, "max_b_frames", NULL);
-        av_set_int(cc, "max_b_frames", o + 2);
-        o = av_get_int(cc, "refs", NULL);
-        if (cc->refs > 1)
-            av_set_int(cc, "refs", o * 2);
-        else
-            av_set_int(cc, "refs", 1);
-    }
-
-    return 1;
-}
-
 static void encode_2pass_prepare(struct encode_lavc_context *ctx,
                                  AVStream *stream, struct stream **bytebuf,
                                  int msgt, const char *prefix)
@@ -543,87 +446,20 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         stream->codec->global_quality = 0;
         stream->codec->codec_type = AVMEDIA_TYPE_VIDEO;
 
-        if (set_avoptions(stream->codec, ctx->vc->priv_class,
-                stream->codec->priv_data, "preset=medium", "=", "", 1) <= 0)
-            encode_lavc_apply_preset(stream->codec, ctx->vc, "medium", 0);
-        else if (set_avoptions(stream->codec, ctx->vc->priv_class,
-                stream->codec->priv_data, "preset=medium", "=", "", 0) <= 0)
+        // libx264: default to preset=medium
+        if (!strcmp(ctx->vc->name, "libx264") &&
+                set_avoptions(stream->codec, ctx->vc->priv_class,
+                    stream->codec->priv_data, "preset=medium", "=", "", 0)
+                <= 0)
             mp_msg(MSGT_VO, MSGL_WARN,
                    "vo-lavc: could not set option preset=medium\n");
 
-        if (ctx->options->vopts) {
-            // fake ffmpeg's preset/tune/profile ctx->options if needed
-            const char *preset = NULL;
-            const char *tune = NULL;
-            const char *profile = NULL;
-            // libx264 with legacy lavc? activate the hardcoded system
-            if (!strcmp(ctx->vc->name, "libx264") &&
-                    set_avoptions(stream->codec, ctx->vc->priv_class,
-                        stream->codec->priv_data, "preset=medium", "=", "", 1)
-                    <= 0) {
-                for (p = ctx->options->vopts; *p; ++p) {
-                    if (!strncmp(*p, "preset=", 7))
-                        preset = *p + 7;
-                    if (!strncmp(*p, "tune=", 5))
-                        tune = *p + 5;
-                    if (!strncmp(*p, "profile=", 8))
-                        profile = *p + 8;
-                }
-            }
-            if (preset)
-                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of libavcodec "
-                       "does not support preset=, using a hardcoded legacy "
-                       "preset instead\n");
-            if (tune)
-                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of libavcodec "
-                       "does not support tune=, using a hardcoded legacy "
-                       "tune instead\n");
-            if (profile)
-                mp_msg(MSGT_VO, MSGL_INFO, "vo-lavc: version of libavcodec"
-                       "does not support profile=, using a hardcoded legacy "
-                       "profile instead\n");
-            if (preset)
-                if (!encode_lavc_apply_preset(stream->codec, ctx->vc, preset,
-                                              STEP_PRESET))
-                    mp_msg(MSGT_VO, MSGL_WARN,
-                           "vo-lavc: could not find preset %s\n", preset);
-            if (tune) {
-                const char *str = tune;
-                while (*str) {
-                    char *key = av_get_token(&str, ",./-+");
-                    if (*key) {
-                        if (!encode_lavc_apply_preset(stream->codec, ctx->vc,
-                                                      key, STEP_TUNE))
-                            mp_msg(MSGT_VO, MSGL_WARN,
-                                   "vo-lavc: could not find tune %s\n", preset);
-                    } else
-                        mp_msg(MSGT_VO, MSGL_WARN,
-                               "vo-lavc: empty tune name?\n");
-                    if (*str)
-                        ++str;
-                }
-            }
-            for (p = ctx->options->vopts; *p; ++p) {
-                if (!strncmp(*p, "preset=", 7))
-                    if (preset)
-                        continue;
-                if (!strncmp(*p, "tune=", 5))
-                    if (tune)
-                        continue;
-                if (!strncmp(*p, "profile=", 8))
-                    if (profile)
-                        continue;
+        if (ctx->options->vopts)
+            for (p = ctx->options->vopts; *p; ++p)
                 if (set_avoptions(stream->codec, ctx->vc->priv_class,
                         stream->codec->priv_data, *p, "=", "", 0) <= 0)
                     mp_msg(MSGT_VO, MSGL_WARN,
                            "vo-lavc: could not set option %s\n", *p);
-            }
-            if (profile)
-                if (!encode_lavc_apply_preset(stream->codec, ctx->vc, profile,
-                                              STEP_PROFILE))
-                    mp_msg(MSGT_VO, MSGL_WARN,
-                           "vo-lavc: could not find profile %s\n", profile);
-        }
 
         if (stream->codec->global_quality != 0)
             stream->codec->flags |= CODEC_FLAG_QSCALE;
@@ -907,29 +743,6 @@ bool encode_lavc_showhelp(struct MPOpts *opts)
                         AV_OPT_FLAG_ENCODING_PARAM | AV_OPT_FLAG_VIDEO_PARAM);
             }
         }
-        mp_msg(MSGT_VO, MSGL_INFO, "Additionally, for -ovc libx264:\n"
-"  -ovcopts preset=ultrafast                  preset for encoding speed\n"
-"  -ovcopts preset=superfast                  preset for encoding speed\n"
-"  -ovcopts preset=veryfast                   preset for encoding speed\n"
-"  -ovcopts preset=faster                     preset for encoding speed\n"
-"  -ovcopts preset=fast                       preset for encoding speed\n"
-"  -ovcopts preset=medium                     preset for encoding speed\n"
-"  -ovcopts preset=slow                       preset for encoding speed\n"
-"  -ovcopts preset=slower                     preset for encoding speed\n"
-"  -ovcopts preset=veryslow                   preset for encoding speed\n"
-"  -ovcopts preset=placebo                    preset for encoding speed\n"
-"  -ovcopts tune=film                         tuning for input source\n"
-"  -ovcopts tune=animation                    tuning for input source\n"
-"  -ovcopts tune=grain                        tuning for input source\n"
-"  -ovcopts tune=stillimage                   tuning for input source\n"
-"  -ovcopts tune=psnr                         tuning for input source\n"
-"  -ovcopts tune=ssim                         tuning for input source\n"
-"  -ovcopts tune=fastdecode                   tuning for output device\n"
-"  -ovcopts tune=zerolatency                  tuning for output device\n"
-"  -ovcopts profile=baseline                  profile for decoder requirements\n"
-"  -ovcopts profile=main                      profile for decoder requirements\n"
-"  -ovcopts profile=high                      profile for decoder requirements\n"
-               );
     }
     if (CHECKV(opts->encode_output.aopts)) {
         AVCodecContext *c = avcodec_alloc_context();
