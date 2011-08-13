@@ -426,7 +426,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         // which doesn't properly force the time base to be 90000
         // furthermore, ffmpeg.c doesn't do this either and works
 
-        avcodec_get_context_defaults3(stream->codec, ctx->vc);
+        avcodec_get_context_defaults3(stream->codec, ctx->vc); // FIXME use avcodec_open2 instead
         stream->codec->codec_id = ctx->vc->id;
         stream->codec->time_base = ctx->timebase;
         stream->codec->global_quality = 0;
@@ -462,7 +462,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             return NULL;
         }
 
-        avcodec_get_context_defaults3(stream->codec, ctx->ac);
+        avcodec_get_context_defaults3(stream->codec, ctx->ac); // FIXME use avcodec_open2 instead
         stream->codec->codec_id = ctx->ac->id;
         stream->codec->time_base = ctx->timebase;
         stream->codec->global_quality = QSCALE_NONE;
@@ -707,7 +707,7 @@ bool encode_lavc_showhelp(struct MPOpts *opts)
         }
     }
     if (CHECKV(opts->encode_output.vopts)) {
-        AVCodecContext *c = avcodec_alloc_context();
+        AVCodecContext *c = avcodec_alloc_context3(NULL);
         AVCodec *codec = NULL;
         mp_msg(MSGT_VO, MSGL_INFO,
                "Available output video codec ctx->options:\n");
@@ -731,7 +731,7 @@ bool encode_lavc_showhelp(struct MPOpts *opts)
         }
     }
     if (CHECKV(opts->encode_output.aopts)) {
-        AVCodecContext *c = avcodec_alloc_context();
+        AVCodecContext *c = avcodec_alloc_context3(NULL);
         AVCodec *codec = NULL;
         mp_msg(MSGT_VO, MSGL_INFO,
                "Available output audio codec ctx->options:\n");
