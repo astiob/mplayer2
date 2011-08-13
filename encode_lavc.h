@@ -38,6 +38,8 @@ struct encode_lavc_context {
     AVCodec *vc;
     AVCodec *ac;
     AVDictionary *foptions;
+    AVDictionary *aoptions;
+    AVDictionary *voptions;
 
     // values created during encoding
     int header_written; // -1 means currently writing

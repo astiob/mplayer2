@@ -30,12 +30,13 @@
 #include "talloc.h"
 #include "stream/stream.h"
 
-static int set_to_avdictionary(void *ctx, AVDictionary **dictp,
+static int set_to_avdictionary(void *ctx, AVDictionary **dictp, void *octx,
                                const char *str, const char *key_val_sep,
                                const char *pairs_sep)
 {
     int good = 0;
     int errorcode = 0;
+    const AVOption *o;
 
     while (*str) {
         char *key = av_get_token(&str, key_val_sep);
@@ -58,14 +59,17 @@ static int set_to_avdictionary(void *ctx, AVDictionary **dictp,
         av_log(ctx, AV_LOG_DEBUG, "Setting value '%s' for key '%s'\n",
                val, key);
 
-        if (av_dict_set(dictp, key, val,
-                AV_DICT_DONT_STRDUP_KEY | AV_DICT_DONT_STRDUP_VAL) >= 0)
-            ++good;
-        else {
-            av_free(key);
-            av_free(val);
-            errorcode = AVERROR(EINVAL);
+        if((o = av_opt_find(octx, key, NULL, 0, AV_OPT_SEARCH_CHILDREN))) {
+            if (av_dict_set(dictp, key, val, (o->type == FF_OPT_TYPE_FLAGS && (val[0] == '+' || val[0] == '-')) ? AV_DICT_APPEND : 0) >= 0)
+                ++good;
+            else
+                errorcode = AVERROR(EINVAL);
+        } else {
+            errorcode = AVERROR(ENOENT);
         }
+
+        av_free(key);
+        av_free(val);
 
         if (*str)
             ++str;
@@ -73,59 +77,27 @@ static int set_to_avdictionary(void *ctx, AVDictionary **dictp,
     return errorcode ? errorcode : good;
 }
 
-static int set_avoptions(void *ctx, const void *privclass, void *privctx,
-                         const char *str, const char *key_val_sep,
-                         const char *pairs_sep)
+static bool value_has_flag(const char *value, const char *flag)
 {
-    int good = 0;
-    int errorcode = 0;
-
-    if (!privclass)
-        privctx = NULL;
-
-    while (*str) {
-        char *key = av_get_token(&str, key_val_sep);
-        char *val;
-        int ret;
-
-        if (*key && strspn(str, key_val_sep)) {
-            str++;
-            val = av_get_token(&str, pairs_sep);
-        } else {
-            av_log(ctx, AV_LOG_ERROR, "Missing key or no key/value "
-                   "separator found after key '%s'\n", key);
-            av_free(key);
-            if (!errorcode)
-                errorcode = AVERROR(EINVAL);
-            if (*str)
-                ++str;
-            continue;
+    bool state = true;
+    bool ret = false;
+    while(*value)
+    {
+        size_t l = strcspn(value, "+-");
+        if(l == 0)
+        {
+            state = (*value == '+');
+            ++value;
         }
-
-        av_log(ctx, AV_LOG_DEBUG,
-               "Setting value '%s' for key '%s'\n", val, key);
-
-        ret = AVERROR_OPTION_NOT_FOUND;
-        if (privctx)
-            ret = av_set_string3(privctx, key, val, 1, NULL);
-        if (ret == AVERROR_OPTION_NOT_FOUND)
-            ret = av_set_string3(ctx, key, val, 1, NULL);
-        if (ret == AVERROR_OPTION_NOT_FOUND)
-            av_log(ctx, AV_LOG_ERROR, "Key '%s' not found.\n", key);
-
-        av_free(key);
-        av_free(val);
-
-        if (ret < 0) {
-            if (!errorcode)
-                errorcode = ret;
-        } else
-            ++good;
-
-        if (*str)
-            ++str;
+        else
+        {
+            if(l == strlen(flag))
+                if(!memcmp(value, flag, l))
+                    ret = state;
+            value += l;
+        }
     }
-    return errorcode ? errorcode : good;
+    return ret;
 }
 
 int encode_lavc_available(struct encode_lavc_context *ctx)
@@ -166,7 +138,7 @@ struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options)
     if (ctx->options->fopts) {
         char **p;
         for (p = ctx->options->fopts; *p; ++p) {
-            if (set_to_avdictionary(ctx->avc, &ctx->foptions, *p, "=", "")
+            if (set_to_avdictionary(ctx->avc, &ctx->foptions, ctx->avc, *p, "=", "")
                     <= 0)
                 mp_msg(MSGT_VO, MSGL_WARN,
                        "encode-lavc: could not set option %s\n", *p);
@@ -315,22 +287,24 @@ void encode_lavc_finish(struct encode_lavc_context *ctx)
     talloc_free(ctx);
 }
 
-static void encode_2pass_prepare(struct encode_lavc_context *ctx,
+static void encode_2pass_prepare(struct encode_lavc_context *ctx, AVDictionary **dictp, void *octx,
                                  AVStream *stream, struct stream **bytebuf,
                                  int msgt, const char *prefix)
 {
     if (!*bytebuf) {
         char buf[sizeof(ctx->avc->filename) + 12];
+        AVDictionaryEntry *de = av_dict_get(ctx->voptions, "flags", NULL, 0);
 
         snprintf(buf, sizeof(buf), "%s-%s-pass1.log", ctx->avc->filename,
                  prefix);
         buf[sizeof(buf) - 1] = 0;
 
-        if (stream->codec->flags & CODEC_FLAG_PASS2) {
+        if (value_has_flag(de ? de->value : "", "pass2")) {
             if (!(*bytebuf = open_stream(buf, NULL, NULL))) {
                 mp_msg(msgt, MSGL_WARN, "%s: could not open '%s', "
                        "disabling 2-pass encoding at pass 2\n", prefix, buf);
                 stream->codec->flags &= ~CODEC_FLAG_PASS2;
+                set_to_avdictionary(stream->codec, dictp, octx, "flags=-pass2", "=", "");
             } else {
                 struct bstr content = stream_read_complete(*bytebuf, NULL,
                                                            1000000000, 1);
@@ -347,25 +321,27 @@ static void encode_2pass_prepare(struct encode_lavc_context *ctx,
             }
         }
 
-        if (stream->codec->flags & CODEC_FLAG_PASS1) {
+        if (value_has_flag(de ? de->value : "", "pass1")) {
             if (!(*bytebuf = open_output_stream(buf, NULL))) {
                 mp_msg(msgt, MSGL_WARN, "%s: could not open '%s', disabling "
                        "2-pass encoding at pass 1\n",
                        prefix, ctx->avc->filename);
-                stream->codec->flags &= ~CODEC_FLAG_PASS1;
+                set_to_avdictionary(stream->codec, dictp, octx, "flags=-pass1", "=", "");
             }
         }
     }
 }
 
 // like in ffmpeg.c
-#define QSCALE_NONE -99999
+#define QSCALE_NONE "-99999"
 AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
                                    enum AVMediaType mt)
 {
+    AVDictionaryEntry *de;
     AVStream *stream;
     char **p;
     int i;
+    AVCodecContext *dummy;
 
     if (ctx->header_written)
         return NULL;
@@ -426,32 +402,37 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         // which doesn't properly force the time base to be 90000
         // furthermore, ffmpeg.c doesn't do this either and works
 
-        avcodec_get_context_defaults3(stream->codec, ctx->vc); // FIXME use avcodec_open2 instead
         stream->codec->codec_id = ctx->vc->id;
         stream->codec->time_base = ctx->timebase;
-        stream->codec->global_quality = 0;
         stream->codec->codec_type = AVMEDIA_TYPE_VIDEO;
 
+        dummy = avcodec_alloc_context3(ctx->vc);
+
+        ctx->voptions = NULL;
+        set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "global_quality=0", "=", "");
+
         // libx264: default to preset=medium
-        if (!strcmp(ctx->vc->name, "libx264") &&
-                set_avoptions(stream->codec, ctx->vc->priv_class,
-                    stream->codec->priv_data, "preset=medium", "=", "")
-                <= 0)
-            mp_msg(MSGT_VO, MSGL_WARN,
-                   "vo-lavc: could not set option preset=medium\n");
+        if (!strcmp(ctx->vc->name, "libx264"))
+            set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "preset=medium", "=", "");
 
         if (ctx->options->vopts)
             for (p = ctx->options->vopts; *p; ++p)
-                if (set_avoptions(stream->codec, ctx->vc->priv_class,
-                        stream->codec->priv_data, *p, "=", "") <= 0)
+                if (set_to_avdictionary(stream->codec, &ctx->voptions, dummy,
+                        *p, "=", "") <= 0)
                     mp_msg(MSGT_VO, MSGL_WARN,
                            "vo-lavc: could not set option %s\n", *p);
 
-        if (stream->codec->global_quality != 0)
-            stream->codec->flags |= CODEC_FLAG_QSCALE;
+        de = av_dict_get(ctx->voptions, "global_quality", NULL, 0);
+        if(de && !strcmp(de->value, "0"))
+            set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "flags=+qscale", "=", "");
 
-        encode_2pass_prepare(ctx, stream, &ctx->twopass_bytebuffer_v, MSGT_VO,
+        if (ctx->avc->oformat->flags & AVFMT_GLOBALHEADER)
+            set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "flags=+global_header", "=", "");
+
+        encode_2pass_prepare(ctx, &ctx->voptions, dummy, stream, &ctx->twopass_bytebuffer_v, MSGT_VO,
                              "vo-lavc");
+
+        av_free(dummy);
         break;
 
     case AVMEDIA_TYPE_AUDIO:
@@ -462,27 +443,39 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             return NULL;
         }
 
-        avcodec_get_context_defaults3(stream->codec, ctx->ac); // FIXME use avcodec_open2 instead
         stream->codec->codec_id = ctx->ac->id;
         stream->codec->time_base = ctx->timebase;
-        stream->codec->global_quality = QSCALE_NONE;
         stream->codec->codec_type = AVMEDIA_TYPE_AUDIO;
+
+        dummy = avcodec_alloc_context3(ctx->ac);
+
+        ctx->aoptions = NULL;
+        set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "global_quality=" QSCALE_NONE, "=", "");
+
+        // libx264: default to preset=medium
+        if (!strcmp(ctx->vc->name, "libx264"))
+            set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "preset=medium", "=", "");
 
         if (ctx->options->aopts)
             for (p = ctx->options->aopts; *p; ++p)
-                if (set_avoptions(stream->codec, ctx->ac->priv_class,
-                        stream->codec->priv_data, *p, "=", "") <= 0)
+                if (set_to_avdictionary(stream->codec, &ctx->aoptions, dummy,
+                        *p, "=", "") <= 0)
                     mp_msg(MSGT_VO, MSGL_WARN,
-                           "ao-lavc: could not set option %s\n", *p);
+                           "vo-lavc: could not set option %s\n", *p);
 
-        if (stream->codec->global_quality != QSCALE_NONE)
-            stream->codec->flags |= CODEC_FLAG_QSCALE;
-        else
-            stream->codec->global_quality = 0;  // "unset"
+        de = av_dict_get(ctx->aoptions, "global_quality", NULL, 0);
+        if(de && !strcmp(de->value, QSCALE_NONE))
+            set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "flags=+qscale", "=", "");
 
-        encode_2pass_prepare(ctx, stream, &ctx->twopass_bytebuffer_a, MSGT_AO,
+        if (ctx->avc->oformat->flags & AVFMT_GLOBALHEADER)
+            set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "flags=+global_header", "=", "");
+
+        encode_2pass_prepare(ctx, &ctx->aoptions, dummy, stream, &ctx->twopass_bytebuffer_a, MSGT_AO,
                              "ao-lavc");
+
+        av_free(dummy);
         break;
+
     default:
         mp_msg(MSGT_VO, MSGL_ERR,
                "encode-lavc: requested invalid stream type\n");
@@ -490,9 +483,6 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         abort();     // XXXXXXXXXXXXXXXXXXXXXXX
         return NULL;
     }
-
-    if (ctx->avc->oformat->flags & AVFMT_GLOBALHEADER)
-        stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
     return stream;
 }
@@ -513,11 +503,44 @@ AVCodec *encode_lavc_get_codec(struct encode_lavc_context *ctx,
 
 int encode_lavc_open_codec(struct encode_lavc_context *ctx, AVStream *stream)
 {
-    AVCodec *c = encode_lavc_get_codec(ctx, stream);
-    if (c)
-        return avcodec_open(stream->codec, c);
-    else
-        return -1;
+    AVDictionaryEntry *de;
+    int ret;
+
+    switch (stream->codec->codec_type) {
+        case AVMEDIA_TYPE_VIDEO:
+            for (de = NULL; (de = av_dict_get(ctx->voptions, "", de,
+                                              AV_DICT_IGNORE_SUFFIX));)
+                av_log(ctx->avc, AV_LOG_ERROR, "v: %s -> %s\n", de->key, de->value);
+
+            ret = avcodec_open2(stream->codec, ctx->vc, &ctx->voptions);
+
+            // complain about all remaining options, then free the dict
+            for (de = NULL; (de = av_dict_get(ctx->voptions, "", de,
+                                              AV_DICT_IGNORE_SUFFIX));)
+                av_log(ctx->avc, AV_LOG_ERROR, "Key '%s' not found.\n", de->key);
+            av_dict_free(&ctx->voptions);
+
+            break;
+        case AVMEDIA_TYPE_AUDIO:
+            for (de = NULL; (de = av_dict_get(ctx->voptions, "", de,
+                                              AV_DICT_IGNORE_SUFFIX));)
+                av_log(ctx->avc, AV_LOG_ERROR, "a: %s -> %s\n", de->key, de->value);
+
+            ret = avcodec_open2(stream->codec, ctx->ac, &ctx->aoptions);
+
+            // complain about all remaining options, then free the dict
+            for (de = NULL; (de = av_dict_get(ctx->aoptions, "", de,
+                                              AV_DICT_IGNORE_SUFFIX));)
+                av_log(ctx->avc, AV_LOG_ERROR, "Key '%s' not found.\n", de->key);
+            av_dict_free(&ctx->aoptions);
+
+            break;
+        default:
+            ret = -1;
+            break;
+    }
+
+    return ret;
 }
 
 void encode_lavc_write_stats(struct encode_lavc_context *ctx, AVStream *stream)
