@@ -32,7 +32,7 @@
 
 static int set_to_avdictionary(void *ctx, AVDictionary **dictp,
                                const char *str, const char *key_val_sep,
-                               const char *pairs_sep, int dry_run)
+                               const char *pairs_sep)
 {
     int good = 0;
     int errorcode = 0;
@@ -45,9 +45,8 @@ static int set_to_avdictionary(void *ctx, AVDictionary **dictp,
             str++;
             val = av_get_token(&str, pairs_sep);
         } else {
-            if (!dry_run)
-                av_log(ctx, AV_LOG_ERROR, "Missing key or no key/value "
-                       "separator found after key '%s'\n", key);
+            av_log(ctx, AV_LOG_ERROR, "Missing key or no key/value "
+                   "separator found after key '%s'\n", key);
             av_free(key);
             if (!errorcode)
                 errorcode = AVERROR(EINVAL);
@@ -56,9 +55,8 @@ static int set_to_avdictionary(void *ctx, AVDictionary **dictp,
             continue;
         }
 
-        if (!dry_run)
-            av_log(ctx, AV_LOG_DEBUG, "Setting value '%s' for key '%s'\n",
-                   val, key);
+        av_log(ctx, AV_LOG_DEBUG, "Setting value '%s' for key '%s'\n",
+               val, key);
 
         if (av_dict_set(dictp, key, val,
                 AV_DICT_DONT_STRDUP_KEY | AV_DICT_DONT_STRDUP_VAL) >= 0)
@@ -182,7 +180,7 @@ struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options)
     if (ctx->options->fopts) {
         char **p;
         for (p = ctx->options->fopts; *p; ++p) {
-            if (set_to_avdictionary(ctx->avc, &ctx->foptions, *p, "=", "", 0)
+            if (set_to_avdictionary(ctx->avc, &ctx->foptions, *p, "=", "")
                     <= 0)
                 mp_msg(MSGT_VO, MSGL_WARN,
                        "encode-lavc: could not set option %s\n", *p);
