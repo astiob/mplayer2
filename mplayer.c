@@ -1493,7 +1493,7 @@ struct mp_osd_msg {
     /// Previous message on the stack.
     mp_osd_msg_t *prev;
     /// Message text.
-    char msg[128];
+    char *msg;
     int id, level, started;
     /// Display duration in ms.
     unsigned time;
@@ -1513,14 +1513,13 @@ static void set_osd_msg_va(int id, int level, int time, const char *fmt,
                            va_list ap)
 {
     mp_osd_msg_t *msg, *last = NULL;
-    int r;
 
     // look if the id is already in the stack
     for (msg = osd_msg_stack; msg && msg->id != id;
          last = msg, msg = msg->prev) ;
     // not found: alloc it
     if (!msg) {
-        msg = calloc(1, sizeof(mp_osd_msg_t));
+        msg = talloc_zero(NULL, mp_osd_msg_t);
         msg->prev = osd_msg_stack;
         osd_msg_stack = msg;
     } else if (last) { // found, but it's not on top of the stack
@@ -1528,10 +1527,9 @@ static void set_osd_msg_va(int id, int level, int time, const char *fmt,
         msg->prev = osd_msg_stack;
         osd_msg_stack = msg;
     }
+    talloc_free(msg->msg);
     // write the msg
-    r = vsnprintf(msg->msg, 128, fmt, ap);
-    if (r >= 128)
-        msg->msg[127] = 0;
+    msg->msg = talloc_vasprintf(msg, fmt, ap);
     // set id and time
     msg->id = id;
     msg->level = level;
@@ -1555,7 +1553,6 @@ void set_osd_tmsg(int id, int level, int time, const char *fmt, ...)
     va_end(ap);
 }
 
-
 /**
  *  \brief Remove a message from the OSD stack
  *
@@ -1578,7 +1575,7 @@ void rm_osd_msg(int id)
         last->prev = msg->prev;
     else
         osd_msg_stack = msg->prev;
-    free(msg);
+    talloc_free(msg);
 }
 
 /**
@@ -1591,7 +1588,7 @@ static void clear_osd_msgs(void)
     mp_osd_msg_t *msg = osd_msg_stack, *prev = NULL;
     while (msg) {
         prev = msg->prev;
-        free(msg);
+        talloc_free(msg);
         msg = prev;
     }
     osd_msg_stack = NULL;
@@ -1652,7 +1649,7 @@ static mp_osd_msg_t *get_osd_msg(struct MPContext *mpctx)
             continue;
         }
         // kill the message
-        free(msg);
+        talloc_free(msg);
         if (last) {
             last->prev = prev;
             msg = last;
@@ -1742,7 +1739,7 @@ static void update_osd_msg(struct MPContext *mpctx)
     // Look if we have a msg
     if ((msg = get_osd_msg(mpctx))) {
         if (strcmp(osd->osd_text, msg->msg)) {
-            strncpy(osd->osd_text, msg->msg, 127);
+            osd_set_text(osd, msg->msg);
             if (mpctx->sh_video)
                 vo_osd_changed(OSDTYPE_OSD);
             else if (opts->term_osd)
@@ -1796,20 +1793,21 @@ static void update_osd_msg(struct MPContext *mpctx)
             }
 
             if (opts->osd_level == 3)
-                snprintf(osd_text_timer, 63,
+                snprintf(osd_text_timer, sizeof(osd_text_timer),
                          "%c %02d:%02d:%02d%s / %02d:%02d:%02d%s",
                          mpctx->osd_function, pts / 3600, (pts / 60) % 60, pts % 60,
                          fractions_text, len / 3600, (len / 60) % 60, len % 60,
                          percentage_text);
             else
-                snprintf(osd_text_timer, 63, "%c %02d:%02d:%02d%s%s",
+                snprintf(osd_text_timer, sizeof(osd_text_timer),
+                         "%c %02d:%02d:%02d%s%s",
                          mpctx->osd_function, pts / 3600, (pts / 60) % 60,
                          pts % 60, fractions_text, percentage_text);
         } else
             osd_text_timer[0] = 0;
 
         if (strcmp(osd->osd_text, osd_text_timer)) {
-            strncpy(osd->osd_text, osd_text_timer, 63);
+            osd_set_text(osd, osd_text_timer);
             vo_osd_changed(OSDTYPE_OSD);
         }
         return;
@@ -2432,6 +2430,7 @@ static void mp_dvdnav_save_smpi(struct MPContext *mpctx, int in_size,
         mpctx->nav_buffer = malloc(in_size);
     if (mpctx->nav_buffer) {
         mpctx->nav_start = start;
+        mpctx->nav_in_size = in_size;
         memcpy(mpctx->nav_buffer, start, in_size);
     }
 
@@ -3515,7 +3514,7 @@ int get_current_chapter(struct MPContext *mpctx)
 // currently returns a string allocated with malloc, not talloc
 char *chapter_display_name(struct MPContext *mpctx, int chapter)
 {
-    if (!mpctx->chapters || !mpctx->sh_video)
+    if (!mpctx->chapters)
         return demuxer_chapter_display_name(mpctx->demuxer, chapter);
     return talloc_strdup(NULL, mpctx->chapters[chapter].name);
 }
@@ -3524,7 +3523,7 @@ int seek_chapter(struct MPContext *mpctx, int chapter, double *seek_pts,
                  char **chapter_name)
 {
     mpctx->last_chapter_seek = -2;
-    if (!mpctx->chapters || !mpctx->sh_video) {
+    if (!mpctx->chapters) {
         int res = demuxer_seek_chapter(mpctx->demuxer, chapter, seek_pts,
                                        chapter_name);
         if (res >= 0) {
@@ -3979,7 +3978,8 @@ int main(int argc, char *argv[])
     pthread_win32_thread_attach_np();
     atexit(detach_ptw32);
 #endif
-    if (argc > 1 && !strcmp(argv[1], "-leak-report"))
+    if (argc > 1 && (!strcmp(argv[1], "-leak-report")
+                     || !strcmp(argv[1], "--leak-report")))
         talloc_enable_leak_report();
 
     char *mem_ptr;
