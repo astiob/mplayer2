@@ -56,6 +56,7 @@ extern const struct ao_driver audio_out_v4l2;
 extern const struct ao_driver audio_out_mpegpes;
 extern const struct ao_driver audio_out_pcm;
 extern const struct ao_driver audio_out_pss;
+extern const struct ao_driver audio_out_lavc;
 
 static const struct ao_driver * const audio_out_drivers[] = {
 // native:
@@ -117,6 +118,9 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #endif
 #ifdef CONFIG_V4L2_DECODER
     &audio_out_v4l2,
+#endif
+#ifdef CONFIG_ENCODING
+    &audio_out_lavc,
 #endif
     &audio_out_null,
     // should not be auto-selected:

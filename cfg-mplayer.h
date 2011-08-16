@@ -1006,6 +1006,24 @@ const m_option_t mplayer_opts[]={
     {"h", (void *) help_text, CONF_TYPE_PRINT, CONF_NOCFG|CONF_GLOBAL, 0, 0, NULL},
 
     {"vd", (void *) vd_conf, CONF_TYPE_SUBCONFIG, 0, 0, 0, NULL},
+
+#ifdef CONFIG_ENCODING
+    OPT_STRING("o", encode_output.file, CONF_GLOBAL),
+    OPT_STRING("of", encode_output.format, CONF_GLOBAL),
+    OPT_STRINGLIST("ofopts*", encode_output.fopts, CONF_GLOBAL),
+    OPT_FLOATRANGE("ofps", encode_output.fps, CONF_GLOBAL, 0.0, 1000000.0),
+    OPT_STRING("ovc", encode_output.vcodec, CONF_GLOBAL),
+    OPT_STRINGLIST("ovcopts*", encode_output.vopts, CONF_GLOBAL),
+    OPT_STRING("oac", encode_output.acodec, CONF_GLOBAL),
+    OPT_STRINGLIST("oacopts*", encode_output.aopts, CONF_GLOBAL),
+    OPT_MAKE_FLAGS("oharddup", encode_output.harddup, CONF_GLOBAL),
+    OPT_FLOATRANGE("ovoffset", encode_output.voffset, CONF_GLOBAL, -1000000.0, 1000000.0),
+    OPT_FLOATRANGE("oaoffset", encode_output.aoffset, CONF_GLOBAL, -1000000.0, 1000000.0),
+    OPT_MAKE_FLAGS("ocopyts", encode_output.copyts, CONF_GLOBAL),
+    OPT_MAKE_FLAGS("oautofps", encode_output.autofps, CONF_GLOBAL),
+    OPT_MAKE_FLAGS("oneverdrop", encode_output.neverdrop, CONF_GLOBAL),
+#endif
+
     {NULL, NULL, 0, 0, 0, 0, NULL}
 };
 

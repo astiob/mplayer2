@@ -103,6 +103,8 @@
 
 #include "input/input.h"
 
+#include "encode.h"
+
 int slave_mode = 0;
 int enable_mouse_movements = 0;
 float start_volume = -1;
@@ -741,6 +743,12 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
     if (mpctx->user_muted && !mpctx->edl_muted)
         mixer_mute(&mpctx->mixer);
     uninit_player(mpctx, INITIALIZED_ALL);
+
+#ifdef CONFIG_ENCODING
+encode_lavc_finish(mpctx->encode_lavc_ctx);
+mpctx->encode_lavc_ctx = NULL;
+#endif
+
 #if defined(__MINGW32__) || defined(__CYGWIN__)
     timeEndPeriod(1);
 #endif
@@ -1333,6 +1341,19 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
         saddf(line, &pos, width, "A-V:%7.3f ct:%7.3f ",
               mpctx->last_av_difference, mpctx->total_avsync_change);
 
+  float position = (get_current_time(mpctx) - opts->seek_to_sec) / (get_time_length(mpctx) - opts->seek_to_sec);
+  if (end_at.type == END_AT_TIME)
+    position = max(position, (get_current_time(mpctx) - opts->seek_to_sec) / (end_at.pos - opts->seek_to_sec));
+  if (play_n_frames_mf)
+    position = max(position, 1.0 - play_n_frames / (double) play_n_frames_mf);
+#ifdef CONFIG_ENCODING
+  char lavcbuf[80];
+  if (encode_lavc_getstatus(mpctx->encode_lavc_ctx, lavcbuf, sizeof(lavcbuf), position, get_current_time(mpctx) - opts->seek_to_sec) >= 0) {
+    // encoding stats
+    saddf(line, &pos, width, "%s ", lavcbuf);
+  } else
+#endif
+         {
     // Video stats
     if (sh_video)
         saddf(line, &pos, width, "%3d/%3d ",
@@ -1359,6 +1380,7 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
     // VO stats
     if (sh_video)
         saddf(line, &pos, width, "%d %d ", drop_frame_cnt, output_quality);
+  }
 
 #ifdef CONFIG_STREAM_CACHE
     // cache stats
@@ -1842,6 +1864,7 @@ void reinit_audio_chain(struct MPContext *mpctx)
     if (!ao->initialized) {
         current_module = "ao2_init";
         ao->buffersize = opts->ao_buffersize;
+        ao->encode_lavc_ctx = mpctx->encode_lavc_ctx;
         ao_init(ao, opts->audio_driver_list);
         if (!ao->initialized) {
             mp_tmsg(MSGT_CPLAYER, MSGL_ERR,
@@ -2724,7 +2747,8 @@ int reinit_video_chain(struct MPContext *mpctx)
         //if((mpctx->video_out->preinit(vo_subdevice))!=0){
         if (!(mpctx->video_out = init_best_video_out(opts, mpctx->x11_state,
                                                      mpctx->key_fifo,
-                                                     mpctx->input))) {
+                                                     mpctx->input,
+                                                     mpctx->encode_lavc_ctx))) {
             mp_tmsg(MSGT_CPLAYER, MSGL_FATAL, "Error opening/initializing "
                     "the selected video_out (-vo) device.\n");
             goto err_out;
@@ -3234,6 +3258,10 @@ static void seek_reset(struct MPContext *mpctx, bool reset_ao)
     video_time_usage = 0;
     vout_time_usage = 0;
     drop_frame_cnt = 0;
+
+#ifdef CONFIG_ENCODING
+    encode_lavc_discontinuity(mpctx->encode_lavc_ctx);
+#endif
 
     current_module = NULL;
 }
@@ -4121,6 +4149,10 @@ int main(int argc, char *argv[])
         opt_exit = 1;
     }
 
+#ifdef CONFIG_ENCODING
+    opt_exit |= encode_lavc_showhelp(&mpctx->opts);
+#endif
+
     if (opt_exit)
         exit_player(mpctx, EXIT_NONE);
 
@@ -4140,6 +4172,11 @@ int main(int argc, char *argv[])
             mp_msg(MSGT_CPLAYER, MSGL_INFO, " '%s'", argv[i]);
         mp_msg(MSGT_CPLAYER, MSGL_INFO, "\n");
     }
+
+#ifdef CONFIG_ENCODING
+    if (opts->encode_output.file)
+        mpctx->encode_lavc_ctx = encode_lavc_init(&opts->encode_output);
+#endif
 
     //------ load global data first ------
 
@@ -4224,6 +4261,19 @@ int main(int argc, char *argv[])
 
     // Init input system
     current_module = "init_input";
+
+#ifdef CONFIG_ENCODING
+if (opts->encode_output.file) {
+    // default console controls off
+    if (opts->consolecontrols < 0)
+        m_config_set_option0(mpctx->mconfig, "consolecontrols", "no", false);
+} else {
+    // default console controls on
+    if (opts->consolecontrols < 0)
+        m_config_set_option0(mpctx->mconfig, "consolecontrols", "yes", false);
+}
+#endif
+
     mpctx->input = mp_input_init(&opts->input);
     mpctx->key_fifo = mp_fifo_create(mpctx->input, opts);
     if (slave_mode)
@@ -4306,6 +4356,25 @@ play_next_file:
     if (opts->audio_driver_list)
         load_per_output_config(mpctx->mconfig, PROFILE_CFG_AO,
                                opts->audio_driver_list[0]);
+
+// do we want to encode?
+#ifdef CONFIG_ENCODING
+if (opts->encode_output.file) {
+    m_config_set_option0(mpctx->mconfig, "vo", "lavc", false);
+    m_config_set_option0(mpctx->mconfig, "ao", "lavc", false);
+    m_config_set_option0(mpctx->mconfig, "fixed-vo", "yes", false);
+    m_config_set_option0(mpctx->mconfig, "gapless-audio", "yes", false);
+    m_config_set_option0(mpctx->mconfig, "benchmark", "yes", false);
+
+    // default osd level 0
+    if (opts->osd_level < 0)
+        m_config_set_option0(mpctx->mconfig, "osdlevel", "0", false);
+} else {
+    // default osd level 1
+    if (opts->osd_level < 0)
+        m_config_set_option0(mpctx->mconfig, "osdlevel", "1", false);
+}
+#endif
 
     // We must enable getch2 here to be able to interrupt network connection
     // or cache filling
@@ -5150,6 +5219,11 @@ goto_next_file:  // don't jump here after ao/vo/getch initialization!
         if (!mpctx->playtree_iter)
             mpctx->filename = NULL;
         mpctx->stop_play = 0;
+
+#ifdef CONFIG_ENCODING
+    encode_lavc_discontinuity(mpctx->encode_lavc_ctx);
+#endif
+
         goto play_next_file;
     }
 

@@ -80,6 +80,7 @@ struct ao {
     bool untimed;
     const struct ao_driver *driver;
     void *priv;
+    struct encode_lavc_context *encode_lavc_ctx;
 };
 
 extern char *ao_subdevice;

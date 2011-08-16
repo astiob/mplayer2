@@ -222,6 +222,7 @@ typedef struct MPContext {
     unsigned char *nav_start;    ///< pointer to last read video buffer
     int            nav_in_size;  ///< last read size
 #endif
+    struct encode_lavc_context *encode_lavc_ctx;
 } MPContext;
 
 
