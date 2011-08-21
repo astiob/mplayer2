@@ -6027,6 +6027,7 @@ if test "$ffmpeg" = auto ; then
     die "Unable to find development files for some of the FFmpeg libraries above. Aborting. If you really mean to compile without FFmpeg support use --disable-ffmpeg."
   fi
 fi
+echores "$ffmpeg"
 
 ffmpeg_eval_api=no
 encoding=no
@@ -6039,15 +6040,16 @@ if test "$ffmpeg" = yes; then
     ffmpeg_eval_api=yes
     def_ffmpeg_eval_api="#define CONFIG_FFMPEG_EVAL_API 1"
   fi
-  if $_pkg_config --atleast-version=53.2.0 libavformat ; then
+  echocheck "Encoding support (new enough libavcodec/libavformat)"
+  if $_pkg_config --exists --print-errors 'libavformat >= 53.2.0' 'libavcodec >= 53.6.0' ; then
     encoding=yes
     def_encoding="#define CONFIG_ENCODING 1"
   fi
+  echores "$encoding"
 else
   def_ffmpeg='#undef CONFIG_FFMPEG'
   nocodecmodules="ffmpeg $nocodecmodules"
 fi
-echores "$ffmpeg"
 
 def_ffmpeg_internals="#undef CONFIG_FFMPEG_INTERNALS"
 if ! test -z "$_ffmpeg_source" ; then
