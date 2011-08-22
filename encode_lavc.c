@@ -450,10 +450,6 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
 
         ctx->aoptions = NULL;
 
-        // libx264: default to preset=medium
-        if (!strcmp(ctx->vc->name, "libx264"))
-            set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "preset=medium", "=", "");
-
         if (ctx->options->aopts)
             for (p = ctx->options->aopts; *p; ++p)
                 if (set_to_avdictionary(stream->codec, &ctx->aoptions, dummy,
