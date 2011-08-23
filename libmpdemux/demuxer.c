@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <unistd.h>
 
 #include <sys/types.h>
@@ -176,7 +177,7 @@ const demuxer_desc_t *const demuxer_list[] = {
     NULL
 };
 
-struct demux_packet *new_demux_packet(size_t len)
+static struct demux_packet *create_packet(size_t len)
 {
     if (len > 1000000000) {
         mp_msg(MSGT_DEMUXER, MSGL_FATAL, "Attempt to allocate demux packet "
@@ -194,12 +195,27 @@ struct demux_packet *new_demux_packet(size_t len)
     dp->refcount = 1;
     dp->master = NULL;
     dp->buffer = NULL;
+    dp->avpacket = NULL;
+    return dp;
+}
+
+struct demux_packet *new_demux_packet(size_t len)
+{
+    struct demux_packet *dp = create_packet(len);
     dp->buffer = malloc(len + MP_INPUT_BUFFER_PADDING_SIZE);
     if (!dp->buffer) {
         mp_msg(MSGT_DEMUXER, MSGL_FATAL, "Memory allocation failure!\n");
         abort();
     }
     memset(dp->buffer + len, 0, 8);
+    return dp;
+}
+
+// data must already have suitable padding
+struct demux_packet *new_demux_packet_fromdata(void *data, size_t len)
+{
+    struct demux_packet *dp = create_packet(len);
+    dp->buffer = data;
     return dp;
 }
 
@@ -237,7 +253,10 @@ void free_demux_packet(struct demux_packet *dp)
     if (dp->master == NULL) {  //dp is a master packet
         dp->refcount--;
         if (dp->refcount == 0) {
-            free(dp->buffer);
+            if (dp->avpacket)
+                talloc_free(dp->avpacket);
+            else
+                free(dp->buffer);
             free(dp);
         }
         return;
@@ -826,6 +845,15 @@ int ds_get_packet_sub(demux_stream_t *ds, unsigned char **start)
     *start = &ds->buffer[ds->buffer_pos];
     ds->buffer_pos += len;
     return len;
+}
+
+struct demux_packet *ds_get_packet2(struct demux_stream *ds)
+{
+    // This shouldn't get used together with partial reads
+    assert(ds->buffer_pos >= ds->buffer_size);
+    ds_fill_buffer(ds);
+    ds->buffer_pos = ds->buffer_size;
+    return ds->current;
 }
 
 double ds_get_next_pts(demux_stream_t *ds)
