@@ -27,7 +27,9 @@
 
 #include <stdint.h>
 #include <math.h>
-#include "libavutil/common.h"
+#include <assert.h>
+#include <libavutil/common.h>
+
 #include "csputils.h"
 
 /**
@@ -36,105 +38,131 @@
  * \param size size of buffer
  * \param gamma gamma value
  */
-void mp_gen_gamma_map(uint8_t *map, int size, float gamma) {
-  int i;
-  if (gamma == 1.0) {
-    for (i = 0; i < size; i++)
-      map[i] = 255 * i / (size - 1);
-    return;
-  }
-  gamma = 1.0 / gamma;
-  for (i = 0; i < size; i++) {
-    float tmp = (float)i / (size - 1.0);
-    tmp = pow(tmp, gamma);
-    if (tmp > 1.0) tmp = 1.0;
-    if (tmp < 0.0) tmp = 0.0;
-    map[i] = 255 * tmp;
-  }
+void mp_gen_gamma_map(uint8_t *map, int size, float gamma)
+{
+    if (gamma == 1.0) {
+        for (int i = 0; i < size; i++)
+            map[i] = 255 * i / (size - 1);
+        return;
+    }
+    gamma = 1.0 / gamma;
+    for (int i = 0; i < size; i++) {
+        float tmp = (float)i / (size - 1.0);
+        tmp = pow(tmp, gamma);
+        if (tmp > 1.0)
+            tmp = 1.0;
+        if (tmp < 0.0)
+            tmp = 0.0;
+        map[i] = 255 * tmp;
+    }
+}
+
+/* Fill in the Y, U, V vectors of a yuv2rgb conversion matrix
+ * based on the given luma weights of the R, G and B components (lr, lg, lb).
+ * lr+lg+lb is assumed to equal 1.
+ * This function is meant for colorspaces satisfying the following
+ * conditions (which are true for common YUV colorspaces):
+ * - The mapping from input [Y, U, V] to output [R, G, B] is linear.
+ * - Y is the vector [1, 1, 1].  (meaning input Y component maps to 1R+1G+1B)
+ * - U maps to a value with zero R and positive B ([0, x, y], y > 0;
+ *   i.e. blue and green only).
+ * - V maps to a value with zero B and positive R ([x, y, 0], x > 0;
+ *   i.e. red and green only).
+ * - U and V are orthogonal to the luma vector [lr, lg, lb].
+ * - The magnitudes of the vectors U and V are the minimal ones for which
+ *   the image of the set Y=[0...1],U=[-0.5...0.5],V=[-0.5...0.5] under the
+ *   conversion function will cover the set R=[0...1],G=[0...1],B=[0...1]
+ *   (the resulting matrix can be converted for other input/output ranges
+ *   outside this function).
+ * Under these conditions the given parameters lr, lg, lb uniquely
+ * determine the mapping of Y, U, V to R, G, B.
+ */
+static void luma_coeffs(float m[3][4], float lr, float lg, float lb)
+{
+    assert(fabs(lr+lg+lb - 1) < 1e-6);
+    m[0][0] = m[1][0] = m[2][0] = 1;
+    m[0][1] = 0;
+    m[1][1] = -2 * (1-lb) * lb/lg;
+    m[2][1] = 2 * (1-lb);
+    m[0][2] = 2 * (1-lr);
+    m[1][2] = -2 * (1-lr) * lr/lg;
+    m[2][2] = 0;
+    // Constant coefficients (m[x][3]) not set here
 }
 
 /**
  * \brief get the coefficients of the yuv -> rgb conversion matrix
- * \param params struct specifying the properties of the conversion like brightness, ...
- * \param yuv2rgb array to store coefficients into
- *
- * Note: contrast, hue and saturation will only work as expected with YUV formats,
- * not with e.g. MP_CSP_XYZ
+ * \param params struct specifying the properties of the conversion like
+ *  brightness, ...
+ * \param m array to store coefficients into
  */
-void mp_get_yuv2rgb_coeffs(struct mp_csp_params *params, float yuv2rgb[3][4]) {
-  float depth_multiplier = params->input_shift >= 0 ?
-                           (1 << params->input_shift) :
-                           (1.0 / (1 << -params->input_shift));
-  float uvcos = params->saturation * cos(params->hue);
-  float uvsin = params->saturation * sin(params->hue);
-  int format = params->format;
-  int levelconv = params->levelconv;
-  int i;
-  const float (*uv_coeffs)[3];
-  const float *level_adjust;
-  static const float yuv_level_adjust[MP_CSP_LEVELCONV_COUNT][4] = {
-    {-16 / 255.0, -128 / 255.0, -128 / 255.0, 1.164},
-    { 16 / 255.0 * 1.164, -128 / 255.0, -128 / 255.0, 1.0/1.164},
-    { 0, -128 / 255.0, -128 / 255.0, 1},
-  };
-  static const float xyz_level_adjust[4] = {0, 0, 0, 0};
-  static const float uv_coeffs_table[MP_CSP_COUNT][3][3] = {
-    [MP_CSP_DEFAULT] = {
-      {1,  0.000,  1.596},
-      {1, -0.391, -0.813},
-      {1,  2.018,  0.000}
-    },
-    [MP_CSP_BT_601] = {
-      {1,  0.000,  1.403},
-      {1, -0.344, -0.714},
-      {1,  1.773,  0.000}
-    },
-    [MP_CSP_BT_709] = {
-      {1,  0.0000,  1.5701},
-      {1, -0.1870, -0.4664},
-      {1,  1.8556,  0.0000}
-    },
-    [MP_CSP_SMPTE_240M] = {
-      {1,  0.0000,  1.5756},
-      {1, -0.2253, -0.5000},
-      {1,  1.8270,  0.0000}
-    },
-    [MP_CSP_EBU] = {
-      {1,  0.000,  1.140},
-      {1, -0.396, -0.581},
-      {1,  2.029,  0.000}
-    },
-    [MP_CSP_XYZ] = {
-      { 3.2404542, -1.5371385, -0.4985314},
-      {-0.9692660,  1.8760108,  0.0415560},
-      { 0.0556434, -0.2040259,  1.0572252}
-    },
-  };
+void mp_get_yuv2rgb_coeffs(struct mp_csp_params *params, float m[3][4])
+{
+    int format = params->format;
+    if (format <= MP_CSP_DEFAULT || format >= MP_CSP_COUNT)
+        format = MP_CSP_BT_601;
+    switch (format) {
+    case MP_CSP_BT_601:     luma_coeffs(m, 0.299,  0.587,  0.114 ); break;
+    case MP_CSP_BT_709:     luma_coeffs(m, 0.2126, 0.7152, 0.0722); break;
+    case MP_CSP_SMPTE_240M: luma_coeffs(m, 0.2122, 0.7013, 0.0865); break;
+    default:
+        abort();
+    };
 
-  if (format < 0 || format >= MP_CSP_COUNT)
-    format = MP_CSP_DEFAULT;
-  uv_coeffs = uv_coeffs_table[format];
-  if (levelconv < 0 || levelconv >= MP_CSP_LEVELCONV_COUNT)
-    levelconv = MP_CSP_LEVELCONV_TV_TO_PC;
-  level_adjust = yuv_level_adjust[levelconv];
-  if (format == MP_CSP_XYZ)
-    level_adjust = xyz_level_adjust;
+    // Hue is equivalent to rotating input [U, V] subvector around the origin.
+    // Saturation scales [U, V].
+    float huecos = params->saturation * cos(params->hue);
+    float huesin = params->saturation * sin(params->hue);
+    for (int i = 0; i < 3; i++) {
+        float u = m[i][COL_U];
+        m[i][COL_U] = huecos * u - huesin * m[i][COL_V];
+        m[i][COL_V] = huesin * u + huecos * m[i][COL_V];
+    }
 
-  for (i = 0; i < 3; i++) {
-    yuv2rgb[i][COL_C]  = params->brightness;
-    yuv2rgb[i][COL_Y]  = uv_coeffs[i][COL_Y] * level_adjust[COL_C] * params->contrast;
-    yuv2rgb[i][COL_C] += level_adjust[COL_Y] * yuv2rgb[i][COL_Y];
-    yuv2rgb[i][COL_U]  = uv_coeffs[i][COL_U] * uvcos + uv_coeffs[i][COL_V] * uvsin;
-    yuv2rgb[i][COL_C] += level_adjust[COL_U] * yuv2rgb[i][COL_U];
-    yuv2rgb[i][COL_V]  = uv_coeffs[i][COL_U] * uvsin + uv_coeffs[i][COL_V] * uvcos;
-    yuv2rgb[i][COL_C] += level_adjust[COL_V] * yuv2rgb[i][COL_V];
-    // this "centers" contrast control so that e.g. a contrast of 0
-    // leads to a grey image, not a black one
-    yuv2rgb[i][COL_C] += 0.5 - params->contrast / 2.0;
-    yuv2rgb[i][COL_Y] *= depth_multiplier;
-    yuv2rgb[i][COL_U] *= depth_multiplier;
-    yuv2rgb[i][COL_V] *= depth_multiplier;
-  }
+    int levelconv = params->levelconv;
+    if (levelconv < 0 || levelconv >= MP_CSP_LEVELCONV_COUNT)
+        levelconv = MP_CSP_LEVELCONV_TV_TO_PC;
+    // The values below are written in 0-255 scale
+    struct yuvlevels { double ymin, ymax, cmin, cmid; }
+        yuvlim =  { 16, 235, 16, 128 },
+        yuvfull = { 16, 235,  1, 128 },  // '1' to make it symmetric around 128
+        yuvlev;
+    struct rgblevels { double min, max; }
+        rgblim =  { 16, 235 },
+        rgbfull = {  0, 255 },
+        rgblev;
+    switch (levelconv) {
+    case MP_CSP_LEVELCONV_TV_TO_PC: yuvlev = yuvlim; rgblev = rgbfull; break;
+    case MP_CSP_LEVELCONV_PC_TO_TV: yuvlev = yuvfull; rgblev = rgblim; break;
+    case MP_CSP_LEVELCONV_TV_TO_TV: yuvlev = yuvlim; rgblev = rgblim; break;
+    default:
+        abort();
+    }
+    double ymul = (rgblev.max - rgblev.min) / (yuvlev.ymax - yuvlev.ymin);
+    double cmul = (rgblev.max - rgblev.min) / (yuvlev.cmid - yuvlev.cmin) / 2;
+    for (int i = 0; i < 3; i++) {
+        m[i][COL_Y] *= ymul;
+        m[i][COL_U] *= cmul;
+        m[i][COL_V] *= cmul;
+        // Set COL_C so that Y=umin,UV=cmid maps to RGB=min (black to black)
+        m[i][COL_C] = (rgblev.min - m[i][COL_Y] * yuvlev.ymin
+                       -(m[i][COL_U] + m[i][COL_V]) * yuvlev.cmid) / 255;
+    }
+
+    // Brightness adds a constant to output R,G,B.
+    // Contrast scales Y around 1/2 (not 0 in this implementation).
+    for (int i = 0; i < 3; i++) {
+        m[i][COL_C] += params->brightness;
+        m[i][COL_Y] *= params->contrast;
+        m[i][COL_C] += (rgblev.max-rgblev.min)/255 * (1 - params->contrast)/2;
+    }
+
+    float depth_multiplier = params->input_shift >= 0 ?
+                             (1 << params->input_shift) :
+                             (1.0 / (1 << -params->input_shift));
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            m[i][j] *= depth_multiplier;
 }
 
 //! size of gamma map use to avoid slow exp function in gen_yuv2rgb_map
@@ -145,33 +173,35 @@ void mp_get_yuv2rgb_coeffs(struct mp_csp_params *params, float yuv2rgb[3][4]) {
  * \param map where to store map. Must provide space for (size + 2)^3 elements
  * \param size size of the map, excluding border
  */
-void mp_gen_yuv2rgb_map(struct mp_csp_params *params, unsigned char *map, int size) {
-  int i, j, k, l;
-  float step = 1.0 / size;
-  float y, u, v;
-  float yuv2rgb[3][4];
-  unsigned char gmaps[3][GMAP_SIZE];
-  mp_gen_gamma_map(gmaps[0], GMAP_SIZE, params->rgamma);
-  mp_gen_gamma_map(gmaps[1], GMAP_SIZE, params->ggamma);
-  mp_gen_gamma_map(gmaps[2], GMAP_SIZE, params->bgamma);
-  mp_get_yuv2rgb_coeffs(params, yuv2rgb);
-  for (i = 0; i < 3; i++)
-    for (j = 0; j < 4; j++)
-      yuv2rgb[i][j] *= GMAP_SIZE - 1;
-  v = 0;
-  for (i = -1; i <= size; i++) {
-    u = 0;
-    for (j = -1; j <= size; j++) {
-      y = 0;
-      for (k = -1; k <= size; k++) {
-        for (l = 0; l < 3; l++) {
-          float rgb = yuv2rgb[l][COL_Y] * y + yuv2rgb[l][COL_U] * u + yuv2rgb[l][COL_V] * v + yuv2rgb[l][COL_C];
-          *map++ = gmaps[l][av_clip(rgb, 0, GMAP_SIZE - 1)];
+void mp_gen_yuv2rgb_map(struct mp_csp_params *params, unsigned char *map, int size)
+{
+    int i, j, k, l;
+    float step = 1.0 / size;
+    float y, u, v;
+    float yuv2rgb[3][4];
+    unsigned char gmaps[3][GMAP_SIZE];
+    mp_gen_gamma_map(gmaps[0], GMAP_SIZE, params->rgamma);
+    mp_gen_gamma_map(gmaps[1], GMAP_SIZE, params->ggamma);
+    mp_gen_gamma_map(gmaps[2], GMAP_SIZE, params->bgamma);
+    mp_get_yuv2rgb_coeffs(params, yuv2rgb);
+    for (i = 0; i < 3; i++)
+        for (j = 0; j < 4; j++)
+            yuv2rgb[i][j] *= GMAP_SIZE - 1;
+    v = 0;
+    for (i = -1; i <= size; i++) {
+        u = 0;
+        for (j = -1; j <= size; j++) {
+            y = 0;
+            for (k = -1; k <= size; k++) {
+                for (l = 0; l < 3; l++) {
+                    float rgb = yuv2rgb[l][COL_Y] * y + yuv2rgb[l][COL_U] * u +
+                                yuv2rgb[l][COL_V] * v + yuv2rgb[l][COL_C];
+                    *map++ = gmaps[l][av_clip(rgb, 0, GMAP_SIZE - 1)];
+                }
+                y += (k == -1 || k == size - 1) ? step / 2 : step;
+            }
+            u += (j == -1 || j == size - 1) ? step / 2 : step;
         }
-        y += (k == -1 || k == size - 1) ? step / 2 : step;
-      }
-      u += (j == -1 || j == size - 1) ? step / 2 : step;
+        v += (i == -1 || i == size - 1) ? step / 2 : step;
     }
-    v += (i == -1 || i == size - 1) ? step / 2 : step;
-  }
 }

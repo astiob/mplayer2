@@ -1142,7 +1142,7 @@ void add_subtitles(struct MPContext *mpctx, char *filename, float fps,
         if (!asst) {
             subd = sub_read_file(filename, fps, &mpctx->opts);
             if (subd) {
-                asst = mp_ass_read_subdata(mpctx->ass_library, subd, fps);
+                asst = mp_ass_read_subdata(mpctx->ass_library, opts, subd, fps);
                 sub_free(subd);
                 subd = NULL;
             }
@@ -4220,7 +4220,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_ASS
-    mpctx->ass_library = mp_ass_init();
+    mpctx->ass_library = mp_ass_init(opts);
     mpctx->osd->ass_library = mpctx->ass_library;
 #endif
 
@@ -4762,7 +4762,7 @@ goto_enable_cache:
             struct demuxer *d = mpctx->sources[j].demuxer;
             for (int i = 0; i < d->num_attachments; i++) {
                 struct demux_attachment *att = d->attachments + i;
-                if (use_embedded_fonts && attachment_is_font(att))
+                if (opts->use_embedded_fonts && attachment_is_font(att))
                     ass_add_font(mpctx->ass_library, att->name, att->data,
                                  att->data_size);
             }
@@ -4851,7 +4851,6 @@ goto_enable_cache:
     mpctx->sh_video = mpctx->d_video->sh;
 
     if (mpctx->sh_video) {
-
         current_module = "video_read_properties";
         if (!video_read_properties(mpctx->sh_video)) {
             mp_tmsg(MSGT_CPLAYER, MSGL_ERR, "Video: Cannot read properties.\n");
@@ -4861,20 +4860,16 @@ goto_enable_cache:
                     "size:%dx%d  fps:%5.3f  ftime:=%6.4f\n",
                     mpctx->demuxer->file_format, mpctx->sh_video->format,
                     mpctx->sh_video->disp_w, mpctx->sh_video->disp_h,
-                    mpctx->sh_video->fps, mpctx->sh_video->frametime
-                    );
-
-            /* need to set fps here for output encoders to pick it up in their init */
+                    mpctx->sh_video->fps, mpctx->sh_video->frametime);
             if (force_fps) {
                 mpctx->sh_video->fps = force_fps;
                 mpctx->sh_video->frametime = 1.0f / mpctx->sh_video->fps;
             }
             vo_fps = mpctx->sh_video->fps;
 
-            if (!mpctx->sh_video->fps && !force_fps) {
+            if (!mpctx->sh_video->fps && !force_fps && !opts->correct_pts) {
                 mp_tmsg(MSGT_CPLAYER, MSGL_ERR, "FPS not specified in the "
                         "header or invalid, use the -fps option.\n");
-                mpctx->opts.correct_pts = 1;
             }
         }
 
