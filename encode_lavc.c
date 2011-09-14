@@ -394,6 +394,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
+        avcodec_get_context_defaults3(stream->codec, ctx->vc);
 
         // stream->time_base = ctx->timebase;
         // doing this breaks mpeg2ts in ffmpeg
@@ -440,6 +441,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
+        avcodec_get_context_defaults3(stream->codec, ctx->ac);
 
         stream->codec->codec_id = ctx->ac->id;
         stream->codec->time_base = ctx->timebase;
