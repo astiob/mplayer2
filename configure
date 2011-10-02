@@ -2054,7 +2054,6 @@ if test -z "$CFLAGS" ; then
   else
     CFLAGS="-O2 $_debug $_profile $_march $_mcpu $_pipe -ffast-math -fomit-frame-pointer"
     WARNFLAGS="-Wall -Wno-switch -Wno-parentheses -Wpointer-arith -Wredundant-decls"
-    ERRORFLAGS="-Werror-implicit-function-declaration"
     extra_ldflags="$extra_ldflags -ffast-math"
   fi
 else
