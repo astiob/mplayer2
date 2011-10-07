@@ -946,7 +946,7 @@ const m_option_t mplayer_opts[]={
     {"help", (void *) help_text, CONF_TYPE_PRINT, CONF_NOCFG|CONF_GLOBAL, 0, 0, NULL},
     {"h", (void *) help_text, CONF_TYPE_PRINT, CONF_NOCFG|CONF_GLOBAL, 0, 0, NULL},
 
-#ifdef CONFIG_ENCODING
+    OPT_START_CONDITIONAL(CONFIG_ENCODING, "encoding support"),
     OPT_STRING("o", encode_output.file, CONF_GLOBAL),
     OPT_STRING("of", encode_output.format, CONF_GLOBAL),
     OPT_STRINGLIST("ofopts*", encode_output.fopts, CONF_GLOBAL),
@@ -961,7 +961,7 @@ const m_option_t mplayer_opts[]={
     OPT_MAKE_FLAGS("ocopyts", encode_output.copyts, CONF_GLOBAL),
     OPT_MAKE_FLAGS("oautofps", encode_output.autofps, CONF_GLOBAL),
     OPT_MAKE_FLAGS("oneverdrop", encode_output.neverdrop, CONF_GLOBAL),
-#endif
+    OPT_START_CONDITIONAL(1, ""),
 
     {NULL, NULL, 0, 0, 0, 0, NULL}
 };
