@@ -407,6 +407,11 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
 
         dummy = avcodec_alloc_context3(ctx->vc);
         dummy->codec = ctx->vc; // FIXME remove this once we can, caused by a bug in libav, elenril is aware of this
+        // FIXME:
+        // currently, to eradicate this dummy:
+        // add here: stream->codec->codec = ctx->vc; // SAME PROBLEM AS ABOVE
+        // replace dummy by stream->codec
+        // at the end of this block: stream->codec->codec = NULL; // OR SEGV LATER
 
         ctx->voptions = NULL;
 
@@ -449,6 +454,11 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
 
         dummy = avcodec_alloc_context3(ctx->ac);
         dummy->codec = ctx->ac; // FIXME remove this once we can, caused by a bug in libav, elenril is aware of this
+        // FIXME:
+        // currently, to eradicate this dummy:
+        // add here: stream->codec->codec = ctx->ac; // SAME PROBLEM AS ABOVE
+        // replace dummy by stream->codec
+        // at the end of this block: stream->codec->codec = NULL; // OR SEGV LATER
 
         ctx->aoptions = NULL;
 
