@@ -502,10 +502,6 @@ int encode_lavc_open_codec(struct encode_lavc_context *ctx, AVStream *stream)
 
     switch (stream->codec->codec_type) {
         case AVMEDIA_TYPE_VIDEO:
-            for (de = NULL; (de = av_dict_get(ctx->voptions, "", de,
-                                              AV_DICT_IGNORE_SUFFIX));)
-                av_log(ctx->avc, AV_LOG_ERROR, "v: %s -> %s\n", de->key, de->value);
-
             ret = avcodec_open2(stream->codec, ctx->vc, &ctx->voptions);
 
             // complain about all remaining options, then free the dict
@@ -516,10 +512,6 @@ int encode_lavc_open_codec(struct encode_lavc_context *ctx, AVStream *stream)
 
             break;
         case AVMEDIA_TYPE_AUDIO:
-            for (de = NULL; (de = av_dict_get(ctx->voptions, "", de,
-                                              AV_DICT_IGNORE_SUFFIX));)
-                av_log(ctx->avc, AV_LOG_ERROR, "a: %s -> %s\n", de->key, de->value);
-
             ret = avcodec_open2(stream->codec, ctx->ac, &ctx->aoptions);
 
             // complain about all remaining options, then free the dict
