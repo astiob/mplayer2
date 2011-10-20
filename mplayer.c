@@ -16,9 +16,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-/// \file
-/// \ingroup Properties Command2Property OSDMsgStack
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -745,8 +742,8 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
     uninit_player(mpctx, INITIALIZED_ALL);
 
 #ifdef CONFIG_ENCODING
-encode_lavc_finish(mpctx->encode_lavc_ctx);
-mpctx->encode_lavc_ctx = NULL;
+    encode_lavc_finish(mpctx->encode_lavc_ctx);
+    mpctx->encode_lavc_ctx = NULL;
 #endif
 
 #if defined(__MINGW32__) || defined(__CYGWIN__)
@@ -1142,7 +1139,7 @@ void add_subtitles(struct MPContext *mpctx, char *filename, float fps,
         if (!asst) {
             subd = sub_read_file(filename, fps, &mpctx->opts);
             if (subd) {
-                asst = mp_ass_read_subdata(mpctx->ass_library, subd, fps);
+                asst = mp_ass_read_subdata(mpctx->ass_library, opts, subd, fps);
                 sub_free(subd);
                 subd = NULL;
             }
@@ -1341,46 +1338,53 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
         saddf(line, &pos, width, "A-V:%7.3f ct:%7.3f ",
               mpctx->last_av_difference, mpctx->total_avsync_change);
 
-  float position = (get_current_time(mpctx) - opts->seek_to_sec) / (get_time_length(mpctx) - opts->seek_to_sec);
-  if (end_at.type == END_AT_TIME)
-    position = max(position, (get_current_time(mpctx) - opts->seek_to_sec) / (end_at.pos - opts->seek_to_sec));
-  if (play_n_frames_mf)
-    position = max(position, 1.0 - play_n_frames / (double) play_n_frames_mf);
+    float position = (get_current_time(mpctx) - opts->seek_to_sec) /
+                     (get_time_length(mpctx) - opts->seek_to_sec);
+    if (end_at.type == END_AT_TIME)
+        position = max(position, (get_current_time(mpctx) - opts->seek_to_sec)
+                               / (end_at.pos - opts->seek_to_sec));
+    if (play_n_frames_mf)
+        position = max(position,
+                       1.0 - play_n_frames / (double) play_n_frames_mf);
 #ifdef CONFIG_ENCODING
-  char lavcbuf[80];
-  if (encode_lavc_getstatus(mpctx->encode_lavc_ctx, lavcbuf, sizeof(lavcbuf), position, get_current_time(mpctx) - opts->seek_to_sec) >= 0) {
-    // encoding stats
-    saddf(line, &pos, width, "%s ", lavcbuf);
-  } else
+    char lavcbuf[80];
+    if (encode_lavc_getstatus(mpctx->encode_lavc_ctx, lavcbuf, sizeof(lavcbuf),
+            position, get_current_time(mpctx) - opts->seek_to_sec) >= 0) {
+        // encoding stats
+        saddf(line, &pos, width, "%s ", lavcbuf);
+    } else
 #endif
-         {
-    // Video stats
-    if (sh_video)
-        saddf(line, &pos, width, "%3d/%3d ",
-              (int)sh_video->num_frames,
-              (int)sh_video->num_frames_decoded);
+    {
+        // Video stats
+        if (sh_video)
+            saddf(line, &pos, width, "%3d/%3d ",
+                  (int)sh_video->num_frames,
+                  (int)sh_video->num_frames_decoded);
 
-    // CPU usage
-    if (sh_video) {
-        if (sh_video->timer > 0.5)
-            saddf(line, &pos, width, "%2d%% %2d%% %4.1f%% ",
-                  (int)(100.0 * video_time_usage * opts->playback_speed / (double)sh_video->timer),
-                  (int)(100.0 * vout_time_usage * opts->playback_speed / (double)sh_video->timer),
-                  (100.0 * audio_time_usage * opts->playback_speed / (double)sh_video->timer));
-        else
-            saddf(line, &pos, width, "??%% ??%% ??,?%% ");
-    } else if (mpctx->sh_audio) {
-        if (mpctx->delay > 0.5)
-            saddf(line, &pos, width, "%4.1f%% ",
-                  100.0 * audio_time_usage / (double)mpctx->delay);
-        else
-            saddf(line, &pos, width, "??,?%% ");
+        // CPU usage
+        if (sh_video) {
+            if (sh_video->timer > 0.5)
+                saddf(line, &pos, width, "%2d%% %2d%% %4.1f%% ",
+                      (int)(100.0 * video_time_usage * opts->playback_speed /
+                            (double)sh_video->timer),
+                      (int)(100.0 * vout_time_usage * opts->playback_speed /
+                            (double)sh_video->timer),
+                      (100.0 * audio_time_usage * opts->playback_speed /
+                            (double)sh_video->timer));
+            else
+                saddf(line, &pos, width, "??%% ??%% ??,?%% ");
+        } else if (mpctx->sh_audio) {
+            if (mpctx->delay > 0.5)
+                saddf(line, &pos, width, "%4.1f%% ",
+                      100.0 * audio_time_usage / (double)mpctx->delay);
+            else
+                saddf(line, &pos, width, "??,?%% ");
+        }
+
+        // VO stats
+        if (sh_video)
+            saddf(line, &pos, width, "%d %d ", drop_frame_cnt, output_quality);
     }
-
-    // VO stats
-    if (sh_video)
-        saddf(line, &pos, width, "%d %d ", drop_frame_cnt, output_quality);
-  }
 
 #ifdef CONFIG_STREAM_CACHE
     // cache stats
@@ -1820,9 +1824,6 @@ static void update_osd_msg(struct MPContext *mpctx)
     }
 }
 
-///@}
-// OSDMsgStack
-
 
 void reinit_audio_chain(struct MPContext *mpctx)
 {
@@ -1900,10 +1901,6 @@ init_error:
     mpctx->sh_audio = mpctx->d_audio->sh = NULL; // -> nosound
     mpctx->d_audio->id = -2;
 }
-
-
-///@}
-// Command2Property
 
 
 // Return pts value corresponding to the end point of audio written to the
@@ -2745,9 +2742,7 @@ int reinit_video_chain(struct MPContext *mpctx)
         //shouldn't we set dvideo->id=-2 when we fail?
         //if((mpctx->video_out->preinit(vo_subdevice))!=0){
         if (!(mpctx->video_out = init_best_video_out(opts, mpctx->x11_state,
-                                                     mpctx->key_fifo,
-                                                     mpctx->input,
-                                                     mpctx->encode_lavc_ctx))) {
+                mpctx->key_fifo, mpctx->input, mpctx->encode_lavc_ctx))) {
             mp_tmsg(MSGT_CPLAYER, MSGL_FATAL, "Error opening/initializing "
                     "the selected video_out (-vo) device.\n");
             goto err_out;
@@ -3568,7 +3563,7 @@ static void run_playloop(struct MPContext *mpctx)
         reinit_audio_chain(mpctx);
     }
 
-/*========================== PLAY AUDIO ============================*/
+    /*========================== PLAY AUDIO ============================*/
 
     if (!mpctx->sh_video)
         mpctx->restart_playback = false;
@@ -3632,7 +3627,7 @@ static void run_playloop(struct MPContext *mpctx)
         }
     } else {
 
-/*========================== PLAY VIDEO ============================*/
+        /*========================== PLAY VIDEO ============================*/
 
         vo_pts = mpctx->sh_video->timer * 90000.0;
         vo_fps = mpctx->sh_video->fps;
@@ -3669,7 +3664,7 @@ static void run_playloop(struct MPContext *mpctx)
             }
         }
 
-// ==========================================================================
+        // ================================================================
 
         current_module = "vo_check_events";
         vo_check_events(mpctx->video_out);
@@ -3694,7 +3689,7 @@ static void run_playloop(struct MPContext *mpctx)
                                                            full_audio_buffers,
                                                            &aq_sleep_time);
 
-//====================== FLIP PAGE (VIDEO BLT): =========================
+        //=================== FLIP PAGE (VIDEO BLT): ======================
 
         current_module = "flip_page";
         if (!frame_time_remaining && blit_frame) {
@@ -3759,9 +3754,6 @@ static void run_playloop(struct MPContext *mpctx)
         } else
             print_status(mpctx, MP_NOPTS_VALUE, false);
 
-//============================ Auto QUALITY ============================
-
-/*Output quality adjustments:*/
         if (opts->auto_quality > 0) {
             current_module = "autoq";
             if (output_quality < opts->auto_quality && aq_sleep_time > 0)
@@ -3786,7 +3778,7 @@ static void run_playloop(struct MPContext *mpctx)
             }
         }
 
-// FIXME: add size based support for -endpos
+        // FIXME: add size based support for -endpos
         if (end_at.type == END_AT_TIME &&
             !frame_time_remaining && end_at.pos <= mpctx->sh_video->pts)
             mpctx->stop_play = PT_NEXT_ENTRY;
@@ -3817,7 +3809,7 @@ static void run_playloop(struct MPContext *mpctx)
     }
 #endif
 
-//================= Keyboard events, SEEKing ====================
+    //================= Keyboard events, SEEKing ====================
 
     current_module = "key_events";
 
@@ -3857,8 +3849,8 @@ static void run_playloop(struct MPContext *mpctx)
         pause_loop(mpctx);
     }
 
-// handle -sstep
-    if (step_sec > 0 && !mpctx->paused) {
+    // handle -sstep
+    if (step_sec > 0 && !mpctx->paused && !mpctx->restart_playback) {
         mpctx->osd_function = OSD_FFW;
         queue_seek(mpctx, MPSEEK_RELATIVE, step_sec, 0);
     }
@@ -3958,6 +3950,7 @@ static void print_version(const char *name)
     mp_msg(MSGT_CPLAYER, MSGL_V, "\n");
 #endif /* CONFIG_RUNTIME_CPUDETECT */
 #endif /* ARCH_X86 */
+    print_libav_versions();
 }
 
 #ifdef PTW32_STATIC_LIB
@@ -4215,7 +4208,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_ASS
-    mpctx->ass_library = mp_ass_init();
+    mpctx->ass_library = mp_ass_init(opts);
     mpctx->osd->ass_library = mpctx->ass_library;
 #endif
 
@@ -4263,15 +4256,15 @@ int main(int argc, char *argv[])
     current_module = "init_input";
 
 #ifdef CONFIG_ENCODING
-if (opts->encode_output.file) {
-    // default console controls off
-    if (opts->consolecontrols < 0)
-        m_config_set_option0(mpctx->mconfig, "consolecontrols", "no", false);
-} else {
-    // default console controls on
-    if (opts->consolecontrols < 0)
-        m_config_set_option0(mpctx->mconfig, "consolecontrols", "yes", false);
-}
+    if (opts->encode_output.file) {
+        // default console controls off
+        if (opts->consolecontrols < 0)
+            m_config_set_option0(mpctx->mconfig, "consolecontrols", "no", false);
+    } else {
+        // default console controls on
+        if (opts->consolecontrols < 0)
+            m_config_set_option0(mpctx->mconfig, "consolecontrols", "yes", false);
+    }
 #endif
 
     mpctx->input = mp_input_init(&opts->input);
@@ -4359,21 +4352,21 @@ play_next_file:
 
 // do we want to encode?
 #ifdef CONFIG_ENCODING
-if (opts->encode_output.file) {
-    m_config_set_option0(mpctx->mconfig, "vo", "lavc", false);
-    m_config_set_option0(mpctx->mconfig, "ao", "lavc", false);
-    m_config_set_option0(mpctx->mconfig, "fixed-vo", "yes", false);
-    m_config_set_option0(mpctx->mconfig, "gapless-audio", "yes", false);
-    m_config_set_option0(mpctx->mconfig, "benchmark", "yes", false);
+    if (opts->encode_output.file) {
+        m_config_set_option0(mpctx->mconfig, "vo", "lavc", false);
+        m_config_set_option0(mpctx->mconfig, "ao", "lavc", false);
+        m_config_set_option0(mpctx->mconfig, "fixed-vo", "yes", false);
+        m_config_set_option0(mpctx->mconfig, "gapless-audio", "yes", false);
+        m_config_set_option0(mpctx->mconfig, "benchmark", "yes", false);
 
-    // default osd level 0
-    if (opts->osd_level < 0)
-        m_config_set_option0(mpctx->mconfig, "osdlevel", "0", false);
-} else {
-    // default osd level 1
-    if (opts->osd_level < 0)
-        m_config_set_option0(mpctx->mconfig, "osdlevel", "1", false);
-}
+        // default osd level 0
+        if (opts->osd_level < 0)
+            m_config_set_option0(mpctx->mconfig, "osdlevel", "0", false);
+    } else {
+        // default osd level 1
+        if (opts->osd_level < 0)
+            m_config_set_option0(mpctx->mconfig, "osdlevel", "1", false);
+    }
 #endif
 
     // We must enable getch2 here to be able to interrupt network connection
@@ -4453,7 +4446,7 @@ if (opts->encode_output.file) {
             mpctx->filename = play_tree_iter_get_file(mpctx->playtree_iter, 1);
         }
     }
-//---------------------------------------------------------------------------
+
 #ifdef CONFIG_ASS
     ass_set_style_overrides(mpctx->ass_library, opts->ass_force_style_list);
 #endif
@@ -4757,7 +4750,7 @@ goto_enable_cache:
             struct demuxer *d = mpctx->sources[j].demuxer;
             for (int i = 0; i < d->num_attachments; i++) {
                 struct demux_attachment *att = d->attachments + i;
-                if (use_embedded_fonts && attachment_is_font(att))
+                if (opts->use_embedded_fonts && attachment_is_font(att))
                     ass_add_font(mpctx->ass_library, att->name, att->data,
                                  att->data_size);
             }
@@ -4846,7 +4839,6 @@ goto_enable_cache:
     mpctx->sh_video = mpctx->d_video->sh;
 
     if (mpctx->sh_video) {
-
         current_module = "video_read_properties";
         if (!video_read_properties(mpctx->sh_video)) {
             mp_tmsg(MSGT_CPLAYER, MSGL_ERR, "Video: Cannot read properties.\n");
@@ -4856,20 +4848,16 @@ goto_enable_cache:
                     "size:%dx%d  fps:%5.3f  ftime:=%6.4f\n",
                     mpctx->demuxer->file_format, mpctx->sh_video->format,
                     mpctx->sh_video->disp_w, mpctx->sh_video->disp_h,
-                    mpctx->sh_video->fps, mpctx->sh_video->frametime
-                    );
-
-            /* need to set fps here for output encoders to pick it up in their init */
+                    mpctx->sh_video->fps, mpctx->sh_video->frametime);
             if (force_fps) {
                 mpctx->sh_video->fps = force_fps;
                 mpctx->sh_video->frametime = 1.0f / mpctx->sh_video->fps;
             }
             vo_fps = mpctx->sh_video->fps;
 
-            if (!mpctx->sh_video->fps && !force_fps) {
+            if (!mpctx->sh_video->fps && !force_fps && !opts->correct_pts) {
                 mp_tmsg(MSGT_CPLAYER, MSGL_ERR, "FPS not specified in the "
                         "header or invalid, use the -fps option.\n");
-                mpctx->opts.correct_pts = 1;
             }
         }
 
@@ -5221,7 +5209,7 @@ goto_next_file:  // don't jump here after ao/vo/getch initialization!
         mpctx->stop_play = 0;
 
 #ifdef CONFIG_ENCODING
-    encode_lavc_discontinuity(mpctx->encode_lavc_ctx);
+        encode_lavc_discontinuity(mpctx->encode_lavc_ctx);
 #endif
 
         goto play_next_file;

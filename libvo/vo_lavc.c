@@ -374,7 +374,7 @@ static void draw_image(struct vo *vo, mp_image_t *mpi, double pts)
                 frame.data[i] = vc->lastimg->planes[i];
                 frame.linesize[i] = vc->lastimg->stride[i];
             }
-            frame.quality = vc->stream->quality;
+            frame.quality = avc->global_quality;
 
             size = encode_video(vo, &frame);
             write_packet(vo, size);

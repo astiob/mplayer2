@@ -394,6 +394,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
+        avcodec_get_context_defaults3(stream->codec, ctx->vc);
 
         // stream->time_base = ctx->timebase;
         // doing this breaks mpeg2ts in ffmpeg
@@ -406,6 +407,11 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
 
         dummy = avcodec_alloc_context3(ctx->vc);
         dummy->codec = ctx->vc; // FIXME remove this once we can, caused by a bug in libav, elenril is aware of this
+        // FIXME:
+        // currently, to eradicate this dummy:
+        // add here: stream->codec->codec = ctx->vc; // SAME PROBLEM AS ABOVE
+        // replace dummy by stream->codec
+        // at the end of this block: stream->codec->codec = NULL; // OR SEGV LATER
 
         ctx->voptions = NULL;
 
@@ -440,6 +446,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
+        avcodec_get_context_defaults3(stream->codec, ctx->ac);
 
         stream->codec->codec_id = ctx->ac->id;
         stream->codec->time_base = ctx->timebase;
@@ -447,6 +454,11 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
 
         dummy = avcodec_alloc_context3(ctx->ac);
         dummy->codec = ctx->ac; // FIXME remove this once we can, caused by a bug in libav, elenril is aware of this
+        // FIXME:
+        // currently, to eradicate this dummy:
+        // add here: stream->codec->codec = ctx->ac; // SAME PROBLEM AS ABOVE
+        // replace dummy by stream->codec
+        // at the end of this block: stream->codec->codec = NULL; // OR SEGV LATER
 
         ctx->aoptions = NULL;
 
@@ -502,10 +514,6 @@ int encode_lavc_open_codec(struct encode_lavc_context *ctx, AVStream *stream)
 
     switch (stream->codec->codec_type) {
         case AVMEDIA_TYPE_VIDEO:
-            for (de = NULL; (de = av_dict_get(ctx->voptions, "", de,
-                                              AV_DICT_IGNORE_SUFFIX));)
-                av_log(ctx->avc, AV_LOG_ERROR, "v: %s -> %s\n", de->key, de->value);
-
             ret = avcodec_open2(stream->codec, ctx->vc, &ctx->voptions);
 
             // complain about all remaining options, then free the dict
@@ -516,10 +524,6 @@ int encode_lavc_open_codec(struct encode_lavc_context *ctx, AVStream *stream)
 
             break;
         case AVMEDIA_TYPE_AUDIO:
-            for (de = NULL; (de = av_dict_get(ctx->voptions, "", de,
-                                              AV_DICT_IGNORE_SUFFIX));)
-                av_log(ctx->avc, AV_LOG_ERROR, "a: %s -> %s\n", de->key, de->value);
-
             ret = avcodec_open2(stream->codec, ctx->ac, &ctx->aoptions);
 
             // complain about all remaining options, then free the dict
