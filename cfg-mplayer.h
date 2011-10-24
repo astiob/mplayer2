@@ -33,6 +33,7 @@
 #include "libmpdemux/demux_ts.h"
 #include "stream/tv.h"
 #include "stream/stream_radio.h"
+#include "libvo/csputils.h"
 
 extern char *fb_mode_cfgfile;
 extern char *fb_mode_name;
@@ -445,8 +446,8 @@ const m_option_t common_opts[] = {
     {"cookies-file", &cookies_file, CONF_TYPE_STRING, 0, 0, 0, NULL},
     {"prefer-ipv4", &network_prefer_ipv4, CONF_TYPE_FLAG, 0, 0, 1, NULL},
     {"ipv4-only-proxy", &network_ipv4_only_proxy, CONF_TYPE_FLAG, 0, 0, 1, NULL},
-    {"reuse-socket", &reuse_socket, CONF_TYPE_FLAG, CONF_GLOBAL, 0, 1, NULL},
-    {"noreuse-socket", &reuse_socket, CONF_TYPE_FLAG, CONF_GLOBAL, 1, 0, NULL},
+    {"reuse-socket", &reuse_socket, CONF_TYPE_FLAG, 0, 0, 1, NULL},
+    {"noreuse-socket", &reuse_socket, CONF_TYPE_FLAG, 0, 1, 0, NULL},
 #ifdef HAVE_AF_INET6
     {"prefer-ipv6", &network_prefer_ipv4, CONF_TYPE_FLAG, 0, 1, 0, NULL},
 #else
@@ -629,7 +630,7 @@ const m_option_t common_opts[] = {
 
 #ifdef CONFIG_FFMPEG
     {"lavdopts", (void *) lavc_decode_opts_conf, CONF_TYPE_SUBCONFIG, 0, 0, 0, NULL},
-    {"lavfdopts", (void *) lavfdopts_conf, CONF_TYPE_SUBCONFIG, CONF_GLOBAL, 0, 0, NULL},
+    {"lavfdopts", (void *) lavfdopts_conf, CONF_TYPE_SUBCONFIG, 0, 0, 0, NULL},
 #endif
 #ifdef CONFIG_XVID4
     {"xvidopts", (void *)xvid_dec_opts, CONF_TYPE_SUBCONFIG, 0, 0, 0, NULL},
@@ -797,6 +798,19 @@ const m_option_t mplayer_opts[]={
     {"novsync", &vo_vsync, CONF_TYPE_FLAG, 0, 1, 0, NULL},
     {"panscan", &vo_panscan, CONF_TYPE_FLOAT, CONF_RANGE, -1.0, 1.0, NULL},
     OPT_FLOATRANGE("panscanrange", vo_panscanrange, 0, -19.0, 99.0),
+    OPT_CHOICE("colormatrix", requested_colorspace, 0,
+               ({"auto", MP_CSP_AUTO}, {"0", MP_CSP_AUTO},
+                {"BT.601", MP_CSP_BT_601}, {"sd", MP_CSP_BT_601}, {"1", MP_CSP_BT_601},
+                {"BT.709", MP_CSP_BT_709}, {"hd", MP_CSP_BT_709}, {"2", MP_CSP_BT_709},
+                {"SMPTE-240M", MP_CSP_SMPTE_240M}, {"3", MP_CSP_SMPTE_240M})),
+    OPT_CHOICE("colormatrix-input-range", requested_input_range, 0,
+               ({"auto", MP_CSP_LEVELS_AUTO},
+                {"limited", MP_CSP_LEVELS_TV},
+                {"full", MP_CSP_LEVELS_PC})),
+    OPT_CHOICE("colormatrix-output-range", requested_output_range, 0,
+               ({"auto", MP_CSP_LEVELS_AUTO},
+                {"limited", MP_CSP_LEVELS_TV},
+                {"full", MP_CSP_LEVELS_PC})),
 
     {"grabpointer", &vo_grabpointer, CONF_TYPE_FLAG, 0, 0, 1, NULL},
     {"nograbpointer", &vo_grabpointer, CONF_TYPE_FLAG, 0, 1, 0, NULL},
