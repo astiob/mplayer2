@@ -303,7 +303,6 @@ int dvdsub_lang_id;
 int vobsub_id = -1;
 static char *spudec_ifo = NULL;
 int forced_subs_only = 0;
-int file_filter = 1;
 
 // cache2:
 int stream_cache_size = -1;
@@ -338,20 +337,6 @@ char *current_module; // for debugging
 
 
 // ---
-
-#ifdef CONFIG_MENU
-#include "m_struct.h"
-#include "libmenu/menu.h"
-static const vf_info_t * const libmenu_vfs[] = {
-    &vf_info_menu,
-    NULL
-};
-static vf_instance_t *vf_menu;
-int use_menu;
-static char *menu_cfg;
-static char *menu_root = "main";
-#endif
-
 
 edl_record_ptr edl_records = NULL; ///< EDL entries memory area
 edl_record_ptr next_edl_record = NULL; ///< only for traversing edl_records
@@ -584,12 +569,20 @@ static void print_file_properties(struct MPContext *mpctx, const char *filename)
            mpctx->stream->seek
            && (!mpctx->demuxer || mpctx->demuxer->seekable));
     if (mpctx->demuxer) {
-        if (mpctx->demuxer->num_chapters == 0)
-            stream_control(mpctx->demuxer->stream,
-                           STREAM_CTRL_GET_NUM_CHAPTERS,
-                           &mpctx->demuxer->num_chapters);
-        mp_msg(MSGT_IDENTIFY, MSGL_INFO,
-               "ID_CHAPTERS=%d\n", mpctx->demuxer->num_chapters);
+        int chapter_count = get_chapter_count(mpctx);
+        mp_msg(MSGT_IDENTIFY, MSGL_INFO, "ID_CHAPTERS=%d\n", chapter_count);
+        for (int i = 0; i < chapter_count; i++) {
+            mp_msg(MSGT_IDENTIFY, MSGL_INFO, "ID_CHAPTER_ID=%d\n", i);
+            // in milliseconds
+            mp_msg(MSGT_IDENTIFY, MSGL_INFO, "ID_CHAPTER_%d_START=%"PRIu64"\n",
+                   i, (int64_t)(chapter_start_time(mpctx, i) * 1000.0));
+            char *name = chapter_name(mpctx, i);
+            if (name) {
+                mp_msg(MSGT_IDENTIFY, MSGL_INFO, "ID_CHAPTER_%d_NAME=%s\n", i,
+                       name);
+                talloc_free(name);
+            }
+        }
     }
 }
 
@@ -645,9 +638,6 @@ void uninit_player(struct MPContext *mpctx, unsigned int mask)
         if (mpctx->sh_video)
             uninit_video(mpctx->sh_video);
         mpctx->sh_video = NULL;
-#ifdef CONFIG_MENU
-        vf_menu = NULL;
-#endif
     }
 
     if (mask & INITIALIZED_DEMUXER) {
@@ -755,10 +745,6 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
 
     current_module = "uninit_input";
     mp_input_uninit(mpctx->input);
-#ifdef CONFIG_MENU
-    if (use_menu)
-        menu_uninit();
-#endif
 
 #ifdef CONFIG_FREETYPE
     current_module = "uninit_font";
@@ -2760,22 +2746,6 @@ int reinit_video_chain(struct MPContext *mpctx)
         };
         sh_video->vfilter = vf_open_filter(opts, NULL, "vo", vf_arg);
     }
-#ifdef CONFIG_MENU
-    if (use_menu) {
-        char *vf_arg[] = {
-            "_oldargs_", menu_root, NULL
-        };
-        vf_menu = vf_open_plugin(opts, libmenu_vfs, sh_video->vfilter, "menu",
-                                 vf_arg);
-        if (!vf_menu) {
-            mp_tmsg(MSGT_CPLAYER, MSGL_ERR, "Can't open libmenu video filter "
-                    "with root menu %s.\n", menu_root);
-            use_menu = 0;
-        }
-    }
-    if (vf_menu)
-        sh_video->vfilter = vf_menu;
-#endif
 
 #ifdef CONFIG_ASS
     if (opts->ass_enabled) {
@@ -3113,10 +3083,6 @@ static void pause_loop(struct MPContext *mpctx)
         }
         if (mpctx->sh_video && mpctx->video_out)
             vo_check_events(mpctx->video_out);
-#ifdef CONFIG_MENU
-        if (vf_menu)
-            vf_menu_pause_update(vf_menu);
-#endif
         usec_sleep(20000);
         update_osd_msg(mpctx);
         int hack = vo_osd_changed(0);
@@ -3506,21 +3472,50 @@ int get_current_chapter(struct MPContext *mpctx)
     return FFMAX(mpctx->last_chapter_seek, i - 1);
 }
 
-// currently returns a string allocated with malloc, not talloc
 char *chapter_display_name(struct MPContext *mpctx, int chapter)
 {
+    char *name = chapter_name(mpctx, chapter);
+    if (name) {
+        name = talloc_asprintf(name, "(%d) %s", chapter + 1, name);
+    } else {
+        int chapter_count = get_chapter_count(mpctx);
+        if (chapter_count <= 0)
+            name = talloc_asprintf(NULL, "(%d)", chapter + 1);
+        else
+            name = talloc_asprintf(NULL, "(%d) of %d", chapter + 1,
+                                   chapter_count);
+    }
+    return name;
+}
+
+// returns NULL if chapter name unavailable
+char *chapter_name(struct MPContext *mpctx, int chapter)
+{
     if (!mpctx->chapters)
-        return demuxer_chapter_display_name(mpctx->demuxer, chapter);
+        return demuxer_chapter_name(mpctx->demuxer, chapter);
     return talloc_strdup(NULL, mpctx->chapters[chapter].name);
 }
 
-int seek_chapter(struct MPContext *mpctx, int chapter, double *seek_pts,
-                 char **chapter_name)
+// returns the start of the chapter in seconds
+double chapter_start_time(struct MPContext *mpctx, int chapter)
+{
+    if (!mpctx->chapters)
+        return demuxer_chapter_time(mpctx->demuxer, chapter, NULL);
+    return mpctx->chapters[chapter].start;
+}
+
+int get_chapter_count(struct MPContext *mpctx)
+{
+    if (!mpctx->chapters)
+        return demuxer_chapter_count(mpctx->demuxer);
+    return mpctx->num_chapters;
+}
+
+int seek_chapter(struct MPContext *mpctx, int chapter, double *seek_pts)
 {
     mpctx->last_chapter_seek = -2;
     if (!mpctx->chapters) {
-        int res = demuxer_seek_chapter(mpctx->demuxer, chapter, seek_pts,
-                                       chapter_name);
+        int res = demuxer_seek_chapter(mpctx->demuxer, chapter, seek_pts);
         if (res >= 0) {
             if (*seek_pts == -1)
                 seek_reset(mpctx, true);
@@ -3539,8 +3534,6 @@ int seek_chapter(struct MPContext *mpctx, int chapter, double *seek_pts,
     *seek_pts = mpctx->chapters[chapter].start;
     mpctx->last_chapter_seek = chapter;
     mpctx->last_chapter_pts = *seek_pts;
-    if (chapter_name)
-        *chapter_name = talloc_strdup(NULL, mpctx->chapters[chapter].name);
     return chapter;
 }
 
@@ -4275,27 +4268,6 @@ int main(int argc, char *argv[])
         mp_input_add_key_fd(mpctx->input, 0, 1, read_keys, NULL, mpctx->key_fifo);
     // Set the libstream interrupt callback
     stream_set_interrupt_callback(mp_input_check_interrupt, mpctx->input);
-
-#ifdef CONFIG_MENU
-    if (use_menu) {
-        if (menu_cfg && menu_init(mpctx, mpctx->mconfig, mpctx->input, menu_cfg))
-            mp_tmsg(MSGT_CPLAYER, MSGL_V, "Menu initialized: %s\n", menu_cfg);
-        else {
-            menu_cfg = get_path("menu.conf");
-            if (menu_init(mpctx, mpctx->mconfig, mpctx->input, menu_cfg))
-                mp_tmsg(MSGT_CPLAYER, MSGL_V, "Menu initialized: %s\n", menu_cfg);
-            else {
-                if (menu_init(mpctx, mpctx->mconfig, mpctx->input,
-                              MPLAYER_CONFDIR "/menu.conf"))
-                    mp_tmsg(MSGT_CPLAYER, MSGL_V, "Menu initialized: %s\n", MPLAYER_CONFDIR "/menu.conf");
-                else {
-                    mp_tmsg(MSGT_CPLAYER, MSGL_ERR, "Menu init failed.\n");
-                    use_menu = 0;
-                }
-            }
-        }
-    }
-#endif
 
     current_module = NULL;
 
@@ -5056,7 +5028,7 @@ goto_enable_cache:
     }
     if (opts->chapterrange[0] > 0) {
         double pts;
-        if (seek_chapter(mpctx, opts->chapterrange[0] - 1, &pts, NULL) >= 0
+        if (seek_chapter(mpctx, opts->chapterrange[0] - 1, &pts) >= 0
             && pts > -1.0) {
             queue_seek(mpctx, MPSEEK_ABSOLUTE, pts, 0);
             seek(mpctx, mpctx->seek, false);

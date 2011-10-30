@@ -334,7 +334,6 @@ Optional features:
   --disable-freetype     disable FreeType 2 font rendering [autodetect]
   --disable-fontconfig   disable fontconfig font lookup [autodetect]
   --disable-unrarexec    disable using of UnRAR executable [enabled]
-  --enable-menu          enable OSD menu (not DVD menu) [disabled]
   --disable-sortsub      disable subtitle sorting [enabled]
   --enable-fribidi       enable the FriBiDi libs [autodetect]
   --disable-enca         disable ENCA charset oracle library [autodetect]
@@ -381,7 +380,6 @@ Codecs:
 
 Video output:
   --enable-gl              enable OpenGL video output [autodetect]
-  --disable-matrixview     disable OpenGL MatrixView video output [autodetect]
   --enable-dga2            enable DGA 2 support [autodetect]
   --enable-dga1            enable DGA 1 support [autodetect]
   --enable-vesa            enable VESA video output [autodetect]
@@ -496,7 +494,6 @@ Advanced options:
   --enable-profile          compile-in profiling information [disable]
   --disable-sighandler      disable sighandler for crashes [enable]
   --enable-crash-debug      enable automatic gdb attach on crash [disable]
-  --enable-dynamic-plugins  enable dynamic A/V plugins [disable]
 
 Use these options if autodetection fails:
   --extra-cflags=FLAGS        extra CFLAGS
@@ -574,7 +571,6 @@ _md5sum=yes
 _yuv4mpeg=yes
 _gif=auto
 _gl=auto
-matrixview=yes
 _ggi=auto
 _ggiwmh=auto
 _aa=auto
@@ -672,7 +668,6 @@ _bl=no
 _shm=auto
 _translation=no
 _charset="UTF-8"
-_dynamic_plugins=no
 _crash_debug=no
 _sighandler=yes
 _libdv=auto
@@ -682,7 +677,6 @@ _big_endian=auto
 _bitmap_font=yes
 _freetype=auto
 _fontconfig=auto
-_menu=no
 _qtx=auto
 _coreaudio=auto
 _corevideo=auto
@@ -843,8 +837,6 @@ for ac_option do
   --disable-cross-compile)          _cross_compile=no           ;;
   --enable-mplayer)     _mplayer=yes    ;;
   --disable-mplayer)    _mplayer=no     ;;
-  --enable-dynamic-plugins) _dynamic_plugins=yes ;;
-  --disable-dynamic-plugins) _dynamic_plugins=no ;;
   --enable-x11)         _x11=yes        ;;
   --disable-x11)        _x11=no         ;;
   --enable-xshape)      _xshape=yes     ;;
@@ -883,8 +875,6 @@ for ac_option do
   --disable-gif)        _gif=no         ;;
   --enable-gl)          _gl=yes         ;;
   --disable-gl)         _gl=no          ;;
-  --enable-matrixview)  matrixview=yes  ;;
-  --disable-matrixview) matrixview=no   ;;
   --enable-ggi)         _ggi=yes        ;;
   --disable-ggi)        _ggi=no         ;;
   --enable-ggiwmh)      _ggiwmh=yes     ;;
@@ -1117,9 +1107,6 @@ for ac_option do
   --disable-dga1) _dga1=no ;;
   --enable-dga2) _dga2=yes ;;
   --disable-dga2) _dga2=no ;;
-
-  --enable-menu) _menu=yes ;;
-  --disable-menu) _menu=no ;;
 
   --enable-qtx) _qtx=yes ;;
   --disable-qtx) _qtx=no ;;
@@ -3104,18 +3091,6 @@ fi
 echores "$_dl"
 
 
-echocheck "dynamic a/v plugins support"
-if test "$_dl" = no ; then
-  _dynamic_plugins=no
-fi
-if test "$_dynamic_plugins" = yes ; then
-  def_dynamic_plugins='#define CONFIG_DYNAMIC_PLUGINS 1'
-else
-  def_dynamic_plugins='#undef CONFIG_DYNAMIC_PLUGINS'
-fi
-echores "$_dynamic_plugins"
-
-
 def_threads='#define HAVE_THREADS 0'
 
 echocheck "pthread"
@@ -4586,20 +4561,6 @@ else
   novomodules="opengl $novomodules"
 fi
 echores "$_gl"
-
-
-echocheck "MatrixView"
-if test "$_gl" = no ; then
-  matrixview=no
-fi
-if test "$matrixview" = yes ; then
-  vomodules="matrixview $vomodules"
-  def_matrixview='#define CONFIG_MATRIXVIEW 1'
-else
-  novomodules="matrixview $novomodules"
-  def_matrixview='#undef CONFIG_MATRIXVIEW'
-fi
-echores "$matrixview"
 
 
 if os2 ; then
@@ -6430,17 +6391,6 @@ fi
 echores "$_vstream"
 
 
-echocheck "OSD menu"
-if test "$_menu" = yes ; then
-    def_menu='#define CONFIG_MENU 1'
-    test $_dvbin = "yes" && _menu_dvbin=yes
-else
-def_menu='#undef CONFIG_MENU'
-    _menu_dvbin=no
-fi
-echores "$_menu"
-
-
 echocheck "Subtitles sorting"
 if test "$_sortsub" = yes ; then
     def_sortsub='#define CONFIG_SORTSUB 1'
@@ -6741,7 +6691,6 @@ GL = $_gl
 GL_WIN32 = $_gl_win32
 GL_X11 = $_gl_x11
 GL_SDL = $_gl_sdl
-MATRIXVIEW = $matrixview
 HAVE_POSIX_SELECT = $_posix_select
 HAVE_SYS_MMAN_H = $_mman
 IVTV = $_ivtv
@@ -6759,8 +6708,6 @@ LIBDCA = $_libdca
 LIBDV = $_libdv
 LIBDVDCSS_INTERNAL = $_libdvdcss_internal
 LIBMAD = $_mad
-LIBMENU = $_menu
-LIBMENU_DVBIN = $_menu_dvbin
 LIBNEMESI = $_nemesi
 LIBNUT = $_libnut
 LIBSMBCLIENT = $_smb
@@ -6897,7 +6844,6 @@ cat > $TMPH << EOF
 
 #define MPLAYER_DATADIR "$_datadir"
 #define MPLAYER_CONFDIR "$_confdir"
-#define MPLAYER_LIBDIR "$_libdir"
 #define MPLAYER_LOCALEDIR "$_localedir"
 
 $def_translation
@@ -6982,9 +6928,7 @@ $def_unrar_exec
 $def_charset
 $def_crash_debug
 $def_debug
-$def_dynamic_plugins
 $def_fastmemcpy
-$def_menu
 $def_runtime_cpudetection
 $def_sighandler
 $def_sortsub
@@ -7153,7 +7097,6 @@ $def_gl
 $def_gl_win32
 $def_gl_x11
 $def_gl_sdl
-$def_matrixview
 $def_ivtv
 $def_jpeg
 $def_kva
@@ -7293,9 +7236,10 @@ skipping autodetection. This behavior is unlike what you may be used to from
 autoconf-based configure scripts that can decide to override you. This greater
 level of control comes at a price. You may have to provide the correct compiler
 and linker flags yourself.
-If you used one of these options (except --enable-menu and similar ones that
-turn on internal features) and experience a compilation or linking failure,
-make sure you have passed the necessary compiler/linker flags to configure.
+If you used one of these options (except --enable-runtime-cpudetection and
+similar ones that turn on internal features) and experience a compilation or
+linking failure, make sure you have passed the necessary compiler/linker flags
+to configure.
 
 If you suspect a bug, please read DOCS/HTML/$language_doc/bugreports.html.
 

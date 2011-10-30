@@ -456,12 +456,10 @@ SRCS_MPLAYER-$(FFMPEG)       += libvo/vo_png.c
 SRCS_MPLAYER-$(GGI)          += libvo/vo_ggi.c
 SRCS_MPLAYER-$(GIF)          += libvo/vo_gif89a.c
 SRCS_MPLAYER-$(GL)           += libvo/gl_common.c libvo/vo_gl.c \
-                                libvo/vo_gl2.c libvo/csputils.c \
                                 pnm_loader.c
 SRCS_MPLAYER-$(GL_SDL)       += libvo/sdl_common.c
 SRCS_MPLAYER-$(GL_WIN32)     += libvo/w32_common.c
 SRCS_MPLAYER-$(GL_X11)       += libvo/x11_common.c
-SRCS_MPLAYER-$(MATRIXVIEW)   += libvo/vo_matrixview.c libvo/matrixview.c
 
 SRCS_MPLAYER-$(IVTV)         += libao2/ao_ivtv.c libvo/vo_ivtv.c
 SRCS_MPLAYER-$(JACK)         += libao2/ao_jack.c
@@ -469,18 +467,6 @@ SRCS_MPLAYER-$(JOYSTICK)     += input/joystick.c
 SRCS_MPLAYER-$(JPEG)         += libvo/vo_jpeg.c
 SRCS_MPLAYER-$(KAI)          += libao2/ao_kai.c
 SRCS_MPLAYER-$(KVA)          += libvo/vo_kva.c
-SRCS_MPLAYER-$(LIBMENU)      += libmenu/menu.c \
-                                libmenu/menu_chapsel.c \
-                                libmenu/menu_cmdlist.c  \
-                                libmenu/menu_console.c \
-                                libmenu/menu_filesel.c \
-                                libmenu/menu_list.c  \
-                                libmenu/menu_param.c \
-                                libmenu/menu_pt.c \
-                                libmenu/menu_txt.c \
-                                libmenu/vf_menu.c \
-
-SRCS_MPLAYER-$(LIBMENU_DVBIN) += libmenu/menu_dvbin.c
 SRCS_MPLAYER-$(LIRC)          += input/lirc.c
 SRCS_MPLAYER-$(MD5SUM)        += libvo/vo_md5sum.c
 SRCS_MPLAYER-$(MGA)           += libvo/vo_mga.c
@@ -525,6 +511,7 @@ SRCS_MPLAYER = command.c \
                libao2/ao_pcm.c \
                libao2/audio_out.c \
                libvo/aspect.c \
+               libvo/csputils.c \
                libvo/geometry.c \
                libvo/old_vo_wrapper.c \
                libvo/spuenc.c \
@@ -557,7 +544,6 @@ DIRS =  . \
         libdvdnav \
         libdvdnav/vm \
         libdvdread4 \
-        libmenu \
         libmpcodecs \
         libmpcodecs/native \
         libmpdemux \
