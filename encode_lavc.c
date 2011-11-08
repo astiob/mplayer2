@@ -171,7 +171,7 @@ struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options)
 
     /* taken from ffmpeg unchanged
      * TODO turn this into an option if anyone needs this */
-    ctx->avc->preload   = 0.5 * AV_TIME_BASE;
+
     ctx->avc->max_delay = 0.7 * AV_TIME_BASE;
 
     ctx->abytes = 0;
@@ -336,7 +336,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
                                    enum AVMediaType mt)
 {
     AVDictionaryEntry *de;
-    AVStream *stream;
+    AVStream *stream = NULL;
     char **p;
     int i;
     AVCodecContext *dummy;
@@ -348,10 +348,6 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         if (ctx->avc->streams[i]->codec->codec_type == mt)
             // already have a stream of that type, this cannot really happen
             return NULL;
-
-    stream = av_new_stream(ctx->avc, 0);
-    if (!stream)
-        return stream;
 
     if (ctx->timebase.den == 0) {
         AVRational r;
@@ -394,7 +390,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
-        avcodec_get_context_defaults3(stream->codec, ctx->vc);
+        stream = avformat_new_stream(ctx->avc, ctx->vc);
 
         // stream->time_base = ctx->timebase;
         // doing this breaks mpeg2ts in ffmpeg
@@ -446,7 +442,7 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             abort(); // XXXXXXXXXXXXXXXXXXXXXXX
             return NULL;
         }
-        avcodec_get_context_defaults3(stream->codec, ctx->ac);
+        stream = avformat_new_stream(ctx->avc, ctx->ac);
 
         stream->codec->codec_id = ctx->ac->id;
         stream->codec->time_base = ctx->timebase;
@@ -630,7 +626,7 @@ static void encode_lavc_printoptions(void *obj, const char *indent,
 {
     const AVOption *opt = NULL;
     char optbuf[32];
-    while ((opt = av_next_option(obj, opt))) {
+    while ((opt = av_opt_next(obj, opt))) {
         // if flags are 0, it simply hasn't been filled in yet and may be
         // potentially useful
         if (opt->flags)
