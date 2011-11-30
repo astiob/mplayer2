@@ -103,6 +103,7 @@ struct gl_priv {
     uint32_t image_d_width;
     uint32_t image_d_height;
     int many_fmts;
+    int have_texture_rg;
     int ati_hack;
     int force_pbo;
     int use_glFinish;
@@ -503,6 +504,7 @@ static void autodetectGlExtensions(struct vo *vo)
         if (extensions && strstr(extensions, "_pixel_buffer_object"))
             p->force_pbo = is_ati;
     }
+    p->have_texture_rg = extensions && strstr(extensions, "GL_ARB_texture_rg");
     if (p->use_rectangle == -1) {
         p->use_rectangle = 0;
         if (extensions) {
@@ -669,7 +671,8 @@ static int config(struct vo *vo, uint32_t width, uint32_t height,
     p->image_d_height = d_height;
     p->is_yuv = mp_get_chroma_shift(p->image_format, &xs, &ys, NULL) > 0;
     p->is_yuv |= (xs << 8) | (ys << 16);
-    glFindFormat(format, NULL, &p->texfmt, &p->gl_format, &p->gl_type);
+    glFindFormat(format, p->have_texture_rg, NULL, &p->texfmt, &p->gl_format,
+                 &p->gl_type);
 
     p->vo_flipped = !!(flags & VOFLAG_FLIPPING);
 
@@ -1134,6 +1137,57 @@ skip_upload:
     return VO_TRUE;
 }
 
+static mp_image_t *get_screenshot(struct vo *vo)
+{
+    struct gl_priv *p = vo->priv;
+    GL *gl = p->gl;
+
+    mp_image_t *image = alloc_mpi(p->texture_width, p->texture_height,
+                                  p->image_format);
+
+    glDownloadTex(gl, p->target, p->gl_format, p->gl_type, image->planes[0],
+                  image->stride[0]);
+
+    if (p->is_yuv) {
+        gl->ActiveTexture(GL_TEXTURE1);
+        glDownloadTex(gl, p->target, p->gl_format, p->gl_type, image->planes[1],
+                      image->stride[1]);
+        gl->ActiveTexture(GL_TEXTURE2);
+        glDownloadTex(gl, p->target, p->gl_format, p->gl_type, image->planes[2],
+                      image->stride[2]);
+        gl->ActiveTexture(GL_TEXTURE0);
+    }
+
+    image->width = p->image_width;
+    image->height = p->image_height;
+
+    image->w = p->image_d_width;
+    image->h = p->image_d_height;
+
+    return image;
+}
+
+static mp_image_t *get_window_screenshot(struct vo *vo)
+{
+    struct gl_priv *p = vo->priv;
+    GL *gl = p->gl;
+
+    GLint vp[4]; //x, y, w, h
+    gl->GetIntegerv(GL_VIEWPORT, vp);
+    mp_image_t *image = alloc_mpi(vp[2], vp[3], IMGFMT_RGB24);
+    gl->BindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    gl->PixelStorei(GL_PACK_ALIGNMENT, 0);
+    gl->PixelStorei(GL_PACK_ROW_LENGTH, 0);
+    gl->ReadBuffer(GL_FRONT);
+    //flip image while reading
+    for (int y = 0; y < vp[3]; y++) {
+        gl->ReadPixels(vp[0], vp[1] + vp[3] - y - 1, vp[2], 1,
+                       GL_RGB, GL_UNSIGNED_BYTE,
+                       image->planes[0] + y * image->stride[0]);
+    }
+    return image;
+}
+
 static int query_format(struct vo *vo, uint32_t format)
 {
     struct gl_priv *p = vo->priv;
@@ -1156,7 +1210,7 @@ static int query_format(struct vo *vo, uint32_t format)
     if (!p->use_ycbcr && (format == IMGFMT_UYVY || format == IMGFMT_YVYU))
         return 0;
     if (p->many_fmts &&
-        glFindFormat(format, NULL, NULL, NULL, NULL))
+        glFindFormat(format, p->have_texture_rg, NULL, NULL, NULL, NULL))
         return caps;
     return 0;
 }
@@ -1460,6 +1514,14 @@ static int control(struct vo *vo, uint32_t request, void *data)
             do_render_osd(vo, 2);
         flip_page(vo);
         return VO_TRUE;
+    case VOCTRL_SCREENSHOT: {
+        struct voctrl_screenshot_args *args = data;
+        if (args->full_window)
+            args->out_image = get_window_screenshot(vo);
+        else
+            args->out_image = get_screenshot(vo);
+        return true;
+    }
     }
     return VO_NOTIMPL;
 }

@@ -73,6 +73,7 @@
 
 #include "mp_osd.h"
 #include "libvo/video_out.h"
+#include "screenshot.h"
 
 #include "sub/font_load.h"
 #include "sub/sub.h"
@@ -798,6 +799,8 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
     if (mpctx->mconfig)
         m_config_free(mpctx->mconfig);
     mpctx->mconfig = NULL;
+
+    talloc_free(mpctx);
 
     exit(rc);
 }
@@ -2494,10 +2497,16 @@ static int audio_start_sync(struct MPContext *mpctx, int playsize)
     bool did_retry = false;
     double written_pts;
     double bps = ao->bps / opts->playback_speed;
+    bool hrseek = mpctx->hrseek_active;   // audio only hrseek
+    mpctx->hrseek_active = false;
     while (1) {
         written_pts = written_audio_pts(mpctx);
-        double ptsdiff = written_pts - mpctx->sh_video->pts - mpctx->delay
-                         - audio_delay;
+        double ptsdiff;
+        if (hrseek)
+            ptsdiff = written_pts - mpctx->hrseek_pts;
+        else
+            ptsdiff = written_pts - mpctx->sh_video->pts - mpctx->delay
+                      - audio_delay;
         bytes = ptsdiff * bps;
         bytes -= bytes % (ao->channels * af_fmt2bits(ao->format) / 8);
 
@@ -2536,6 +2545,9 @@ static int audio_start_sync(struct MPContext *mpctx, int playsize)
         if (res < 0)
             return res;
     }
+    if (hrseek)
+        // Don't add silence in audio-only case even if position is too late
+        return 0;
     int fillbyte = 0;
     if ((ao->format & AF_FORMAT_SIGN_MASK) == AF_FORMAT_US)
         fillbyte = 0x80;
@@ -2587,11 +2599,16 @@ static int fill_audio_out_buffers(struct MPContext *mpctx)
     current_module = "decode_audio";
     t = GetTimer();
 
-    if (!opts->initial_audio_sync || !modifiable_audio_format)
+    // Coming here with hrseek_active still set means audio-only
+    if (!mpctx->sh_video)
         mpctx->syncing_audio = false;
+    if (!opts->initial_audio_sync || !modifiable_audio_format) {
+        mpctx->syncing_audio = false;
+        mpctx->hrseek_active = false;
+    }
 
     int res;
-    if (mpctx->syncing_audio && mpctx->sh_video)
+    if (mpctx->syncing_audio || mpctx->hrseek_active)
         res = audio_start_sync(mpctx, playsize);
     else
         res = decode_audio(sh_audio, &ao->buffer, playsize);
@@ -3325,6 +3342,8 @@ static int seek(MPContext *mpctx, struct seek_params seek,
     else if (seek.direction > 0)
         demuxer_style |= SEEK_FORWARD;
 
+    if (hr_seek)
+        demuxer_amount -= opts->hr_seek_demuxer_offset;
     int seekresult = demux_seek(mpctx->demuxer, demuxer_amount, audio_delay,
                                 demuxer_style);
     if (need_reset)
@@ -3744,6 +3763,7 @@ static void run_playloop(struct MPContext *mpctx)
                 get_relative_time(mpctx);
             }
             print_status(mpctx, MP_NOPTS_VALUE, true);
+            screenshot_flip(mpctx);
         } else
             print_status(mpctx, MP_NOPTS_VALUE, false);
 
@@ -3976,7 +3996,8 @@ int main(int argc, char *argv[])
     int opt_exit = 0;
     int i;
 
-    struct MPContext *mpctx = &(struct MPContext){
+    struct MPContext *mpctx = talloc(NULL, MPContext);
+    *mpctx = (struct MPContext){
         .osd_function = OSD_PLAY,
         .begin_skip = MP_NOPTS_VALUE,
         .play_tree_step = 1,

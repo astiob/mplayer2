@@ -218,6 +218,9 @@
 #ifndef GL_LUMINANCE16
 #define GL_LUMINANCE16 0x8042
 #endif
+#ifndef GL_R16
+#define GL_R16 0x822A
+#endif
 #ifndef GL_UNPACK_CLIENT_STORAGE_APPLE
 #define GL_UNPACK_CLIENT_STORAGE_APPLE 0x85B2
 #endif
@@ -245,8 +248,8 @@ void glAdjustAlignment(GL *gl, int stride);
 
 const char *glValName(GLint value);
 
-int glFindFormat(uint32_t format, int *bpp, GLint *gl_texfmt,
-                 GLenum *gl_format, GLenum *gl_type);
+int glFindFormat(uint32_t format, int have_texture_rg, int *bpp,
+                 GLint *gl_texfmt, GLenum *gl_format, GLenum *gl_type);
 int glFmt2bpp(GLenum format, GLenum type);
 void glCreateClearTex(GL *gl, GLenum target, GLenum fmt, GLenum format,
                       GLenum type, GLint filter, int w, int h,
@@ -256,6 +259,8 @@ int glCreatePPMTex(GL *gl, GLenum target, GLenum fmt, GLint filter,
 void glUploadTex(GL *gl, GLenum target, GLenum format, GLenum type,
                  const void *dataptr, int stride,
                  int x, int y, int w, int h, int slice);
+void glDownloadTex(GL *gl, GLenum target, GLenum format, GLenum type,
+                   void *dataptr, int stride);
 void glDrawTex(GL *gl, GLfloat x, GLfloat y, GLfloat w, GLfloat h,
                GLfloat tx, GLfloat ty, GLfloat tw, GLfloat th,
                int sx, int sy, int rect_tex, int is_yv12, int flip);
@@ -357,6 +362,7 @@ void glDisable3D(GL *gl, int type);
 
 enum MPGLType {
     GLTYPE_AUTO,
+    GLTYPE_COCOA,
     GLTYPE_W32,
     GLTYPE_X11,
     GLTYPE_SDL,
