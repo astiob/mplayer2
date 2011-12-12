@@ -127,8 +127,6 @@ struct gl_priv {
     int mipmap_gen;
     int stereo_mode;
 
-    int int_pause;
-
     struct mp_csp_equalizer video_eq;
 
     int texture_width;
@@ -139,8 +137,6 @@ struct gl_priv {
 
     unsigned int slice_height;
 };
-
-static void redraw(struct vo *vo);
 
 static void resize(struct vo *vo, int x, int y)
 {
@@ -185,7 +181,7 @@ static void resize(struct vo *vo, int x, int y)
         vo_osd_changed(OSDTYPE_OSD);
     }
     gl->Clear(GL_COLOR_BUFFER_BIT);
-    redraw(vo);
+    vo->want_redraw = true;
 }
 
 static void texSize(struct vo *vo, int w, int h, int *texw, int *texh)
@@ -647,19 +643,19 @@ static int initGl(struct vo *vo, uint32_t d_width, uint32_t d_height)
 }
 
 static int create_window(struct vo *vo, uint32_t d_width, uint32_t d_height,
-                         uint32_t flags, const char *title)
+                         uint32_t flags)
 {
     struct gl_priv *p = vo->priv;
 
     if (p->stereo_mode == GL_3D_QUADBUFFER)
         flags |= VOFLAG_STEREO;
 
-    return p->glctx->create_window(p->glctx, d_width, d_height, flags, title);
+    return p->glctx->create_window(p->glctx, d_width, d_height, flags);
 }
 
 static int config(struct vo *vo, uint32_t width, uint32_t height,
                   uint32_t d_width, uint32_t d_height, uint32_t flags,
-                  char *title, uint32_t format)
+                  uint32_t format)
 {
     struct gl_priv *p = vo->priv;
 
@@ -676,7 +672,7 @@ static int config(struct vo *vo, uint32_t width, uint32_t height,
 
     p->vo_flipped = !!(flags & VOFLAG_FLIPPING);
 
-    if (create_window(vo, d_width, d_height, flags, title) < 0)
+    if (create_window(vo, d_width, d_height, flags) < 0)
         return -1;
 
     if (vo->config_count)
@@ -699,8 +695,8 @@ static void check_events(struct vo *vo)
     }
     if (e & VO_EVENT_RESIZE)
         resize(vo, vo->dwidth, vo->dheight);
-    if (e & VO_EVENT_EXPOSE && p->int_pause)
-        redraw(vo);
+    if (e & VO_EVENT_EXPOSE)
+        vo->want_redraw = true;
 }
 
 /**
@@ -898,15 +894,6 @@ static void flip_page(struct vo *vo)
         else
             gl->Flush();
     }
-}
-
-static void redraw(struct vo *vo)
-{
-    if (vo_doublebuffering) {
-        do_render(vo);
-        do_render_osd(vo, RENDER_OSD | RENDER_EOSD);
-    }
-    flip_page(vo);
 }
 
 static int draw_slice(struct vo *vo, uint8_t *src[], int stride[], int w, int h,
@@ -1384,7 +1371,7 @@ static int preinit_internal(struct vo *vo, const char *arg, int allow_sw,
     }
 
     if (p->use_yuv == -1 || !allow_sw) {
-        if (create_window(vo, 320, 200, VOFLAG_HIDDEN, NULL) < 0)
+        if (create_window(vo, 320, 200, VOFLAG_HIDDEN) < 0)
             goto err_out;
         if (p->glctx->setGlWindow(p->glctx) == SET_WINDOW_FAILED)
             goto err_out;
@@ -1423,10 +1410,6 @@ static int control(struct vo *vo, uint32_t request, void *data)
     struct gl_priv *p = vo->priv;
 
     switch (request) {
-    case VOCTRL_PAUSE:
-    case VOCTRL_RESUME:
-        p->int_pause = (request == VOCTRL_PAUSE);
-        return VO_TRUE;
     case VOCTRL_QUERY_FORMAT:
         return query_format(vo, *(uint32_t *)data);
     case VOCTRL_GET_IMAGE:
@@ -1487,6 +1470,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
             if (mp_csp_equalizer_set(&p->video_eq, args->name, args->value) < 0)
                 return VO_NOTIMPL;
             update_yuvconv(vo);
+            vo->want_redraw = true;
             return VO_TRUE;
         }
         break;
@@ -1495,6 +1479,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
         if (vo->config_count && supports_csp) {
             p->colorspace = *(struct mp_csp_details *)data;
             update_yuvconv(vo);
+            vo->want_redraw = true;
         }
         return VO_TRUE;
     }
@@ -1506,14 +1491,10 @@ static int control(struct vo *vo, uint32_t request, void *data)
             break;
         p->glctx->update_xinerama_info(vo);
         return VO_TRUE;
-    case VOCTRL_REDRAW_OSD:
+    case VOCTRL_REDRAW_FRAME:
         if (vo_doublebuffering)
             do_render(vo);
-        draw_osd(vo, data);
-        if (vo_doublebuffering)
-            do_render_osd(vo, 2);
-        flip_page(vo);
-        return VO_TRUE;
+        return true;
     case VOCTRL_SCREENSHOT: {
         struct voctrl_screenshot_args *args = data;
         if (args->full_window)

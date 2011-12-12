@@ -3,7 +3,6 @@
 #import <QuartzCore/QuartzCore.h>
 #import <CoreServices/CoreServices.h> // for CGDisplayHideCursor
 #include "cocoa_common.h"
-#include "gl_common.h"
 
 #include "options.h"
 #include "video_out.h"
@@ -64,7 +63,6 @@ struct vo *l_vo;
 // local function definitions
 struct vo_cocoa_state *vo_cocoa_init_state(void);
 void update_screen_info(void);
-const char *title_from_vo_and_title(struct vo *vo, const char *title);
 void resize_window(struct vo *vo);
 void create_menu(void);
 
@@ -131,22 +129,9 @@ void vo_cocoa_update_xinerama_info(struct vo *vo)
     aspect_save_screenres(vo, s->screen_frame.size.width, s->screen_frame.size.height);
 }
 
-int vo_cocoa_change_attributes(struct MPGLContext *ctx)
+int vo_cocoa_change_attributes(struct vo *vo)
 {
-    return SET_WINDOW_OK;
-}
-
-// this function exists because vf_vo.c calls config with title = "MPlayer"
-// and from the vo it will come down to the backend (ignoring --use-filename-title)
-const char *title_from_vo_and_title(struct vo *vo, const char *title)
-{
-    if (vo->opts->vo_wintitle) {
-        return vo->opts->vo_wintitle;
-    } else if (title) {
-        return title;
-    } else {
-        return "mplayer2";
-    }
+    return 0;
 }
 
 void resize_window(struct vo *vo)
@@ -156,8 +141,8 @@ void resize_window(struct vo *vo)
     [s->glContext update];
 }
 
-int vo_cocoa_create_window(struct MPGLContext *ctx, uint32_t d_width,
-                           uint32_t d_height, uint32_t flags, const char *title)
+int vo_cocoa_create_window(struct vo *vo, uint32_t d_width,
+                           uint32_t d_height, uint32_t flags)
 {
     if (s->current_video_size.width > 0 || s->current_video_size.height > 0)
         s->previous_video_size = s->current_video_size;
@@ -201,7 +186,7 @@ int vo_cocoa_create_window(struct MPGLContext *ctx, uint32_t d_width,
         }
 
         if (flags & VOFLAG_FULLSCREEN)
-            vo_cocoa_fullscreen(ctx->vo);
+            vo_cocoa_fullscreen(vo);
     } else {
         if (s->current_video_size.width  != s->previous_video_size.width ||
             s->current_video_size.height != s->previous_video_size.height) {
@@ -217,15 +202,15 @@ int vo_cocoa_create_window(struct MPGLContext *ctx, uint32_t d_width,
         }
     }
 
-    resize_window(ctx->vo);
+    resize_window(vo);
 
     if (s->window_title)
         [s->window_title release];
 
-    s->window_title = [[NSString alloc] initWithUTF8String:title_from_vo_and_title(ctx->vo,title)];
+    s->window_title = [[NSString alloc] initWithUTF8String:vo_get_window_title(vo)];
     [s->window setTitle: s->window_title];
 
-    return SET_WINDOW_OK;
+    return 0;
 }
 
 void vo_cocoa_swap_buffers()
@@ -275,6 +260,12 @@ void vo_cocoa_fullscreen(struct vo *vo)
 {
     [s->window fullscreen];
     resize_window(vo);
+}
+
+int vo_cocoa_swap_interval(int enabled)
+{
+    [s->glContext setValues:&enabled forParameter:NSOpenGLCPSwapInterval];
+    return 0;
 }
 
 void create_menu()

@@ -80,7 +80,7 @@
 /* number of video and output surfaces */
 #define MAX_OUTPUT_SURFACES                15
 #define MAX_VIDEO_SURFACES                 50
-#define NUM_BUFFERED_VIDEO                 4
+#define NUM_BUFFERED_VIDEO                 5
 
 /* number of palette entries */
 #define PALETTE_SIZE 256
@@ -195,9 +195,6 @@ struct vdpctx {
     // Video equalizer
     struct mp_csp_equalizer video_eq;
 
-    int num_shown_frames;
-    bool paused;
-
     // These tell what's been initialized and uninit() should free/uninitialize
     bool mode_switched;
 };
@@ -295,7 +292,7 @@ static int video_to_output_surface(struct vo *vo)
                                           &vc->out_rect_vid);
 }
 
-static void get_buffered_frame(struct vo *vo, bool eof)
+static int next_deint_queue_pos(struct vo *vo, bool eof)
 {
     struct vdpctx *vc = vo->priv;
 
@@ -305,15 +302,23 @@ static void get_buffered_frame(struct vo *vo, bool eof)
     else
         dqp = vc->deint >= 2 ? dqp - 1 : dqp - 2 | 1;
     if (dqp < (eof ? 0 : 3))
-        return;
+        return -1;
+    return dqp;
+}
 
-    dqp = FFMIN(dqp, 4);
-    vc->deint_queue_pos = dqp;
+static void set_next_frame_info(struct vo *vo, bool eof)
+{
+    struct vdpctx *vc = vo->priv;
+
+    vo->frame_loaded = false;
+    int dqp = next_deint_queue_pos(vo, eof);
+    if (dqp < 0)
+        return;
     vo->frame_loaded = true;
 
     // Set pts values
     struct buffered_video_surface *bv = vc->buffered_video;
-    int idx = vc->deint_queue_pos >> 1;
+    int idx = dqp >> 1;
     if (idx == 0) {  // no future frame/pts available
         vo->next_pts = bv[0].pts;
         vo->next_pts2 = MP_NOPTS_VALUE;
@@ -327,7 +332,7 @@ static void get_buffered_frame(struct vo *vo, bool eof)
             intermediate_pts = (bv[idx].pts + bv[idx - 1].pts) / 2;
         else
             intermediate_pts =  bv[idx].pts;
-        if (vc->deint_queue_pos & 1) { // first field
+        if (dqp & 1) { // first field
             vo->next_pts = bv[idx].pts;
             vo->next_pts2 = intermediate_pts;
         } else {
@@ -335,8 +340,6 @@ static void get_buffered_frame(struct vo *vo, bool eof)
             vo->next_pts2 = bv[idx - 1].pts;
         }
     }
-
-    video_to_output_surface(vo);
 }
 
 static void add_new_video_surface(struct vo *vo, VdpVideoSurface surface,
@@ -358,8 +361,9 @@ static void add_new_video_surface(struct vo *vo, VdpVideoSurface surface,
         .pts = pts,
     };
 
-    vc->deint_queue_pos += 2;
-    get_buffered_frame(vo, false);
+    vc->deint_queue_pos = FFMIN(vc->deint_queue_pos + 2,
+                                NUM_BUFFERED_VIDEO * 2 - 3);
+    set_next_frame_info(vo, false);
 }
 
 static void forget_frames(struct vo *vo)
@@ -410,7 +414,6 @@ static void resize(struct vo *vo)
     int min_output_width = FFMAX(vo->dwidth, vc->vid_width);
     int min_output_height = FFMAX(vo->dheight, vc->vid_height);
 
-    bool had_frames = vc->num_shown_frames;
     if (vc->output_surface_width < min_output_width
         || vc->output_surface_height < min_output_height) {
         if (vc->output_surface_width < min_output_width) {
@@ -439,11 +442,8 @@ static void resize(struct vo *vo)
             mp_msg(MSGT_VO, MSGL_DBG2, "vdpau out create: %u\n",
                    vc->output_surfaces[i]);
         }
-        vc->num_shown_frames = 0;
     }
-    if (vc->paused && had_frames)
-        if (video_to_output_surface(vo) >= 0)
-            flip_page_timed(vo, 0, -1);
+    vo->want_redraw = true;
 }
 
 static void preemption_callback(VdpDevice device, void *context)
@@ -825,7 +825,6 @@ static void mark_vdpau_objects_uninitialized(struct vo *vo)
     };
     vc->output_surface_width = vc->output_surface_height = -1;
     vc->eosd_render_count = 0;
-    vc->num_shown_frames = 0;
 }
 
 static int handle_preemption(struct vo *vo)
@@ -864,7 +863,7 @@ static int handle_preemption(struct vo *vo)
  */
 static int config(struct vo *vo, uint32_t width, uint32_t height,
                   uint32_t d_width, uint32_t d_height, uint32_t flags,
-                  char *title, uint32_t format)
+                  uint32_t format)
 {
     struct vdpctx *vc = vo->priv;
     struct vo_x11_state *x11 = vo->x11;
@@ -912,7 +911,7 @@ static int config(struct vo *vo, uint32_t width, uint32_t height,
     xswamask = CWBorderPixel;
 
     vo_x11_create_vo_window(vo, &vinfo, vo->dx, vo->dy, d_width, d_height,
-                            flags, CopyFromParent, "vdpau", title);
+                            flags, CopyFromParent, "vdpau");
     XChangeWindowAttributes(x11->display, x11->window, xswamask, &xswa);
 
 #ifdef CONFIG_XF86VM
@@ -937,9 +936,6 @@ static int config(struct vo *vo, uint32_t width, uint32_t height,
 
 static void check_events(struct vo *vo)
 {
-    struct vdpctx *vc = vo->priv;
-    struct vdp_functions *vdp = vc->vdp;
-
     if (handle_preemption(vo) < 0)
         return;
 
@@ -947,19 +943,8 @@ static void check_events(struct vo *vo)
 
     if (e & VO_EVENT_RESIZE)
         resize(vo);
-    else if (e & VO_EVENT_EXPOSE && vc->paused) {
-        /* did we already draw a buffer */
-        if (vc->num_shown_frames) {
-            /* redraw the last visible buffer */
-            VdpStatus vdp_st;
-            int last_surface = WRAP_ADD(vc->surface_num, -1,
-                                        vc->num_output_surfaces);
-            vdp_st = vdp->presentation_queue_display(vc->flip_queue,
-                                         vc->output_surfaces[last_surface],
-                                         vo->dwidth, vo->dheight, 0);
-            CHECK_ST_WARNING("Error when calling "
-                             "vdp_presentation_queue_display");
-        }
+    else if (e & VO_EVENT_EXPOSE) {
+        vo->want_redraw = true;
     }
 }
 
@@ -1400,7 +1385,6 @@ static void flip_page_timed(struct vo *vo, unsigned int pts_us, int duration)
     vc->last_ideal_time = ideal_pts;
     vc->dropped_frame = false;
     vc->surface_num = WRAP_ADD(vc->surface_num, 1, vc->num_output_surfaces);
-    vc->num_shown_frames = FFMIN(vc->num_shown_frames + 1, 1000);
 }
 
 static int draw_slice(struct vo *vo, uint8_t *image[], int stride[], int w,
@@ -1796,13 +1780,12 @@ static int control(struct vo *vo, uint32_t request, void *data)
                                                           feature_enables);
             CHECK_ST_WARNING("Error changing deinterlacing settings");
         }
+        vo->want_redraw = true;
         return VO_TRUE;
     case VOCTRL_PAUSE:
         if (vc->dropped_frame)
             flip_page_timed(vo, 0, -1);
-        return (vc->paused = true);
-    case VOCTRL_RESUME:
-        return (vc->paused = false);
+        return true;
     case VOCTRL_QUERY_FORMAT:
         return query_format(*(uint32_t *)data);
     case VOCTRL_GET_IMAGE:
@@ -1823,6 +1806,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
         checked_resize(vo);
         return VO_TRUE;
     case VOCTRL_SET_EQUALIZER: {
+        vo->want_redraw = true;
         struct voctrl_set_equalizer_args *args = data;
         return set_equalizer(vo, args->name, args->value);
     }
@@ -1834,6 +1818,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
         vc->colorspace = *(struct mp_csp_details *)data;
         if (status_ok(vo))
             update_csc_matrix(vo);
+        vo->want_redraw = true;
         return true;
     case VOCTRL_GET_YUV_COLORSPACE:
         *(struct mp_csp_details *)data = vc->colorspace;
@@ -1858,11 +1843,15 @@ static int control(struct vo *vo, uint32_t request, void *data)
         r->mt = r->mb = vc->border_y;
         return VO_TRUE;
     }
-    case VOCTRL_REDRAW_OSD:
+    case VOCTRL_NEWFRAME:
+        vc->deint_queue_pos = next_deint_queue_pos(vo, true);
         video_to_output_surface(vo);
-        draw_eosd(vo);
-        draw_osd(vo, data);
-        flip_page_timed(vo, 0, -1);
+        return true;
+    case VOCTRL_SKIPFRAME:
+        vc->deint_queue_pos = next_deint_queue_pos(vo, true);
+        return true;
+    case VOCTRL_REDRAW_FRAME:
+        video_to_output_surface(vo);
         return true;
     case VOCTRL_RESET:
         forget_frames(vo);
@@ -1892,7 +1881,7 @@ const struct vo_driver video_out_vdpau = {
     .config = config,
     .control = control,
     .draw_image = draw_image,
-    .get_buffered_frame = get_buffered_frame,
+    .get_buffered_frame = set_next_frame_info,
     .draw_slice = draw_slice,
     .draw_osd = draw_osd,
     .flip_page_timed = flip_page_timed,

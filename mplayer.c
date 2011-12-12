@@ -2957,8 +2957,7 @@ static double update_video(struct MPContext *mpctx)
 
     while (1) {
         current_module = "filter_video";
-        if (!mpctx->hrseek_active
-            && vo_get_buffered_frame(video_out, false) >= 0)
+        if (vo_get_buffered_frame(video_out, false) >= 0)
             break;
         // XXX Time used in this call is not counted in any performance
         // timer now
@@ -3064,6 +3063,22 @@ void unpause_player(struct MPContext *mpctx)
     (void)get_relative_time(mpctx);     // ignore time that passed during pause
 }
 
+static int redraw_osd(struct MPContext *mpctx)
+{
+    struct sh_video *sh_video = mpctx->sh_video;
+    struct vf_instance *vf = sh_video->vfilter;
+    if (sh_video->output_flags & VFCAP_OSD_FILTER)
+        return -1;
+    if (vo_redraw_frame(mpctx->video_out) < 0)
+        return -1;
+    mpctx->osd->pts = mpctx->video_pts;
+    if (!(sh_video->output_flags & VFCAP_EOSD_FILTER))
+        vf->control(vf, VFCTRL_DRAW_EOSD, mpctx->osd);
+    vf->control(vf, VFCTRL_DRAW_OSD, mpctx->osd);
+    vo_flip_page(mpctx->video_out, 0, -1);
+    return 0;
+}
+
 void add_step_frame(struct MPContext *mpctx)
 {
     mpctx->step_frames++;
@@ -3100,11 +3115,10 @@ static void pause_loop(struct MPContext *mpctx)
         }
         if (mpctx->sh_video && mpctx->video_out)
             vo_check_events(mpctx->video_out);
-        usec_sleep(20000);
         update_osd_msg(mpctx);
         int hack = vo_osd_changed(0);
         vo_osd_changed(hack);
-        if (hack)
+        if (hack || mpctx->sh_video && mpctx->video_out->want_redraw)
             break;
 #ifdef CONFIG_STREAM_CACHE
         if (!opts->quiet && stream_cache_size > 0) {
@@ -3645,7 +3659,7 @@ static void run_playloop(struct MPContext *mpctx)
         vo_fps = mpctx->sh_video->fps;
 
         bool blit_frame = mpctx->video_out->frame_loaded;
-        if (!blit_frame || mpctx->hrseek_active) {
+        if (!blit_frame) {
             double frame_time = update_video(mpctx);
             blit_frame = mpctx->video_out->frame_loaded;
             mp_dbg(MSGT_AVSYNC, MSGL_DBG2, "*** ftime=%5.3f ***\n", frame_time);
@@ -3705,12 +3719,14 @@ static void run_playloop(struct MPContext *mpctx)
 
         current_module = "flip_page";
         if (!frame_time_remaining && blit_frame) {
+            vo_new_frame_imminent(mpctx->video_out);
             struct sh_video *sh_video = mpctx->sh_video;
             mpctx->video_pts = sh_video->pts;
             update_subtitles(mpctx, sh_video->pts, mpctx->video_offset, false);
             update_teletext(sh_video, mpctx->demuxer, 0);
             update_osd_msg(mpctx);
             struct vf_instance *vf = sh_video->vfilter;
+            mpctx->osd->pts = mpctx->video_pts;
             vf->control(vf, VFCTRL_DRAW_EOSD, mpctx->osd);
             vf->control(vf, VFCTRL_DRAW_OSD, mpctx->osd);
             vo_osd_changed(0);
@@ -3844,21 +3860,25 @@ static void run_playloop(struct MPContext *mpctx)
             if (mpctx->stop_play)
                 break;
         }
-        if (!mpctx->paused || mpctx->stop_play || mpctx->seek.type
-            || mpctx->restart_playback)
+        bool slow_video = mpctx->sh_video && mpctx->video_out->frame_loaded;
+        if (!(mpctx->paused || slow_video) || mpctx->stop_play
+                || mpctx->seek.type || mpctx->restart_playback)
             break;
         if (mpctx->sh_video) {
             update_osd_msg(mpctx);
             int hack = vo_osd_changed(0);
             vo_osd_changed(hack);
-            if (hack) {
-                if (redraw_osd(mpctx->sh_video, mpctx->osd) < 0) {
-                    add_step_frame(mpctx);
+            if (hack || mpctx->video_out->want_redraw) {
+                if (redraw_osd(mpctx) < 0) {
+                    if (mpctx->paused)
+                        add_step_frame(mpctx);
                     break;
                 } else
                     vo_osd_changed(0);
             }
         }
+        if (!mpctx->paused)
+            break;
         pause_loop(mpctx);
     }
 
