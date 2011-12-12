@@ -117,6 +117,9 @@ struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options)
     if (!options->file)
         return NULL;
 
+    // we now need to do this
+    avformat_network_init();
+
     ctx = talloc_zero(NULL, struct encode_lavc_context);
     encode_lavc_discontinuity(ctx);
     ctx->options = options;
