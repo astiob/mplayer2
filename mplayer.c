@@ -5150,7 +5150,7 @@ goto_next_file:  // don't jump here after ao/vo/getch initialization!
     int uninitialize_parts = INITIALIZED_ALL;
     if (opts->fixed_vo)
         uninitialize_parts -= INITIALIZED_VO;
-    if (opts->gapless_audio && mpctx->stop_play == AT_END_OF_FILE)
+    if (opts->gapless_audio && mpctx->stop_play == AT_END_OF_FILE || mpctx->encode_lavc_ctx)
         uninitialize_parts -= INITIALIZED_AO;
     uninit_player(mpctx, uninitialize_parts);
 

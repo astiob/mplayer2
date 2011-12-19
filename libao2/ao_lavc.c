@@ -77,6 +77,12 @@ static int init(struct ao *ao, char *params)
 
     ac->stream = encode_lavc_alloc_stream(ao->encode_lavc_ctx,
                                           AVMEDIA_TYPE_AUDIO);
+
+    if (!ac->stream) {
+        mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: could not get a new audio stream\n");
+        return -1;
+    }
+
     codec = encode_lavc_get_codec(ao->encode_lavc_ctx, ac->stream);
 
     // ac->stream->time_base.num = 1;
