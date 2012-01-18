@@ -704,7 +704,7 @@ void sws_getFlagsAndFilterFromCmdLine(int *flags, SwsFilter **srcFilterParam, Sw
 }
 
 // will use sws_flags & src_filter (from cmd line)
-struct SwsContext *sws_getContextFromCmdLine(int srcW, int srcH, int srcFormat, int dstW, int dstH, int dstFormat)
+static struct SwsContext *sws_getContextFromCmdLine2(int srcW, int srcH, int srcFormat, int dstW, int dstH, int dstFormat, int extraflags)
 {
 	int flags;
 	SwsFilter *dstFilterParam, *srcFilterParam;
@@ -715,7 +715,24 @@ struct SwsContext *sws_getContextFromCmdLine(int srcW, int srcH, int srcFormat, 
 	if (srcFormat == IMGFMT_RGB8 || srcFormat == IMGFMT_BGR8) sfmt = PIX_FMT_PAL8;
 	sws_getFlagsAndFilterFromCmdLine(&flags, &srcFilterParam, &dstFilterParam);
 
-	return sws_getContext(srcW, srcH, sfmt, dstW, dstH, dfmt, flags | get_sws_cpuflags(), srcFilterParam, dstFilterParam, NULL);
+	return sws_getContext(srcW, srcH, sfmt, dstW, dstH, dfmt, flags | extraflags | get_sws_cpuflags(), srcFilterParam, dstFilterParam, NULL);
+}
+
+struct SwsContext *sws_getContextFromCmdLine(int srcW, int srcH, int srcFormat, int dstW, int dstH, int dstFormat)
+{
+    return sws_getContextFromCmdLine2(srcW, srcH, srcFormat, dstW, dstH, dstFormat, 0);
+}
+
+/* These extra flags improve the image visibly in some cases, but also
+ * make conversion a lot slower. For some reason SWS_FULL_CHR_H_INT
+ * also seems to make the overall image slightly brighter.
+ */
+struct SwsContext *sws_getContextFromCmdLine_hq(int srcW, int srcH,
+                           int srcFormat, int dstW, int dstH, int dstFormat)
+{
+    return sws_getContextFromCmdLine2(srcW, srcH, srcFormat,
+                                      dstW, dstH, dstFormat,
+                                      SWS_FULL_CHR_H_INT | SWS_ACCURATE_RND);
 }
 
 /// An example of presets usage
