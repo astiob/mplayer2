@@ -319,11 +319,14 @@ static int get_space(struct ao *ao)
 // must get exactly ac->aframesize amount of data
 static int encode(struct ao *ao, int ptsvalid, double apts, void *data)
 {
+    AVFrame frame;
+    AVPacket packet;
     struct priv *ac = ao->priv;
     struct encode_lavc_context *ectx = ao->encode_lavc_ctx;
     int size;
     double realapts = ac->aframecount * (double) ac->aframesize /
                       ao->samplerate;
+    int status, gotpacket;
 
     ac->aframecount++;
     if (data && (ao->channels == 5 || ao->channels == 6 || ao->channels == 8)) {
@@ -336,12 +339,38 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data)
     if (data && ptsvalid)
         ectx->audio_pts_offset = realapts - apts;
 
-    if (ac->pcmhack && data)
-        size = avcodec_encode_audio(ac->stream->codec, ac->buffer,
-                ac->aframesize * ac->pcmhack * ao->channels, data);
+    av_init_packet(&packet);
+    packet.data = ac->buffer;
+    packet.size = ac->buffer_size;
+    if(data)
+    {
+        avcodec_get_frame_defaults(&frame);
+        frame.nb_samples = ac->aframesize;
+        if(avcodec_fill_audio_frame(&frame, ao->channels, ac->stream->codec->sample_fmt, data, ac->aframesize * ao->channels * ac->sample_size, 1))
+        {
+            mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error filling\n");
+            return -1;
+        }
+        frame.quality = ac->stream->codec->global_quality;
+        status = avcodec_encode_audio2(ac->stream->codec, &packet, &frame, &gotpacket);
+    }
     else
-        size = avcodec_encode_audio(ac->stream->codec, ac->buffer,
-                                    ac->buffer_size, data);
+    {
+        status = avcodec_encode_audio2(ac->stream->codec, &packet, NULL, &gotpacket);
+    }
+
+    if(status)
+    {
+        mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error encoding\n");
+        return -1;
+    }
+
+    if (ac->savepts == MP_NOPTS_VALUE)
+        ac->savepts = floor(realapts * (double) ac->stream->time_base.den /
+                            (double) ac->stream->time_base.num + 0.5);
+
+    if(!gotpacket)
+        return 0;
 
     mp_msg(MSGT_AO, MSGL_DBG2,
            "ao-lavc: got pts %f (playback time: %f); out size: %d\n",
@@ -349,66 +378,45 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data)
 
     encode_lavc_write_stats(ao->encode_lavc_ctx, ac->stream);
 
-    if (ac->savepts == MP_NOPTS_VALUE)
-        ac->savepts = floor(realapts * (double) ac->stream->time_base.den /
-                            (double) ac->stream->time_base.num + 0.5);
+    if (ac->stream->codec->coded_frame &&
+            ac->stream->codec->coded_frame->pts != AV_NOPTS_VALUE)
+        packet.pts = av_rescale_q(packet.pts, ac->stream->codec->time_base,
+                ac->stream->time_base);
+    else
+        packet.pts = ac->savepts;
 
-    if (size < 0)
-        mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error encoding\n");
+    if(packet.duration > 0)
+        packet.duration = av_rescale_q(packet.duration, ac->stream->codec->time_base,
+                ac->stream->time_base);
 
-    if (size > 0) {
-        AVPacket packet;
-        av_init_packet(&packet);
-        packet.stream_index = ac->stream->index;
-        packet.data = ac->buffer;
-        packet.size = size;
+    ac->savepts = MP_NOPTS_VALUE;
 
-        /* TODO: enable this code once ffmpeg.c adds something similar;
-         * till then, do the same as ffmpeg.c:
-         * mark ALL audio frames as key frames
-         *
-         * if(ac->stream->codec->coded_frame &&
-         *         ac->stream->codec->coded_frame->keyframe)
-         * packet.flags |= AV_PKT_FLAG_KEY;
-         * else if(!ac->stream->codec->coded_frame)
-         */
-        packet.flags |= AV_PKT_FLAG_KEY;
+    if (ao->encode_lavc_ctx->options->copyts) {
+        // we are NOT fixing video pts to match audio playback time
+        // so we MUST set video-compatible pts!
+        packet.pts = floor(packet.pts + (apts - realapts) *
+                           ac->stream->time_base.den /
+                           ac->stream->time_base.num + 0.5);
+    }
 
-        if (ac->stream->codec->coded_frame &&
-                ac->stream->codec->coded_frame->pts != AV_NOPTS_VALUE)
-            packet.pts = av_rescale_q(ac->stream->codec->coded_frame->pts,
-                          ac->stream->codec->time_base, ac->stream->time_base);
-        else
-            packet.pts = ac->savepts;
-        ac->savepts = MP_NOPTS_VALUE;
-
-        if (ao->encode_lavc_ctx->options->copyts) {
-            // we are NOT fixing video pts to match audio playback time
-            // so we MUST set video-compatible pts!
-            packet.pts = floor(packet.pts + (apts - realapts) *
-                               ac->stream->time_base.den /
-                               ac->stream->time_base.num + 0.5);
+    if (packet.pts != AV_NOPTS_VALUE) {
+        if (ac->lastpts != MP_NOPTS_VALUE && packet.pts <= ac->lastpts) {
+            // this indicates broken video
+            // (video pts failing to increase fast enough to match audio)
+            // XXX what does this have to do with video pts? -uau
+            mp_msg(MSGT_AO, MSGL_WARN, "ao-lavc: audio pts went backwards "
+                   "(%d <- %d), autofixed\n", (int)packet.pts,
+                   (int)ac->lastpts);
+            packet.pts = ac->lastpts + 1;
         }
+        ac->lastpts = packet.pts;
+    }
 
-        if (packet.pts != AV_NOPTS_VALUE) {
-            if (ac->lastpts != MP_NOPTS_VALUE && packet.pts <= ac->lastpts) {
-                // this indicates broken video
-                // (video pts failing to increase fast enough to match audio)
-                // XXX what does this have to do with video pts? -uau
-                mp_msg(MSGT_AO, MSGL_WARN, "ao-lavc: audio pts went backwards "
-                       "(%d <- %d), autofixed\n", (int)packet.pts,
-                       (int)ac->lastpts);
-                packet.pts = ac->lastpts + 1;
-            }
-            ac->lastpts = packet.pts;
-        }
-
-        if (encode_lavc_write_frame(ao->encode_lavc_ctx, &packet) < 0) {
-            mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error writing at %f %f/%f\n",
-                   realapts, (double) ac->stream->time_base.num,
-                   (double) ac->stream->time_base.den);
-            return -1;
-        }
+    if (encode_lavc_write_frame(ao->encode_lavc_ctx, &packet) < 0) {
+        mp_msg(MSGT_AO, MSGL_ERR, "ao-lavc: error writing at %f %f/%f\n",
+               realapts, (double) ac->stream->time_base.num,
+               (double) ac->stream->time_base.den);
+        return -1;
     }
 
     return size;
