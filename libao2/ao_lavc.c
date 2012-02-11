@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include <libavutil/common.h>
+#include <libavutil/audioconvert.h>
 
 #include "config.h"
 #include "options.h"
@@ -97,32 +98,32 @@ static int init(struct ao *ao, char *params)
     ac->stream->codec->sample_rate = ao->samplerate;
     ac->stream->codec->channels = ao->channels;
 
-    ac->stream->codec->sample_fmt = SAMPLE_FMT_NONE;
+    ac->stream->codec->sample_fmt = AV_SAMPLE_FMT_NONE;
 
     {
         // first check if the selected format is somewhere in the list of
         // supported formats by the codec
         for (sampleformat = codec->sample_fmts;
-             sampleformat && *sampleformat != SAMPLE_FMT_NONE;
+             sampleformat && *sampleformat != AV_SAMPLE_FMT_NONE;
              ++sampleformat) {
             switch (*sampleformat) {
-            case SAMPLE_FMT_U8:
+            case AV_SAMPLE_FMT_U8:
                 if (ao->format == AF_FORMAT_U8)
                     goto out_search;
                 break;
-            case SAMPLE_FMT_S16:
+            case AV_SAMPLE_FMT_S16:
                 if (ao->format == AF_FORMAT_S16_BE)
                     goto out_search;
                 if (ao->format == AF_FORMAT_S16_LE)
                     goto out_search;
                 break;
-            case SAMPLE_FMT_S32:
+            case AV_SAMPLE_FMT_S32:
                 if (ao->format == AF_FORMAT_S32_BE)
                     goto out_search;
                 if (ao->format == AF_FORMAT_S32_LE)
                     goto out_search;
                 break;
-            case SAMPLE_FMT_FLT:
+            case AV_SAMPLE_FMT_FLT:
                 if (ao->format == AF_FORMAT_FLOAT_BE)
                     goto out_search;
                 if (ao->format == AF_FORMAT_FLOAT_LE)
@@ -136,25 +137,25 @@ out_search:
         ;
     }
 
-    if (!sampleformat || *sampleformat == SAMPLE_FMT_NONE) {
+    if (!sampleformat || *sampleformat == AV_SAMPLE_FMT_NONE) {
         // if the selected format is not supported, we have to pick the first
         // one we CAN support
         // note: not needing to select endianness here, as the switch() below
         // does that anyway for us
         for (sampleformat = codec->sample_fmts;
-             sampleformat && *sampleformat != SAMPLE_FMT_NONE;
+             sampleformat && *sampleformat != AV_SAMPLE_FMT_NONE;
              ++sampleformat) {
             switch (*sampleformat) {
-            case SAMPLE_FMT_U8:
+            case AV_SAMPLE_FMT_U8:
                 ao->format = AF_FORMAT_U8;
                 goto out_takefirst;
-            case SAMPLE_FMT_S16:
+            case AV_SAMPLE_FMT_S16:
                 ao->format = AF_FORMAT_S16_NE;
                 goto out_takefirst;
-            case SAMPLE_FMT_S32:
+            case AV_SAMPLE_FMT_S32:
                 ao->format = AF_FORMAT_S32_NE;
                 goto out_takefirst;
-            case SAMPLE_FMT_FLT:
+            case AV_SAMPLE_FMT_FLT:
                 ao->format = AF_FORMAT_FLOAT_NE;
                 goto out_takefirst;
             default:
@@ -170,7 +171,7 @@ out_takefirst:
     // switching endianness if needed (mplayer code will convert for us
     // anyway, but ffmpeg always expects native endianness)
     case AF_FORMAT_U8:
-        ac->stream->codec->sample_fmt = SAMPLE_FMT_U8;
+        ac->stream->codec->sample_fmt = AV_SAMPLE_FMT_U8;
         ac->sample_size = 1;
         ac->sample_padding = sample_padding_u8;
         ao->format = AF_FORMAT_U8;
@@ -178,21 +179,21 @@ out_takefirst:
     default:
     case AF_FORMAT_S16_BE:
     case AF_FORMAT_S16_LE:
-        ac->stream->codec->sample_fmt = SAMPLE_FMT_S16;
+        ac->stream->codec->sample_fmt = AV_SAMPLE_FMT_S16;
         ac->sample_size = 2;
         ac->sample_padding = sample_padding_signed;
         ao->format = AF_FORMAT_S16_NE;
         break;
     case AF_FORMAT_S32_BE:
     case AF_FORMAT_S32_LE:
-        ac->stream->codec->sample_fmt = SAMPLE_FMT_S32;
+        ac->stream->codec->sample_fmt = AV_SAMPLE_FMT_S32;
         ac->sample_size = 4;
         ac->sample_padding = sample_padding_signed;
         ao->format = AF_FORMAT_S32_NE;
         break;
     case AF_FORMAT_FLOAT_BE:
     case AF_FORMAT_FLOAT_LE:
-        ac->stream->codec->sample_fmt = SAMPLE_FMT_FLT;
+        ac->stream->codec->sample_fmt = AV_SAMPLE_FMT_FLT;
         ac->sample_size = 4;
         ac->sample_padding = sample_padding_float;
         ao->format = AF_FORMAT_FLOAT_NE;
