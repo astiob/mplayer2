@@ -324,7 +324,6 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data)
     AVPacket packet;
     struct priv *ac = ao->priv;
     struct encode_lavc_context *ectx = ao->encode_lavc_ctx;
-    int size;
     double realapts = ac->aframecount * (double) ac->aframesize /
                       ao->samplerate;
     int status, gotpacket;
@@ -375,7 +374,7 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data)
 
     mp_msg(MSGT_AO, MSGL_DBG2,
            "ao-lavc: got pts %f (playback time: %f); out size: %d\n",
-           apts, realapts, size);
+           apts, realapts, packet.size);
 
     encode_lavc_write_stats(ao->encode_lavc_ctx, ac->stream);
 
@@ -420,7 +419,7 @@ static int encode(struct ao *ao, int ptsvalid, double apts, void *data)
         return -1;
     }
 
-    return size;
+    return packet.size;
 }
 
 // plays 'len' bytes of 'data'
