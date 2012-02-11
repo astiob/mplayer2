@@ -196,7 +196,7 @@ int encode_lavc_start(struct encode_lavc_context *ctx)
     ctx->header_written = -1;
 
     if (!(ctx->avc->oformat->flags & AVFMT_NOFILE)) {
-        if (avio_open(&ctx->avc->pb, ctx->avc->filename, URL_WRONLY) < 0) {
+        if (avio_open(&ctx->avc->pb, ctx->avc->filename, AVIO_FLAG_WRITE) < 0) {
             mp_msg(MSGT_VO, MSGL_ERR, "encode-lavc: could not open '%s'\n",
                    ctx->avc->filename);
             encode_lavc_finish(ctx);
