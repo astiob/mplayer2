@@ -101,8 +101,8 @@ extern struct vo_driver video_out_md5sum;
 const struct vo_driver *video_out_drivers[] =
 {
 #ifdef CONFIG_DIRECT3D
-        &video_out_direct3d,
         &video_out_direct3d_shaders,
+        &video_out_direct3d,
 #endif
 #ifdef CONFIG_DIRECTX
         &video_out_directx,
