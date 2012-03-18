@@ -573,10 +573,6 @@ struct GL {
                                         const GLfloat *);
     void (GLAPIENTRY *UniformMatrix4x3fv)(GLint, GLsizei, GLboolean,
                                           const GLfloat *);
-#ifdef CONFIG_GL_WIN32
-    HGLRC (GLAPIENTRY *wglCreateContextAttribsARB)(HDC hDC, HGLRC hShareContext,
-                                                   const int *attribList);
-#endif
 };
 
 
