@@ -1273,12 +1273,12 @@ static void update_colorspace(d3d_priv *priv)
     if (priv->use_shaders) {
         csp.input_bits = priv->planes[0].bits_per_pixel;
         csp.texture_bits = (csp.input_bits + 7) & ~7;
-    }
 
-    mp_get_yuv2rgb_coeffs(&csp, coeff);
-    for (int row = 0; row < 3; row++) {
-        for (int col = 0; col < 4; col++) {
-            priv->d3d_colormatrix.m[row][col] = coeff[row][col];
+        mp_get_yuv2rgb_coeffs(&csp, coeff);
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 4; col++) {
+                priv->d3d_colormatrix.m[row][col] = coeff[row][col];
+            }
         }
     }
 }
