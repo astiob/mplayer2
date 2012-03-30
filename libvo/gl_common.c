@@ -1765,8 +1765,13 @@ static void cocoa_fullscreen(struct vo *vo)
 #endif
 
 #ifdef CONFIG_GL_WIN32
+#include <windows.h>
 #include "w32_common.h"
 
+struct w32_context {
+    int vinfo;
+    HGLRC context;
+};
 
 static int create_window_w32(struct MPGLContext *ctx, uint32_t d_width,
                              uint32_t d_height, uint32_t flags)
@@ -1798,7 +1803,8 @@ static int create_window_w32_gl3(struct MPGLContext *ctx, int gl_flags,
     if (!vo_w32_config(d_width, d_height, flags))
         return -1;
 
-    HGLRC *context = &ctx->context.w32;
+    struct w32_context *w32_ctx = ctx->priv;
+    HGLRC *context = &w32_ctx->context;
 
     if (*context) // reuse existing context
         return 0; // not reusing it breaks gl3!
@@ -1892,8 +1898,9 @@ out:
 static int setGlWindow_w32(MPGLContext *ctx)
 {
     HWND win = vo_w32_window;
-    int *vinfo = &ctx->vinfo.w32;
-    HGLRC *context = &ctx->context.w32;
+    struct w32_context *w32_ctx = ctx->priv;
+    int *vinfo = &w32_ctx->vinfo;
+    HGLRC *context = &w32_ctx->context;
     int new_vinfo;
     HDC windc = vo_w32_get_dc(win);
     HGLRC new_context = 0;
@@ -1955,8 +1962,9 @@ out:
 
 static void releaseGlContext_w32(MPGLContext *ctx)
 {
-    int *vinfo = &ctx->vinfo.w32;
-    HGLRC *context = &ctx->context.w32;
+    struct w32_context *w32_ctx = ctx->priv;
+    int *vinfo = &w32_ctx->vinfo;
+    HGLRC *context = &w32_ctx->context;
     *vinfo = 0;
     if (*context) {
         wglMakeCurrent(0, 0);
@@ -1978,9 +1986,18 @@ static void new_vo_w32_border(struct vo *vo) { vo_w32_border(); }
 static void new_vo_w32_fullscreen(struct vo *vo) { vo_w32_fullscreen(); }
 static int new_vo_w32_check_events(struct vo *vo) { return vo_w32_check_events(); }
 static void new_w32_update_xinerama_info(struct vo *vo) { w32_update_xinerama_info(); }
+static void new_vo_w32_uninit(struct vo *vo) { vo_w32_uninit(); }
 #endif
+
 #ifdef CONFIG_GL_X11
+#include <X11/Xlib.h>
+#include <GL/glx.h>
 #include "x11_common.h"
+
+struct glx_context {
+    XVisualInfo *vinfo;
+    GLXContext context;
+};
 
 static int create_window_x11(struct MPGLContext *ctx, uint32_t d_width,
                              uint32_t d_height, uint32_t flags)
@@ -2072,8 +2089,9 @@ static char *get_glx_exts(MPGLContext *ctx)
  */
 static int setGlWindow_x11(MPGLContext *ctx)
 {
-    XVisualInfo **vinfo = &ctx->vinfo.x11;
-    GLXContext *context = &ctx->context.x11;
+    struct glx_context *glx_context = ctx->priv;
+    XVisualInfo **vinfo = &glx_context->vinfo;
+    GLXContext *context = &glx_context->context;
     Display *display = ctx->vo->x11->display;
     Window win = ctx->vo->x11->window;
     XVisualInfo *new_vinfo;
@@ -2175,13 +2193,14 @@ static int create_window_x11_gl3(struct MPGLContext *ctx, int gl_flags,
                                  uint32_t d_height, uint32_t flags)
 {
     struct vo *vo = ctx->vo;
+    struct glx_context *glx_ctx = ctx->priv;
 
-    if (ctx->context.x11) {
+    if (glx_ctx->context) {
         // GL context and window already exist.
         // Only update window geometry etc.
         Colormap colormap = XCreateColormap(vo->x11->display, vo->x11->rootwin,
-                                        ctx->vinfo.x11->visual, AllocNone);
-        vo_x11_create_vo_window(vo, ctx->vinfo.x11, vo->dx, vo->dy, d_width,
+                                            glx_ctx->vinfo->visual, AllocNone);
+        vo_x11_create_vo_window(vo, glx_ctx->vinfo, vo->dx, vo->dy, d_width,
                                 d_height, flags, colormap, "gl");
         XFreeColormap(vo->x11->display, colormap);
         return SET_WINDOW_OK;
@@ -2277,8 +2296,8 @@ static int create_window_x11_gl3(struct MPGLContext *ctx, int gl_flags,
         return SET_WINDOW_FAILED;
     }
 
-    ctx->vinfo.x11 = vinfo;
-    ctx->context.x11 = context;
+    glx_ctx->vinfo = vinfo;
+    glx_ctx->context = context;
 
     getFunctions(ctx->gl, (void *)glXGetProcAddress, glxstr, true);
 
@@ -2293,8 +2312,9 @@ static int create_window_x11_gl3(struct MPGLContext *ctx, int gl_flags,
  */
 static void releaseGlContext_x11(MPGLContext *ctx)
 {
-    XVisualInfo **vinfo = &ctx->vinfo.x11;
-    GLXContext *context = &ctx->context.x11;
+    struct glx_context *glx_ctx = ctx->priv;
+    XVisualInfo **vinfo = &glx_ctx->vinfo;
+    GLXContext *context = &glx_ctx->context;
     Display *display = ctx->vo->x11->display;
     GL *gl = ctx->gl;
     if (*vinfo)
@@ -2364,6 +2384,7 @@ static int sdl_check_events(struct vo *vo)
 
 static void new_sdl_update_xinerama_info(struct vo *vo) { sdl_update_xinerama_info(); }
 static void new_vo_sdl_fullscreen(struct vo *vo) { vo_sdl_fullscreen(); }
+static void new_vo_sdl_uninit(struct vo *vo) { vo_sdl_uninit(); }
 
 #endif
 
@@ -2428,12 +2449,14 @@ MPGLContext *init_mpglcontext(enum MPGLType type, struct vo *vo)
         ctx->update_xinerama_info = cocoa_update_xinerama_info;
         ctx->fullscreen = cocoa_fullscreen;
         ctx->ontop = vo_cocoa_ontop;
+        ctx->vo_uninit = vo_cocoa_uninit;
         if (vo_cocoa_init(vo))
             return ctx;
         break;
 #endif
 #ifdef CONFIG_GL_WIN32
     case GLTYPE_W32:
+        ctx->priv = talloc_zero(ctx, struct w32_context);
         ctx->create_window = create_window_w32;
         ctx->create_window_gl3 = create_window_w32_gl3;
         ctx->setGlWindow = setGlWindow_w32;
@@ -2444,6 +2467,7 @@ MPGLContext *init_mpglcontext(enum MPGLType type, struct vo *vo)
         ctx->check_events = new_vo_w32_check_events;
         ctx->fullscreen = new_vo_w32_fullscreen;
         ctx->ontop = new_vo_w32_ontop;
+        ctx->vo_uninit = new_vo_w32_uninit;
         //the win32 code is hardcoded to use the deprecated vo API
         global_vo = vo;
         if (vo_w32_init())
@@ -2452,6 +2476,7 @@ MPGLContext *init_mpglcontext(enum MPGLType type, struct vo *vo)
 #endif
 #ifdef CONFIG_GL_X11
     case GLTYPE_X11:
+        ctx->priv = talloc_zero(ctx, struct glx_context);
         ctx->create_window = create_window_x11;
         ctx->setGlWindow = setGlWindow_x11;
         ctx->create_window_gl3 = create_window_x11_gl3;
@@ -2462,6 +2487,7 @@ MPGLContext *init_mpglcontext(enum MPGLType type, struct vo *vo)
         ctx->check_events = vo_x11_check_events;
         ctx->fullscreen = vo_x11_fullscreen;
         ctx->ontop = vo_x11_ontop;
+        ctx->vo_uninit = vo_x11_uninit;
         if (vo_init(vo))
             return ctx;
         break;
@@ -2475,6 +2501,7 @@ MPGLContext *init_mpglcontext(enum MPGLType type, struct vo *vo)
         ctx->update_xinerama_info = new_sdl_update_xinerama_info;
         ctx->check_events = sdl_check_events;
         ctx->fullscreen = new_vo_sdl_fullscreen;
+        ctx->vo_uninit = new_vo_sdl_uninit;
         //the SDL code is hardcoded to use the deprecated vo API
         global_vo = vo;
         if (vo_sdl_init())
@@ -2509,28 +2536,7 @@ void uninit_mpglcontext(MPGLContext *ctx)
     if (!ctx)
         return;
     ctx->releaseGlContext(ctx);
-    switch (ctx->type) {
-#ifdef CONFIG_GL_COCOA
-    case GLTYPE_COCOA:
-        vo_cocoa_uninit(ctx->vo);
-        break;
-#endif
-#ifdef CONFIG_GL_WIN32
-    case GLTYPE_W32:
-        vo_w32_uninit();
-        break;
-#endif
-#ifdef CONFIG_GL_X11
-    case GLTYPE_X11:
-        vo_x11_uninit(ctx->vo);
-        break;
-#endif
-#ifdef CONFIG_GL_SDL
-    case GLTYPE_SDL:
-        vo_sdl_uninit();
-        break;
-#endif
-    }
+    ctx->vo_uninit(ctx->vo);
     talloc_free(ctx);
 }
 
