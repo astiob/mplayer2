@@ -330,6 +330,7 @@ Optional features:
   --enable-winsock2_h    enable winsock2_h [autodetect]
   --enable-smb           enable Samba (SMB) input [autodetect]
   --enable-libquvi       enable libquvi [autodetect]
+  --enable-lcms2         enable LCMS2 support [autodetect]
   --disable-vcd          disable VCD support [autodetect]
   --disable-bluray       disable Blu-ray support [autodetect]
   --disable-dvdnav       disable libdvdnav [autodetect]
@@ -580,6 +581,7 @@ _dvdread_internal=auto
 _libdvdcss_internal=auto
 _xanim=auto
 _real=auto
+_lcms2=auto
 _xinerama=auto
 _vm=auto
 _xf86keysym=auto
@@ -883,6 +885,8 @@ for ac_option do
   --disable-xanim)      _xanim=no       ;;
   --enable-real)        _real=yes       ;;
   --disable-real)       _real=no        ;;
+  --enable-lcms2)       _lcms2=yes      ;;
+  --disable-lcms2)      _lcms2=no       ;;
   --enable-xinerama)    _xinerama=yes   ;;
   --disable-xinerama)   _xinerama=no    ;;
   --enable-vm)          _vm=yes         ;;
@@ -4987,6 +4991,20 @@ else
 fi
 echores "$_qtx"
 
+echocheck "LCMS2 support"
+if test "$_lcms2" = auto ; then
+    _lcms2=no
+    if pkg_config_add lcms2 ; then
+        _lcms2=yes
+    fi
+fi
+if test "$_lcms2" = yes; then
+    def_lcms2="#define CONFIG_LCMS2 1"
+else
+    def_lcms2="#undef CONFIG_LCMS2"
+fi
+echores "$_lcms2"
+
 
 # Test with > against Libav 0.8 versions which will NOT work rather than
 # specify minimum version, to allow (future) point releases to possibly work.
@@ -5651,6 +5669,7 @@ LIBDCA = $_libdca
 LIBDV = $_libdv
 LIBDVDCSS_INTERNAL = $_libdvdcss_internal
 LIBMAD = $_mad
+LCMS2 = $_lcms2
 LIBNUT = $_libnut
 LIBPOSTPROC = $libpostproc
 LIBSMBCLIENT = $_smb
@@ -5962,6 +5981,8 @@ $def_smb
 $def_libquvi
 $def_socklen_t
 $def_vstream
+
+$def_lcms2
 
 
 /* libvo options */

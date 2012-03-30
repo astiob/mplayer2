@@ -79,6 +79,7 @@ extern struct vo_driver video_out_vdpau;
 extern struct vo_driver video_out_xv;
 extern struct vo_driver video_out_gl_nosw;
 extern struct vo_driver video_out_gl;
+extern struct vo_driver video_out_gl3;
 extern struct vo_driver video_out_sdl;
 extern struct vo_driver video_out_null;
 extern struct vo_driver video_out_png;
@@ -115,6 +116,9 @@ const struct vo_driver *video_out_drivers[] =
 #endif
 #ifdef CONFIG_XV
         &video_out_xv,
+#endif
+#ifdef CONFIG_GL
+        &video_out_gl3,
 #endif
 #ifdef CONFIG_X11
 #ifdef CONFIG_GL
