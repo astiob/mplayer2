@@ -119,18 +119,15 @@ const struct vo_driver *video_out_drivers[] =
 #endif
 #ifdef CONFIG_GL
         &video_out_gl3,
+#ifndef CONFIG_GL_COCOA
+        &video_out_gl,
+#endif
 #endif
 #ifdef CONFIG_X11
-#ifdef CONFIG_GL
-        &video_out_gl_nosw,
-#endif
         &video_out_x11,
 #endif
 #ifdef CONFIG_SDL
         &video_out_sdl,
-#endif
-#if (defined CONFIG_GL && !defined CONFIG_GL_COCOA)
-        &video_out_gl,
 #endif
 #ifdef CONFIG_CACA
         &video_out_caca,
@@ -165,6 +162,11 @@ const struct vo_driver *video_out_drivers[] =
 #endif
 #ifdef CONFIG_SHAREDBUFFER
         &video_out_sharedbuffer,
+#endif
+#ifdef CONFIG_X11
+#ifdef CONFIG_GL
+        &video_out_gl_nosw,
+#endif
 #endif
         NULL
 };
