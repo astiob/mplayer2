@@ -285,6 +285,11 @@ int vo_cocoa_create_window(struct vo *vo, uint32_t d_width,
         if (is_osx_version_at_least(10, 7, 0)) {
           attr[i++] = NSOpenGLPFAOpenGLProfile;
           attr[i++] = (gl3profile ? NSOpenGLProfileVersion3_2Core : NSOpenGLProfileVersionLegacy);
+        } else if(gl3profile) {
+            mp_msg(MSGT_VO, MSGL_ERR,
+                "[cocoa] Invalid pixel format attribute "
+                "(GL3 is not supported on OSX versions prior to 10.7)\n");
+            return -1;
         }
         attr[i++] = NSOpenGLPFADoubleBuffer; // double buffered
         attr[i] = (NSOpenGLPixelFormatAttribute)0;
