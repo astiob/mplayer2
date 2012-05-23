@@ -3376,15 +3376,6 @@ if test "$_x11" = auto && test "$_x11_headers" = yes ; then
     fi
     statement_check X11/Xutil.h 'XCreateWindow(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)' $_ld_tmp &&
       _x11=yes
-    # Check that there aren't conflicting headers between ApplicationServices
-    # and X11. On versions of Mac OSX prior to 10.7 the deprecated QuickDraw API
-    # is included by -framework ApplicationServices and clashes with the X11
-    # definition of the "Cursor" type.
-    if darwin && depends_on_application_services && test "$_x11" = yes ; then
-      _x11=no
-      header_check_broken ApplicationServices/ApplicationServices.h \
-        X11/Xutil.h $_ld_tmp && _x11=yes
-    fi
     if test "$_x11" = yes ; then
       libs_mplayer="$libs_mplayer $_ld_tmp"
       break
