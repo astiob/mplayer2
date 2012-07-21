@@ -241,7 +241,6 @@ int vo_cocoa_create_window(struct vo *vo, uint32_t d_width,
 
         NSOpenGLPixelFormatAttribute attrs[] = {
             NSOpenGLPFADoubleBuffer, // double buffered
-            NSOpenGLPFADepthSize, (NSOpenGLPixelFormatAttribute)16, // 16 bit depth buffer
             (NSOpenGLPixelFormatAttribute)0
         };
 
