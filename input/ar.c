@@ -4,6 +4,7 @@
  * Copyright (C) 2007 Zoltan Ponekker <pontscho at kac.poliod.hu>
  *
  * (modified a bit by Ulion <ulion2002 at gmail.com>)
+ * (modified a bit by Chortos-2 <chortos at inbox.lv>)
  *
  * This file is part of MPlayer.
  *
@@ -33,7 +34,9 @@
 #include "ar.h"
 #include "keycodes.h"
 
+#ifndef TEST
 extern int slave_mode;
+#endif
 
 extern const double NSAppKitVersionNumber;
 
@@ -43,20 +46,23 @@ typedef struct cookie_keycode_map {
     int keycode;
 } cookie_keycode_map_t;
 
-/* On tiger, 5 always follows 6; on leopard, 18 always follows 19.
- * On leopard, there seems to be no cookie value of 5 or 6.
+/* On tiger, 5 always follows 6; on leopard, 18 always follows 19;
+ * on snow leopard, 20 always follows 21.
  * Following is the shortened cookie sequence list
- * keycode      cookies_on_tiger cookies_on_leopard *down_state
- * AR_PREV_HOLD 14+6+3+2         31+19+3+2          yes
- * AR_NEXT_HOLD 14+6+4+2         31+19+4+2          yes
- * AR_MENU_HOLD 14+6+14+6        31+19+31+19
- * AR_VUP       14+12+11+6       31+29+28+19        yes
- * AR_VDOWN     14+13+11+6       31+30+28+19        yes
- * AR_MENU      14+7+6+14+7+6    31+20+19+31+20+19
- * AR_PLAY      14+8+6+14+8+6    31+21+19+31+21+19
- * AR_NEXT      14+9+6+14+9+6    31+22+19+31+22+19
- * AR_PREV      14+10+6+14+10+6  31+23+19+31+23+19
- * AR_PLAY_HOLD 18+14+6+18+14+6  35+31+19+35+31+19
+ * keycode      cookies_on_tiger cookies_on_leopard cookies_on_snow_leopard *down_state
+ * AR_PREV_HOLD 14+6+3+2         31+19+3+2          33+21+13+12+2           yes
+ * AR_NEXT_HOLD 14+6+4+2         31+19+4+2          33+21+14+12+2           yes
+ * AR_MENU_HOLD 14+6+14+6        31+19+31+19        33+21+2+33+21+2
+ * AR_VUP       14+12+11+6       31+29+28+19        33+31+30+21+2           yes
+ * AR_VDOWN     14+13+11+6       31+30+28+19        33+32+30+21+2           yes
+ * AR_MENU      14+7+6+14+7+6    31+20+19+31+20+19  33+22+21+2+33+22+21+2
+ * AR_PLAY      14+8+6+14+8+6    31+21+19+31+21+19  33+23+21+2+33+23+21+2
+ *                                                  33+21+8+2+33+21+8+2  (aluminum remote)
+ *                                                 (33+21+3+2+33+21+3+2) (dedicated center button on the aluminum remote)
+ * AR_NEXT      14+9+6+14+9+6    31+22+19+31+22+19  33+24+21+2+33+24+21+2
+ * AR_PREV      14+10+6+14+10+6  31+23+19+31+23+19  33+25+21+2+33+25+21+2
+ * AR_PLAY_HOLD 18+14+6+18+14+6  35+31+19+35+31+19  37+33+21+2+37+33+21+2
+ *                                                  33+21+11+2+33+21+11+2 (dedicated center button on the aluminum remote)
  *
  * *down_state: A button with this feature has a pressed event and
  * a released event, with which we can trace the state of the button.
@@ -102,7 +108,24 @@ static const cookie_keycode_map_t ar_codes_leopard[] = {
     { NULL,                       0, MP_INPUT_NOTHING },
 };
 
-static int is_leopard;
+static const cookie_keycode_map_t ar_codes_snow_leopard[] = {
+    { "\x21\x15\x0D\x0C\x02",             5, AR_PREV_HOLD     },
+    { "\x21\x15\x0E\x0C\x02",             5, AR_NEXT_HOLD     },
+    { "\x21\x15\x02\x21\x15\x02",         6, AR_MENU_HOLD     },
+    { "\x21\x1F\x1E\x15\x02",             5, AR_VUP           },
+    { "\x21\x20\x1E\x15\x02",             5, AR_VDOWN         },
+    { "\x21\x16\x15\x02\x21\x16\x15\x02", 8, AR_MENU          },
+    { "\x21\x17\x15\x02\x21\x17\x15\x02", 8, AR_PLAY          },
+    { "\x21\x18\x15\x02\x21\x18\x15\x02", 8, AR_NEXT          },
+    { "\x21\x19\x15\x02\x21\x19\x15\x02", 8, AR_PREV          },
+    { "\x25\x21\x15\x02\x25\x21\x15\x02", 8, AR_PLAY_HOLD     },
+    { "\x21\x15\x08\x02\x21\x15\x08\x02", 8, AR_PLAY          },
+    { "\x21\x15\x03\x02\x21\x15\x03\x02", 8, AR_PLAY          },
+    { "\x21\x15\x0B\x02\x21\x15\x0B\x02", 8, AR_PLAY_HOLD     },
+    { NULL,                               0, MP_INPUT_NOTHING },
+};
+
+static int redundant_cookie;
 static const cookie_keycode_map_t *ar_codes;
 
 static IOHIDQueueInterface **queue;
@@ -227,11 +250,15 @@ int mp_input_ar_init(void)
 
     if (floor(NSAppKitVersionNumber) <= 824 /* NSAppKitVersionNumber10_4 */) {
         ar_codes = &ar_codes_tiger[0];
-        is_leopard = 0;
+        redundant_cookie = 5;
+    }
+    else if (floor(NSAppKitVersionNumber) <= 949 /* NSAppKitVersionNumber10_5 */) {
+        ar_codes = &ar_codes_leopard[0];
+        redundant_cookie = 18;
     }
     else {
-        ar_codes = &ar_codes_leopard[0];
-        is_leopard = 1;
+        ar_codes = &ar_codes_snow_leopard[0];
+        redundant_cookie = 20;
     }
 
     if (FindHIDDevices(kIOMasterPortDefault, &hidObjectIterator))
@@ -304,6 +331,10 @@ mp_input_ar_init_error:
 
 static int is_mplayer_front(void)
 {
+#ifdef TEST
+    return 1;
+#endif
+
     ProcessSerialNumber myProc, frProc;
     Boolean sameProc;
     pid_t parentPID;
@@ -313,9 +344,11 @@ static int is_mplayer_front(void)
             && SameProcess(&frProc, &myProc, &sameProc) == noErr) {
         if (sameProc)
             return 1;
+#ifndef TEST
         // If MPlayer is running in slave mode, also check parent process.
         if (slave_mode && GetProcessPID(&frProc, &parentPID) == noErr)
             return parentPID==getppid();
+#endif
     }
     return 0;
 }
@@ -339,16 +372,14 @@ int mp_input_ar_read(void *ctx, int fd)
 
     while ((result = (*queue)->getNextEvent(queue, &event, zeroTime, 0)) == kIOReturnSuccess) {
 #ifdef TEST
-        printf(" - event cookie: %d, value: %d, long value: %d\n",
-              (int)event.elementCookie, (int)event.value, (int)event.longValue);
+        printf(" - event cookie: %d, value: %d, long value: %p\n",
+              (int)event.elementCookie, (int)event.value, event.longValue);
 #endif
-        // Shorten cookie sequence by removing cookies value 5 and 18,
-        // since 5 always follows 6 (on tiger), 18 follows 19 (on leopard).
-        if ((int)event.elementCookie == 5
-                || ((int)event.elementCookie == 18 && is_leopard))
+        // Shorten cookie sequence by removing fully redundant cookies.
+        if ((int)event.elementCookie == redundant_cookie)
             continue;
         // Check valid cookie range.
-        if ((int)event.elementCookie > 35 || (int)event.elementCookie < 2) {
+        if ((int)event.elementCookie > 37 || (int)event.elementCookie < 2) {
             cookie_nr = 0;
             continue;
         }
