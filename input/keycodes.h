@@ -180,17 +180,19 @@
 #endif // AR_DEFINES_ONLY
 
 // Apple Remote input module
-#define AR_BASE      (MP_KEY_BASE+0xE0)
-#define AR_PLAY      (AR_BASE + 0)
-#define AR_PLAY_HOLD (AR_BASE + 1)
-#define AR_NEXT      (AR_BASE + 2)
-#define AR_NEXT_HOLD (AR_BASE + 3)
-#define AR_PREV      (AR_BASE + 4)
-#define AR_PREV_HOLD (AR_BASE + 5)
-#define AR_MENU      (AR_BASE + 6)
-#define AR_MENU_HOLD (AR_BASE + 7)
-#define AR_VUP       (AR_BASE + 8)
-#define AR_VDOWN     (AR_BASE + 9)
+#define AR_BASE        (MP_KEY_BASE+0xE0)
+#define AR_PLAY        (AR_BASE + 0)
+#define AR_PLAY_HOLD   (AR_BASE + 1)
+#define AR_NEXT        (AR_BASE + 2)
+#define AR_NEXT_HOLD   (AR_BASE + 3)
+#define AR_PREV        (AR_BASE + 4)
+#define AR_PREV_HOLD   (AR_BASE + 5)
+#define AR_MENU        (AR_BASE + 6)
+#define AR_MENU_HOLD   (AR_BASE + 7)
+#define AR_VUP         (AR_BASE + 8)
+#define AR_VDOWN       (AR_BASE + 9)
+#define AR_SELECT      (AR_BASE + 10)
+#define AR_SELECT_HOLD (AR_BASE + 11)
 
 #ifndef AR_DEFINES_ONLY
 

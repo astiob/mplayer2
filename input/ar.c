@@ -49,20 +49,20 @@ typedef struct cookie_keycode_map {
 /* On tiger, 5 always follows 6; on leopard, 18 always follows 19;
  * on snow leopard, 20 always follows 21.
  * Following is the shortened cookie sequence list
- * keycode      cookies_on_tiger cookies_on_leopard cookies_on_snow_leopard *down_state
- * AR_PREV_HOLD 14+6+3+2         31+19+3+2          33+21+13+12+2           yes
- * AR_NEXT_HOLD 14+6+4+2         31+19+4+2          33+21+14+12+2           yes
- * AR_MENU_HOLD 14+6+14+6        31+19+31+19        33+21+2+33+21+2
- * AR_VUP       14+12+11+6       31+29+28+19        33+31+30+21+2           yes
- * AR_VDOWN     14+13+11+6       31+30+28+19        33+32+30+21+2           yes
- * AR_MENU      14+7+6+14+7+6    31+20+19+31+20+19  33+22+21+2+33+22+21+2
- * AR_PLAY      14+8+6+14+8+6    31+21+19+31+21+19  33+23+21+2+33+23+21+2
- *                                                  33+21+8+2+33+21+8+2  (aluminum remote)
- *                                                 (33+21+3+2+33+21+3+2) (dedicated center button on the aluminum remote)
- * AR_NEXT      14+9+6+14+9+6    31+22+19+31+22+19  33+24+21+2+33+24+21+2
- * AR_PREV      14+10+6+14+10+6  31+23+19+31+23+19  33+25+21+2+33+25+21+2
- * AR_PLAY_HOLD 18+14+6+18+14+6  35+31+19+35+31+19  37+33+21+2+37+33+21+2
- *                                                  33+21+11+2+33+21+11+2 (dedicated center button on the aluminum remote)
+ * keycode        cookies_on_tiger cookies_on_leopard cookies_on_snow_leopard *down_state
+ * AR_PREV_HOLD   14+6+3+2         31+19+3+2          33+21+13+12+2           yes
+ * AR_NEXT_HOLD   14+6+4+2         31+19+4+2          33+21+14+12+2           yes
+ * AR_MENU_HOLD   14+6+14+6        31+19+31+19        33+21+2+33+21+2
+ * AR_VUP         14+12+11+6       31+29+28+19        33+31+30+21+2           yes
+ * AR_VDOWN       14+13+11+6       31+30+28+19        33+32+30+21+2           yes
+ * AR_MENU        14+7+6+14+7+6    31+20+19+31+20+19  33+22+21+2+33+22+21+2
+ * AR_PLAY        14+8+6+14+8+6    31+21+19+31+21+19  33+23+21+2+33+23+21+2
+ *                                                    33+21+8+2+33+21+8+2   (aluminum remote)
+ * AR_NEXT        14+9+6+14+9+6    31+22+19+31+22+19  33+24+21+2+33+24+21+2
+ * AR_PREV        14+10+6+14+10+6  31+23+19+31+23+19  33+25+21+2+33+25+21+2
+ * AR_SELECT                                          33+21+3+2+33+21+3+2   (aluminum remote)
+ * AR_SELECT_HOLD                                     33+21+11+2+33+21+11+2 (aluminum remote)
+ * AR_PLAY_HOLD   18+14+6+18+14+6  35+31+19+35+31+19  37+33+21+2+37+33+21+2
  *
  * *down_state: A button with this feature has a pressed event and
  * a released event, with which we can trace the state of the button.
@@ -118,10 +118,10 @@ static const cookie_keycode_map_t ar_codes_snow_leopard[] = {
     { "\x21\x17\x15\x02\x21\x17\x15\x02", 8, AR_PLAY          },
     { "\x21\x18\x15\x02\x21\x18\x15\x02", 8, AR_NEXT          },
     { "\x21\x19\x15\x02\x21\x19\x15\x02", 8, AR_PREV          },
-    { "\x25\x21\x15\x02\x25\x21\x15\x02", 8, AR_PLAY_HOLD     },
     { "\x21\x15\x08\x02\x21\x15\x08\x02", 8, AR_PLAY          },
-    { "\x21\x15\x03\x02\x21\x15\x03\x02", 8, AR_PLAY          },
-    { "\x21\x15\x0B\x02\x21\x15\x0B\x02", 8, AR_PLAY_HOLD     },
+    { "\x21\x15\x03\x02\x21\x15\x03\x02", 8, AR_SELECT        },
+    { "\x21\x15\x0B\x02\x21\x15\x0B\x02", 8, AR_SELECT_HOLD   },
+    { "\x25\x21\x15\x02\x25\x21\x15\x02", 8, AR_PLAY_HOLD     },
     { NULL,                               0, MP_INPUT_NOTHING },
 };
 
@@ -477,16 +477,18 @@ int main(void)
 
     while (1) {
         switch ((ret = mp_input_ar_read(NULL, 0)) & ~MP_KEY_DOWN) {
-            case AR_PLAY:       printf(" - AR_PLAY."); break;
-            case AR_PLAY_HOLD:  printf(" - AR_PLAY_HOLD."); break;
-            case AR_NEXT:       printf(" - AR_NEXT."); break;
-            case AR_NEXT_HOLD:  printf(" - AR_NEXT_HOLD."); break;
-            case AR_PREV:       printf(" - AR_PREV."); break;
-            case AR_PREV_HOLD:  printf(" - AR_PREV_HOLD."); break;
-            case AR_MENU:       printf(" - AR_MENU."); break;
-            case AR_MENU_HOLD:  printf(" - AR_MENU_HOLD."); break;
-            case AR_VUP:        printf(" - AR_VUP."); break;
-            case AR_VDOWN:      printf(" - AR_VDOWN."); break;
+            case AR_PLAY:         printf(" - AR_PLAY."); break;
+            case AR_PLAY_HOLD:    printf(" - AR_PLAY_HOLD."); break;
+            case AR_NEXT:         printf(" - AR_NEXT."); break;
+            case AR_NEXT_HOLD:    printf(" - AR_NEXT_HOLD."); break;
+            case AR_PREV:         printf(" - AR_PREV."); break;
+            case AR_PREV_HOLD:    printf(" - AR_PREV_HOLD."); break;
+            case AR_MENU:         printf(" - AR_MENU."); break;
+            case AR_MENU_HOLD:    printf(" - AR_MENU_HOLD."); break;
+            case AR_VUP:          printf(" - AR_VUP."); break;
+            case AR_VDOWN:        printf(" - AR_VDOWN."); break;
+            case AR_SELECT:       printf(" - AR_SELECT."); break;
+            case AR_SELECT_HOLD:  printf(" - AR_SELECT_HOLD."); break;
         }
         if ((ret > 0 )&&(ret & MP_KEY_DOWN))
             printf(" [hold]");

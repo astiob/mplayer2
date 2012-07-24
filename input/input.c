@@ -363,6 +363,8 @@ static const struct key_name key_names[] = {
   { AR_MENU_HOLD, "AR_MENU_HOLD" },
   { AR_VUP, "AR_VUP" },
   { AR_VDOWN, "AR_VDOWN" },
+  { AR_SELECT, "AR_SELECT" },
+  { AR_SELECT_HOLD, "AR_SELECT_HOLD" },
 
   { KEY_POWER, "POWER" },
   { KEY_MENU, "MENU" },
