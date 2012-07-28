@@ -584,6 +584,9 @@ libmpdemux/ebml_types.h: TOOLS/matroska.py
 libmpdemux/ebml_defs.c: TOOLS/matroska.py
 	./$< --generate-definitions > $@
 
+sub/osd_font.h: TOOLS/file2string.py sub/osd_font.pfb
+	./$^ >$@
+
 # ./configure must be rerun if it changed
 config.mak: configure
 	@echo "############################################################"
@@ -620,6 +623,7 @@ mpcommon.o osdep/mplayer-rc.o: version.h
 libvo/vo_vdpau.o: libvo/vdpau_template.c
 libmpdemux/ebml.o libmpdemux/demux_mkv.o: libmpdemux/ebml_types.h
 libmpdemux/ebml.o: libmpdemux/ebml_defs.c
+sub/osd_libass.o: sub/osd_font.h
 
 # Files that depend on libavcodec internals
 libmpcodecs/vf_fspp.o libmpcodecs/vf_mcdeint.o libmpcodecs/vf_spp.o: CFLAGS := -I$(FFMPEG_SOURCE_PATH) $(CFLAGS)
