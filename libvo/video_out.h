@@ -49,7 +49,6 @@ enum mp_voctrl {
     /* libmpcodecs direct rendering */
     VOCTRL_GET_IMAGE,
     VOCTRL_DRAW_IMAGE,
-    VOCTRL_SET_SPU_PALETTE,
     VOCTRL_GET_PANSCAN,
     VOCTRL_SET_PANSCAN,
     VOCTRL_SET_EQUALIZER,               // struct voctrl_set_equalizer_args
@@ -57,11 +56,6 @@ enum mp_voctrl {
     VOCTRL_DUPLICATE_FRAME,
 
     VOCTRL_START_SLICE,
-
-    // Vo can be used by xover
-    VOCTRL_XOVERLAY_SUPPORT,
-    VOCTRL_XOVERLAY_SET_COLORKEY,       // mp_colorkey_t
-    VOCTRL_XOVERLAY_SET_WIN,
 
     VOCTRL_NEWFRAME,
     VOCTRL_SKIPFRAME,
@@ -95,12 +89,6 @@ struct voctrl_get_equalizer_args {
     const char *name;
     int *valueptr;
 };
-
-// VOCTRL_XOVERLAY_SET_COLORKEY
-typedef struct {
-    uint32_t x11; // The raw x11 color
-    uint16_t r,g,b;
-} mp_colorkey_t;
 
 // VOCTRL_GET_EOSD_RES
 typedef struct mp_eosd_res {
@@ -142,13 +130,12 @@ typedef struct {
 #define VOFLAG_FLIPPING		0x08
 #define VOFLAG_HIDDEN		0x10  //< Use to create a hidden window
 #define VOFLAG_STEREO		0x20  //< Use to create a stereo-capable window
-#define VOFLAG_XOVERLAY_SUB_VO  0x10000
 
 typedef struct vo_info_s
 {
     /* driver name ("Matrox Millennium G200/G400" */
     const char *name;
-    /* short name (for config strings) ("mga") */
+    /* short name (for config strings) ("vdpau") */
     const char *short_name;
     /* author ("Aaron Holtzman <aholtzma@ess.engr.uvic.ca>") */
     const char *author;

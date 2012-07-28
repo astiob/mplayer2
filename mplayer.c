@@ -4806,8 +4806,6 @@ goto_enable_cache:
 
     reinit_video_chain(mpctx);
     if (mpctx->sh_video) {
-        if (mpctx->sh_video->output_flags & VFCAP_SPU && vo_spudec)
-            spudec_set_hw_spu(vo_spudec, mpctx->video_out);
 #ifdef CONFIG_FREETYPE
         force_load_font = 1;
 #endif

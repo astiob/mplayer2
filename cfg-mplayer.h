@@ -35,9 +35,6 @@
 #include "stream/stream_radio.h"
 #include "libvo/csputils.h"
 
-extern char *fb_mode_cfgfile;
-extern char *fb_mode_name;
-
 extern char *lirc_configfile;
 
 /* only used at startup (setting these values from configfile) */
@@ -745,17 +742,6 @@ const m_option_t mplayer_opts[]={
 
 #ifdef CONFIG_X11
     {"display", &mDisplayName, CONF_TYPE_STRING, 0, 0, 0, NULL},
-#endif
-
-#if defined(CONFIG_FBDEV) || defined(CONFIG_VESA)
-    {"monitor-hfreq", &monitor_hfreq_str, CONF_TYPE_STRING, 0, 0, 0, NULL},
-    {"monitor-vfreq", &monitor_vfreq_str, CONF_TYPE_STRING, 0, 0, 0, NULL},
-    {"monitor-dotclock", &monitor_dotclock_str, CONF_TYPE_STRING, 0, 0, 0, NULL},
-#endif
-
-#ifdef CONFIG_FBDEV
-    {"fbmode", &fb_mode_name, CONF_TYPE_STRING, 0, 0, 0, NULL},
-    {"fbmodeconfig", &fb_mode_cfgfile, CONF_TYPE_STRING, 0, 0, 0, NULL},
 #endif
 
     // force window width/height or resolution (with -vm)

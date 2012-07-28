@@ -430,23 +430,16 @@ SRCS_COMMON = asxparser.c \
               $(SRCS_COMMON-yes)
 
 
-SRCS_MPLAYER-$(3DFX)         += libvo/vo_3dfx.c
-SRCS_MPLAYER-$(AA)           += libvo/vo_aa.c
 SRCS_MPLAYER-$(ALSA)         += libao2/ao_alsa.c
 SRCS_MPLAYER-$(APPLE_IR)     += input/appleir.c
 SRCS_MPLAYER-$(APPLE_REMOTE) += input/ar.c
-SRCS_MPLAYER-$(BL)           += libvo/vo_bl.c
 SRCS_MPLAYER-$(CACA)         += libvo/vo_caca.c
 SRCS_MPLAYER-$(COREAUDIO)    += libao2/ao_coreaudio.c
 SRCS_MPLAYER-$(COREVIDEO)    += libvo/vo_corevideo.m
 SRCS_MPLAYER-$(SHAREDBUFFER) += libvo/vo_sharedbuffer.m
-SRCS_MPLAYER-$(DGA)          += libvo/vo_dga.c
 SRCS_MPLAYER-$(DIRECT3D)     += libvo/vo_direct3d.c libvo/w32_common.c
-SRCS_MPLAYER-$(DIRECTFB)     += libvo/vo_directfb2.c libvo/vo_dfbmga.c
+SRCS_MPLAYER-$(DIRECTFB)     += libvo/vo_directfb2.c
 SRCS_MPLAYER-$(DIRECTX)      += libao2/ao_dsound.c libvo/vo_directx.c
-SRCS_MPLAYER-$(DXR3)         += libvo/vo_dxr3.c
-SRCS_MPLAYER-$(FBDEV)        += libvo/vo_fbdev.c libvo/vo_fbdev2.c
-SRCS_MPLAYER-$(GGI)          += libvo/vo_ggi.c
 SRCS_MPLAYER-$(GIF)          += libvo/vo_gif89a.c
 SRCS_MPLAYER-$(GL)           += libvo/gl_common.c libvo/vo_gl.c \
                                 pnm_loader.c
@@ -454,39 +447,25 @@ SRCS_MPLAYER-$(GL_SDL)       += libvo/sdl_common.c
 SRCS_MPLAYER-$(GL_WIN32)     += libvo/w32_common.c
 SRCS_MPLAYER-$(GL_X11)       += libvo/x11_common.c
 
-SRCS_MPLAYER-$(IVTV)         += libao2/ao_ivtv.c libvo/vo_ivtv.c
 SRCS_MPLAYER-$(JACK)         += libao2/ao_jack.c
 SRCS_MPLAYER-$(JOYSTICK)     += input/joystick.c
 SRCS_MPLAYER-$(JPEG)         += libvo/vo_jpeg.c
 SRCS_MPLAYER-$(LIRC)          += input/lirc.c
 SRCS_MPLAYER-$(MD5SUM)        += libvo/vo_md5sum.c
-SRCS_MPLAYER-$(MGA)           += libvo/vo_mga.c
-SRCS_MPLAYER-$(NAS)           += libao2/ao_nas.c
 SRCS_MPLAYER-$(OPENAL)        += libao2/ao_openal.c
 SRCS_MPLAYER-$(OSS)           += libao2/ao_oss.c
 SRCS_MPLAYER-$(PNM)           += libvo/vo_pnm.c
 SRCS_MPLAYER-$(PULSE)         += libao2/ao_pulse.c
 SRCS_MPLAYER-$(PORTAUDIO)     += libao2/ao_portaudio.c
 SRCS_MPLAYER-$(RSOUND)        += libao2/ao_rsound.c
-SRCS_MPLAYER-$(S3FB)          += libvo/vo_s3fb.c
 SRCS_MPLAYER-$(SDL)           += libao2/ao_sdl.c libvo/vo_sdl.c libvo/sdl_common.c
-SRCS_MPLAYER-$(SUNAUDIO)      += libao2/ao_sun.c
-SRCS_MPLAYER-$(SVGA)          += libvo/vo_svga.c
-SRCS_MPLAYER-$(TDFXFB)        += libvo/vo_tdfxfb.c
-SRCS_MPLAYER-$(TDFXVID)       += libvo/vo_tdfx_vid.c
 SRCS_MPLAYER-$(TGA)           += libvo/vo_tga.c
 SRCS_MPLAYER-$(V4L2)          += libvo/vo_v4l2.c
 SRCS_MPLAYER-$(V4L2)          += libao2/ao_v4l2.c
 SRCS_MPLAYER-$(VDPAU)         += libvo/vo_vdpau.c
-SRCS_MPLAYER-$(VESA)          += libvo/gtf.c libvo/vo_vesa.c libvo/vesa_lvo.c
 
-SRCS_MPLAYER-$(WII)           += libvo/vo_wii.c
-SRCS_MPLAYER-$(WIN32WAVEOUT)  += libao2/ao_win32.c
-SRCS_MPLAYER-$(X11)           += libvo/vo_x11.c libvo/vo_xover.c \
-                                 libvo/x11_common.c
-SRCS_MPLAYER-$(XMGA)          += libvo/vo_xmga.c
+SRCS_MPLAYER-$(X11)           += libvo/vo_x11.c libvo/x11_common.c
 SRCS_MPLAYER-$(XV)            += libvo/vo_xv.c
-SRCS_MPLAYER-$(XVR100)        += libvo/vo_xvr100.c
 SRCS_MPLAYER-$(YUV4MPEG)      += libvo/vo_yuv4mpeg.c
 
 SRCS_MPLAYER = command.c \
@@ -497,7 +476,6 @@ SRCS_MPLAYER = command.c \
                parser-mpcmd.c \
                screenshot.c \
                input/input.c \
-               libao2/ao_mpegpes.c \
                libao2/ao_null.c \
                libao2/ao_pcm.c \
                libao2/audio_out.c \
@@ -505,9 +483,7 @@ SRCS_MPLAYER = command.c \
                libvo/csputils.c \
                libvo/geometry.c \
                libvo/old_vo_wrapper.c \
-               libvo/spuenc.c \
                libvo/video_out.c \
-               libvo/vo_mpegpes.c \
                libvo/vo_null.c \
                libvo/vo_png.c \
                $(SRCS_MPLAYER-yes)
@@ -706,7 +682,7 @@ clean:
 	-$(RM) $(call ADD_ALL_EXESUFS,mplayer)
 	-$(RM) $(MOFILES)
 
-distclean: clean testsclean toolsclean driversclean
+distclean: clean testsclean toolsclean
 	-$(RM) -r DOCS/tech/doxygen
 	-$(RM) -r locale
 	-$(RM) config.log config.mak config.h codecs.conf.h version.h TAGS tags
@@ -784,42 +760,9 @@ realcodecs: CFLAGS += -g
 
 
 
-###### drivers #######
-
-KERNEL_INC = /lib/modules/`uname -r`/build/include
-KERNEL_VERSION = $(shell grep RELEASE $(KERNEL_INC)/linux/version.h | cut -d'"' -f2)
-KERNEL_CFLAGS = -O2 -D__KERNEL__ -DMODULE -Wall -I$(KERNEL_INC) -include $(KERNEL_INC)/linux/modversions.h
-KERNEL_OBJS = $(addprefix drivers/, mga_vid.o tdfx_vid.o radeon_vid.o rage128_vid.o)
-MODULES_DIR = /lib/modules/$(KERNEL_VERSION)/misc
-DRIVER_OBJS = $(KERNEL_OBJS) drivers/mga_vid_test drivers/tdfx_vid_test
-
-drivers: $(DRIVER_OBJS)
-
-$(DRIVER_OBJS): CFLAGS = $(KERNEL_CFLAGS)
-drivers/mga_vid.o: drivers/mga_vid.c drivers/mga_vid.h
-drivers/tdfx_vid.o: drivers/tdfx_vid.c drivers/3dfx.h
-drivers/radeon_vid.o drivers/rage128_vid.o: CFLAGS += -fomit-frame-pointer -fno-strict-aliasing -fno-common -ffast-math
-drivers/radeon_vid.o: drivers/radeon_vid.c drivers/radeon.h drivers/radeon_vid.h
-drivers/rage128_vid.o: drivers/radeon_vid.c drivers/radeon.h drivers/radeon_vid.h
-	$(CC) $(CFLAGS) -DRAGE128 -c $< -o $@
-
-install-drivers: $(DRIVER_OBJS)
-	-mkdir -p $(MODULES_DIR)
-	install -m 644 $(KERNEL_OBJS) $(MODULES_DIR)
-	depmod -a
-	-mknod /dev/mga_vid    c 178 0
-	-mknod /dev/tdfx_vid   c 178 0
-	-mknod /dev/radeon_vid c 178 0
-	-ln -s /dev/radeon_vid /dev/rage128_vid
-
-driversclean:
-	-$(RM) $(DRIVER_OBJS) drivers/*~
-
-
-
 -include $(DEP_FILES)
 
-.PHONY: all doxygen locales *install* *tools drivers
+.PHONY: all doxygen locales *install* *tools
 .PHONY: checkheaders *clean tests .version
 
 # Disable suffix rules.  Most of the builtin rules are suffix rules,

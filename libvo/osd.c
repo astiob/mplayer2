@@ -193,36 +193,6 @@ void vo_draw_alpha_yuy2(int w,int h, unsigned char* src, unsigned char *srca, in
 #endif //!CONFIG_RUNTIME_CPUDETECT
 }
 
-void vo_draw_alpha_uyvy(int w,int h, unsigned char* src, unsigned char *srca, int srcstride, unsigned char* dstbase,int dststride){
-#if CONFIG_RUNTIME_CPUDETECT
-#if ARCH_X86
-	// ordered by speed / fastest first
-	if(gCpuCaps.hasMMX2)
-		vo_draw_alpha_uyvy_MMX2(w, h, src, srca, srcstride, dstbase, dststride);
-	else if(gCpuCaps.has3DNow)
-		vo_draw_alpha_uyvy_3DNow(w, h, src, srca, srcstride, dstbase, dststride);
-	else if(gCpuCaps.hasMMX)
-		vo_draw_alpha_uyvy_MMX(w, h, src, srca, srcstride, dstbase, dststride);
-	else
-		vo_draw_alpha_uyvy_X86(w, h, src, srca, srcstride, dstbase, dststride);
-#else
-		vo_draw_alpha_uyvy_C(w, h, src, srca, srcstride, dstbase, dststride);
-#endif
-#else //CONFIG_RUNTIME_CPUDETECT
-#if HAVE_MMX2
-		vo_draw_alpha_uyvy_MMX2(w, h, src, srca, srcstride, dstbase, dststride);
-#elif HAVE_AMD3DNOW
-		vo_draw_alpha_uyvy_3DNow(w, h, src, srca, srcstride, dstbase, dststride);
-#elif HAVE_MMX
-		vo_draw_alpha_uyvy_MMX(w, h, src, srca, srcstride, dstbase, dststride);
-#elif ARCH_X86
-		vo_draw_alpha_uyvy_X86(w, h, src, srca, srcstride, dstbase, dststride);
-#else
-		vo_draw_alpha_uyvy_C(w, h, src, srca, srcstride, dstbase, dststride);
-#endif
-#endif //!CONFIG_RUNTIME_CPUDETECT
-}
-
 void vo_draw_alpha_rgb24(int w,int h, unsigned char* src, unsigned char *srca, int srcstride, unsigned char* dstbase,int dststride){
 #if CONFIG_RUNTIME_CPUDETECT
 #if ARCH_X86
