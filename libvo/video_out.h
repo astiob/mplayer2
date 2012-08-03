@@ -286,8 +286,7 @@ struct vo {
     } aspdat;
 };
 
-struct vo *init_best_video_out(struct MPOpts *opts, struct vo_x11_state *x11,
-                               struct mp_fifo *key_fifo,
+struct vo *init_best_video_out(struct MPOpts *opts, struct mp_fifo *key_fifo,
                                struct input_ctx *input_ctx);
 int vo_config(struct vo *vo, uint32_t width, uint32_t height,
                      uint32_t d_width, uint32_t d_height, uint32_t flags,

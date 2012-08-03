@@ -690,9 +690,6 @@ void exit_player_with_rc(struct MPContext *mpctx, enum exit_reason how, int rc)
 #if defined(__MINGW32__) || defined(__CYGWIN__)
     timeEndPeriod(1);
 #endif
-#ifdef CONFIG_X11
-    vo_uninit(mpctx->x11_state); // Close the X11 connection (if any is open).
-#endif
 
     current_module = "uninit_input";
     mp_input_uninit(mpctx->input);
@@ -2618,8 +2615,7 @@ int reinit_video_chain(struct MPContext *mpctx)
 
         //shouldn't we set dvideo->id=-2 when we fail?
         //if((mpctx->video_out->preinit(vo_subdevice))!=0){
-        if (!(mpctx->video_out = init_best_video_out(opts, mpctx->x11_state,
-                                                     mpctx->key_fifo,
+        if (!(mpctx->video_out = init_best_video_out(opts, mpctx->key_fifo,
                                                      mpctx->input))) {
             mp_tmsg(MSGT_CPLAYER, MSGL_FATAL, "Error opening/initializing "
                     "the selected video_out (-vo) device.\n");
@@ -3478,10 +3474,8 @@ static void run_playloop(struct MPContext *mpctx)
         vo_check_events(vo);
 
 #ifdef CONFIG_X11
-        if (stop_xscreensaver) {
-            current_module = "stop_xscreensaver";
-            xscreensaver_heartbeat(mpctx->x11_state);
-        }
+        if (stop_xscreensaver && vo->x11)
+            xscreensaver_heartbeat(vo->x11);
 #endif
         if (heartbeat_cmd) {
             static unsigned last_heartbeat;
@@ -3922,9 +3916,6 @@ int main(int argc, char *argv[])
     mp_msg_init();
     init_libav();
 
-#ifdef CONFIG_X11
-    mpctx->x11_state = vo_x11_init_state();
-#endif
     struct MPOpts *opts = &mpctx->opts;
     set_default_mplayer_options(opts);
     // Create the config context and register the options

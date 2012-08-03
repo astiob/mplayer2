@@ -381,7 +381,6 @@ void update_xinerama_info(struct vo *vo) {
 int vo_init(struct vo *vo)
 {
     struct MPOpts *opts = vo->opts;
-    struct vo_x11_state *x11 = vo->x11;
 // int       mScreen;
     int depth, bpp;
     unsigned int mask;
@@ -394,14 +393,13 @@ int vo_init(struct vo *vo)
     XWindowAttributes attribs;
     char *dispName;
 
+    assert(vo->x11 == NULL);
+
+    vo->x11 = vo_x11_init_state();
+    struct vo_x11_state *x11 = vo->x11;
+
     if (vo_rootwin)
         WinID = 0; // use root window
-
-    if (x11->depthonscreen)
-    {
-        saver_off(x11->display);
-        return 1;               // already called
-    }
 
     XSetErrorHandler(x11_errorhandler);
 
@@ -420,6 +418,8 @@ int vo_init(struct vo *vo)
     {
         mp_msg(MSGT_VO, MSGL_ERR,
                "vo: couldn't open the X11 display (%s)!\n", dispName);
+        talloc_free(x11);
+        vo->x11 = NULL;
         return 0;
     }
     x11->screen = DefaultScreen(x11->display);  // screen ID
@@ -522,6 +522,8 @@ int vo_init(struct vo *vo)
 
 void vo_uninit(struct vo_x11_state *x11)
 {
+    if (!x11)
+        return;
     if (!x11->display)
     {
         mp_msg(MSGT_VO, MSGL_V,
@@ -763,6 +765,8 @@ void vo_x11_uninit(struct vo *vo)
         x11->last_video_height = 0;
         x11->size_changed_during_fs = false;
     }
+    vo_uninit(x11);
+    vo->x11 = NULL;
 }
 
 static int check_resize(struct vo *vo)
