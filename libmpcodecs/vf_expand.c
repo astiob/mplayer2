@@ -208,12 +208,13 @@ static void get_image(struct vf_instance *vf, mp_image_t *mpi){
 	}
 	// set up mpi as a cropped-down image of dmpi:
 	if(mpi->flags&MP_IMGFLAG_PLANAR){
+	    int bpp = IMGFMT_IS_YUVP16(mpi->imgfmt) ? 2 : 1;
 	    mpi->planes[0]=vf->dmpi->planes[0]+
-		vf->priv->exp_y*vf->dmpi->stride[0]+vf->priv->exp_x;
+		vf->priv->exp_y*vf->dmpi->stride[0]+vf->priv->exp_x*bpp;
 	    mpi->planes[1]=vf->dmpi->planes[1]+
-		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[1]+(vf->priv->exp_x>>mpi->chroma_x_shift);
+		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[1]+(vf->priv->exp_x>>mpi->chroma_x_shift)*bpp;
 	    mpi->planes[2]=vf->dmpi->planes[2]+
-		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[2]+(vf->priv->exp_x>>mpi->chroma_x_shift);
+		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[2]+(vf->priv->exp_x>>mpi->chroma_x_shift)*bpp;
 	    mpi->stride[1]=vf->dmpi->stride[1];
 	    mpi->stride[2]=vf->dmpi->stride[2];
 	} else {
@@ -343,17 +344,18 @@ static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts){
 
     // copy mpi->dmpi...
     if(mpi->flags&MP_IMGFLAG_PLANAR){
+	int bpp = IMGFMT_IS_YUVP16(mpi->imgfmt) ? 2 : 1;
 	memcpy_pic(vf->dmpi->planes[0]+
-	        vf->priv->exp_y*vf->dmpi->stride[0]+vf->priv->exp_x,
-		mpi->planes[0], mpi->w, mpi->h,
+	        vf->priv->exp_y*vf->dmpi->stride[0]+vf->priv->exp_x*bpp,
+		mpi->planes[0], mpi->w*bpp, mpi->h,
 		vf->dmpi->stride[0],mpi->stride[0]);
 	memcpy_pic(vf->dmpi->planes[1]+
-		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[1]+(vf->priv->exp_x>>mpi->chroma_x_shift),
-		mpi->planes[1], (mpi->w>>mpi->chroma_x_shift), (mpi->h>>mpi->chroma_y_shift),
+		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[1]+(vf->priv->exp_x>>mpi->chroma_x_shift)*bpp,
+		mpi->planes[1], (mpi->w>>mpi->chroma_x_shift)*bpp, (mpi->h>>mpi->chroma_y_shift),
 		vf->dmpi->stride[1],mpi->stride[1]);
 	memcpy_pic(vf->dmpi->planes[2]+
-		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[2]+(vf->priv->exp_x>>mpi->chroma_x_shift),
-		mpi->planes[2], (mpi->w>>mpi->chroma_x_shift), (mpi->h>>mpi->chroma_y_shift),
+		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[2]+(vf->priv->exp_x>>mpi->chroma_x_shift)*bpp,
+		mpi->planes[2], (mpi->w>>mpi->chroma_x_shift)*bpp, (mpi->h>>mpi->chroma_y_shift),
 		vf->dmpi->stride[2],mpi->stride[2]);
     } else {
 	memcpy_pic(vf->dmpi->planes[0]+

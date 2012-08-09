@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "config.h"
 
@@ -31,6 +32,7 @@
 #include "img_format.h"
 #include "mp_image.h"
 #include "vf.h"
+#include "mpbswap.h"
 
 #include "libvo/fastmemcpy.h"
 #include "libavutil/mem.h"
@@ -213,24 +215,43 @@ void vf_mpi_clear(mp_image_t *mpi, int x0, int y0, int w, int h)
     if (mpi->flags & MP_IMGFLAG_PLANAR) {
         y0 &= ~1;
         h += h & 1;
-        if (x0 == 0 && w == mpi->width) {
-            // full width clear:
-            memset(mpi->planes[0] + mpi->stride[0] * y0, 0, mpi->stride[0] * h);
-            memset(mpi->planes[1] + mpi->stride[1] *(y0 >> mpi->chroma_y_shift),
-                   128, mpi->stride[1] * (h >> mpi->chroma_y_shift));
-            memset(mpi->planes[2] + mpi->stride[2] *(y0 >> mpi->chroma_y_shift),
-                   128, mpi->stride[2] * (h >> mpi->chroma_y_shift));
-        } else
+        if (!IMGFMT_IS_YUVP16(mpi->imgfmt)) {
+            if (x0 == 0 && w == mpi->width) {
+                // full width clear:
+                memset(mpi->planes[0] + mpi->stride[0] * y0, 0, mpi->stride[0] * h);
+                memset(mpi->planes[1] + mpi->stride[1] *(y0 >> mpi->chroma_y_shift),
+                       128, mpi->stride[1] * (h >> mpi->chroma_y_shift));
+                memset(mpi->planes[2] + mpi->stride[2] *(y0 >> mpi->chroma_y_shift),
+                       128, mpi->stride[2] * (h >> mpi->chroma_y_shift));
+            } else
+                for (y = y0; y < y0 + h; y += 2) {
+                    memset(mpi->planes[0] + x0 + mpi->stride[0] * y, 0, w);
+                    memset(mpi->planes[0] + x0 + mpi->stride[0] * (y + 1), 0, w);
+                    memset(mpi->planes[1] + (x0 >> mpi->chroma_x_shift) +
+                           mpi->stride[1] * (y >> mpi->chroma_y_shift),
+                           128, (w >> mpi->chroma_x_shift));
+                    memset(mpi->planes[2] + (x0 >> mpi->chroma_x_shift) +
+                           mpi->stride[2] * (y >> mpi->chroma_y_shift),
+                           128, (w >> mpi->chroma_x_shift));
+                }
+        } else {
+            uint16_t chroma_pattern = 1 << IMGFMT_YUVP16_DEPTH(mpi->imgfmt) - 1;
+            if (!IMGFMT_IS_YUVP16_NE(mpi->imgfmt))
+                chroma_pattern = bswap_16(chroma_pattern);
             for (y = y0; y < y0 + h; y += 2) {
-                memset(mpi->planes[0] + x0 + mpi->stride[0] * y, 0, w);
-                memset(mpi->planes[0] + x0 + mpi->stride[0] * (y + 1), 0, w);
-                memset(mpi->planes[1] + (x0 >> mpi->chroma_x_shift) +
-                       mpi->stride[1] * (y >> mpi->chroma_y_shift),
-                       128, (w >> mpi->chroma_x_shift));
-                memset(mpi->planes[2] + (x0 >> mpi->chroma_x_shift) +
-                       mpi->stride[2] * (y >> mpi->chroma_y_shift),
-                       128, (w >> mpi->chroma_x_shift));
+                int i;
+                uint16_t *p1 = (uint16_t *) (mpi->planes[1] + mpi->stride[1] *
+                                             (y >> mpi->chroma_y_shift)) +
+                               (x0 >> mpi->chroma_x_shift),
+                         *p2 = (uint16_t *) (mpi->planes[2] + mpi->stride[2] *
+                                             (y >> mpi->chroma_y_shift)) +
+                               (x0 >> mpi->chroma_x_shift);
+                memset(mpi->planes[0] + 2 * x0 + mpi->stride[0] * y, 0, 2 * w);
+                memset(mpi->planes[0] + 2 * x0 + mpi->stride[0] * (y + 1), 0, 2 * w);
+                for (i = 0; i < w >> mpi->chroma_x_shift; ++i)
+                    p1[i] = p2[i] = chroma_pattern;
             }
+        }
         return;
     }
     // packed:
@@ -755,6 +776,7 @@ int vf_next_put_image(struct vf_instance *vf, mp_image_t *mpi, double pts)
 void vf_next_draw_slice(struct vf_instance *vf, unsigned char **src,
                         int *stride, int w, int h, int x, int y)
 {
+    int bpp;
     if (vf->next->draw_slice) {
         vf->next->draw_slice(vf->next, src, stride, w, h, x, y);
         return;
@@ -771,17 +793,18 @@ void vf_next_draw_slice(struct vf_instance *vf, unsigned char **src,
                    stride[0]);
         return;
     }
-    memcpy_pic(vf->dmpi->planes[0] + y * vf->dmpi->stride[0] + x, src[0],
-               w, h, vf->dmpi->stride[0], stride[0]);
+    bpp = IMGFMT_IS_YUVP16(vf->dmpi->imgfmt) ? 2 : 1;
+    memcpy_pic(vf->dmpi->planes[0] + y * vf->dmpi->stride[0] + x * bpp, src[0],
+               w * bpp, h, vf->dmpi->stride[0], stride[0]);
     memcpy_pic(vf->dmpi->planes[1]
                    + (y >> vf->dmpi->chroma_y_shift) * vf->dmpi->stride[1]
-                   + (x >> vf->dmpi->chroma_x_shift),
-               src[1], w >> vf->dmpi->chroma_x_shift,
+                   + (x >> vf->dmpi->chroma_x_shift) * bpp,
+               src[1], (w >> vf->dmpi->chroma_x_shift) * bpp,
                h >> vf->dmpi->chroma_y_shift, vf->dmpi->stride[1], stride[1]);
     memcpy_pic(vf->dmpi->planes[2]
                    + (y >> vf->dmpi->chroma_y_shift) * vf->dmpi->stride[2]
-                   + (x >> vf->dmpi->chroma_x_shift),
-               src[2], w >> vf->dmpi->chroma_x_shift,
+                   + (x >> vf->dmpi->chroma_x_shift) * bpp,
+               src[2], (w >> vf->dmpi->chroma_x_shift) * bpp,
                h >> vf->dmpi->chroma_y_shift, vf->dmpi->stride[2], stride[2]);
 }
 

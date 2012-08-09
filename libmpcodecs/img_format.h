@@ -183,6 +183,8 @@
 #define IMGFMT_IS_YUVP16_LE(fmt) (((fmt - 0x51000034) & 0xfc0000ff) == 0)
 #define IMGFMT_IS_YUVP16_BE(fmt) (((fmt - 0x34000051) & 0xff0000fc) == 0)
 #define IMGFMT_IS_YUVP16(fmt)    (IMGFMT_IS_YUVP16_LE(fmt) || IMGFMT_IS_YUVP16_BE(fmt))
+#define IMGFMT_YUVP16_DEPTH_MAP(x) ((x) ? 11 - (x) : 16)
+#define IMGFMT_YUVP16_DEPTH(fmt) IMGFMT_YUVP16_DEPTH_MAP((fmt >> 24) + (fmt & 0xFF) - (0x34 + 0x51))
 
 /* Packed YUV Formats */
 
