@@ -46,9 +46,9 @@
 #define _g(c)  (((c)>>16)&0xFF)
 #define _b(c)  (((c)>>8)&0xFF)
 #define _a(c)  ((c)&0xFF)
-#define rgba2y(c)  ( (( 263*_r(c) + 516*_g(c) + 100*_b(c)) >> 10) + 16  )
-#define rgba2u(c)  ( ((-152*_r(c) - 298*_g(c) + 450*_b(c)) >> 10) + 128 )
-#define rgba2v(c)  ( (( 450*_r(c) - 376*_g(c) -  73*_b(c)) >> 10) + 128 )
+#define rgba2y(c)  ( (( 263*_r(c) + 516*_g(c) + 100*_b(c) + 512) >> 10) + 16  )
+#define rgba2u(c)  ( ((-152*_r(c) - 298*_g(c) + 450*_b(c) + 512) >> 10) + 128 )
+#define rgba2v(c)  ( (( 450*_r(c) - 377*_g(c) -  73*_b(c) + 512) >> 10) + 128 )
 
 
 static const struct vf_priv_s {
