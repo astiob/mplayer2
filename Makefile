@@ -765,6 +765,8 @@ realcodecs: CFLAGS += -g
 %.so.6.0: %.o
 	ld -shared -o $@ $< -ldl -lc
 
+osxbundle:
+	@TOOLS/osxbundle.py mplayer
 
 
 -include $(DEP_FILES)
