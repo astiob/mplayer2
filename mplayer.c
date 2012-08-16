@@ -87,7 +87,6 @@
 #include "screenshot.h"
 
 #include "sub/sub.h"
-#include "sub/av_sub.h"
 #include "libmpcodecs/dec_teletext.h"
 #include "cpudetect.h"
 #include "version.h"
@@ -1931,8 +1930,6 @@ void update_subtitles(struct MPContext *mpctx, double refpts_tl, bool reset)
             spudec_reset(vo_spudec);
             vo_osd_changed(OSDTYPE_SPU);
         }
-        if (is_av_sub(type))
-            reset_avsub(sh_sub);
         return;
     }
     // find sub
@@ -2017,13 +2014,6 @@ void update_subtitles(struct MPContext *mpctx, double refpts_tl, bool reset)
             }
             double duration = d_sub->first->duration;
             len = ds_get_packet_sub(d_sub, &packet);
-            if (is_av_sub(type)) {
-                int ret = decode_avsub(sh_sub, packet, len, subpts_s, duration);
-                if (ret < 0)
-                    mp_msg(MSGT_SPUDEC, MSGL_WARN, "lavc failed decoding "
-                           "subtitle\n");
-                continue;
-            }
             if (type == 'm') {
                 if (len < 2)
                     continue;
