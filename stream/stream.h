@@ -180,6 +180,8 @@ int stream_seek_long(stream_t *s, off_t pos);
 void stream_capture_do(stream_t *s);
 
 #ifdef CONFIG_STREAM_CACHE
+int stream_enable_cache_percent(stream_t *stream, int stream_cache_size,
+    float stream_cache_min_percent, float stream_cache_seek_min_percent);
 int stream_enable_cache(stream_t *stream,int size,int min,int prefill);
 int cache_stream_fill_buffer(stream_t *s);
 int cache_stream_seek_long(stream_t *s,off_t pos);
@@ -188,6 +190,7 @@ int cache_stream_seek_long(stream_t *s,off_t pos);
 #define cache_stream_fill_buffer(x) stream_fill_buffer(x)
 #define cache_stream_seek_long(x,y) stream_seek_long(x,y)
 #define stream_enable_cache(x,y,z,w) 1
+#define stream_enable_cache_percent(x,y,z,w) 1
 #endif
 int stream_write_buffer(stream_t *s, unsigned char *buf, int len);
 

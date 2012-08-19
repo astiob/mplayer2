@@ -303,9 +303,6 @@ int vobsub_id = -1;
 static char *spudec_ifo = NULL;
 int forced_subs_only = 0;
 
-// cache2:
-int stream_cache_size = -1;
-
 // dump:
 int stream_dump_type = 0;
 
@@ -1300,7 +1297,7 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
 
 #ifdef CONFIG_STREAM_CACHE
     // cache stats
-    if (stream_cache_size > 0)
+    if (opts->stream_cache_size > 0)
         saddf(line, &pos, width, "%d%% ", cache_fill_status(mpctx->stream));
 #endif
 
@@ -2916,7 +2913,8 @@ static double update_video(struct MPContext *mpctx)
 static int get_cache_fill(struct MPContext *mpctx)
 {
 #ifdef CONFIG_STREAM_CACHE
-    if (stream_cache_size > 0)
+    struct MPOpts *opts = &mpctx->opts;
+    if (opts->stream_cache_size > 0)
         return cache_fill_status(mpctx->stream);
 #endif
     return -1;
@@ -4428,14 +4426,13 @@ play_next_file:
 
     // CACHE2: initial prefill: 20%  later: 5%  (should be set by -cacheopts)
 goto_enable_cache:
-    if (stream_cache_size > 0) {
+    if (opts->stream_cache_size > 0) {
         int res;
-        float stream_cache_min_percent = opts->stream_cache_min_percent;
-        float stream_cache_seek_min_percent = opts->stream_cache_seek_min_percent;
         current_module = "enable_cache";
-        res = stream_enable_cache(mpctx->stream, stream_cache_size * 1024,
-                                  stream_cache_size * 1024 * (stream_cache_min_percent / 100.0),
-                                  stream_cache_size * 1024 * (stream_cache_seek_min_percent / 100.0));
+        res = stream_enable_cache_percent(mpctx->stream,
+                opts->stream_cache_size,
+                opts->stream_cache_min_percent,
+                opts->stream_cache_seek_min_percent);
         if (res == 0)
             if ((mpctx->stop_play = libmpdemux_was_interrupted(mpctx, PT_NEXT_ENTRY)))
                 goto goto_next_file;
