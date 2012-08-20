@@ -36,7 +36,6 @@
 #include "libmpcodecs/mp_image.h"
 #include "geometry.h"
 #include "osd.h"
-#include "sub/font_load.h"
 #include "sub/sub.h"
 
 #include "gl_common.h"
@@ -173,13 +172,9 @@ static void resize(struct vo *vo, int x, int y)
     gl->MatrixMode(GL_MODELVIEW);
     gl->LoadIdentity();
 
-    if (!p->scaled_osd) {
-#ifdef CONFIG_FREETYPE
-        // adjust font size to display size
-        force_load_font = 1;
-#endif
+    if (!p->scaled_osd)
         vo_osd_changed(OSDTYPE_OSD);
-    }
+
     gl->Clear(GL_COLOR_BUFFER_BIT);
     vo->want_redraw = true;
 }

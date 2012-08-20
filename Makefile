@@ -26,7 +26,6 @@ include config.mak
 SRCS_AUDIO_INPUT-$(ALSA)             += stream/ai_alsa1x.c
 SRCS_AUDIO_INPUT-$(OSS)              += stream/ai_oss.c
 SRCS_COMMON-$(AUDIO_INPUT)           += $(SRCS_AUDIO_INPUT-yes)
-SRCS_COMMON-$(BITMAP_FONT)           += sub/font_load.c
 SRCS_COMMON-$(CDDA)                  += stream/stream_cdda.c \
                                         stream/cdinfo.c
 SRCS_COMMON-$(CDDB)                  += stream/stream_cddb.c
@@ -63,7 +62,6 @@ SRCS_COMMON-$(FASTMEMCPY)            += libvo/aclib.c
 SRCS_COMMON-$(FFMPEG_INTERNALS)      += libmpcodecs/vf_mcdeint.c \
                                         libmpcodecs/vf_spp.c \
 
-SRCS_COMMON-$(FREETYPE)              += sub/font_load_ft.c
 SRCS_COMMON-$(FTP)                   += stream/stream_ftp.c
 SRCS_COMMON-$(GIF)                   += libmpdemux/demux_gif.c
 SRCS_COMMON-$(HAVE_POSIX_SELECT)     += libmpcodecs/vf_bmovl.c
@@ -73,7 +71,11 @@ SRCS_COMMON-$(LADSPA)                += libaf/af_ladspa.c
 SRCS_COMMON-$(LIBA52)                += libmpcodecs/ad_liba52.c
 SRCS_COMMON-$(LIBASS)                += libmpcodecs/vf_ass.c \
                                         sub/ass_mp.c \
+                                        sub/osd_libass.c \
                                         sub/sd_ass.c \
+
+# compiled if libass is NOT enabled
+SRCS_COMMON-NEGATED-$(LIBASS)        += sub/osd_dummy.c
 
 SRCS_COMMON-$(LIBBLURAY)             += stream/stream_bluray.c
 SRCS_COMMON-$(LIBBS2B)               += libaf/af_bs2b.c
@@ -213,6 +215,7 @@ SRCS_COMMON-$(WIN32DLL)              += libmpcodecs/ad_acm.c \
 SRCS_COMMON-$(XANIM_CODECS)          += libmpcodecs/vd_xanim.c
 SRCS_COMMON-$(XMMS_PLUGINS)          += libmpdemux/demux_xmms.c
 SRCS_COMMON-$(XVID4)                 += libmpcodecs/vd_xvid4.c
+
 SRCS_COMMON = asxparser.c \
               av_log.c \
               av_opts.c \
@@ -427,7 +430,8 @@ SRCS_COMMON = asxparser.c \
               sub/vobsub.c \
               timeline/tl_edl.c \
               timeline/tl_matroska.c \
-              $(SRCS_COMMON-yes)
+              $(SRCS_COMMON-yes) \
+              $(SRCS_COMMON-NEGATED-no)
 
 
 SRCS_MPLAYER-$(ALSA)         += libao2/ao_alsa.c

@@ -42,7 +42,6 @@
 #include "mp_osd.h"
 #include "libvo/video_out.h"
 #include "libvo/csputils.h"
-#include "sub/font_load.h"
 #include "playtree.h"
 #include "libao2/audio_out.h"
 #include "mpcommon.h"
@@ -2061,7 +2060,6 @@ static int mp_property_sub_forced_only(m_option_t *prop, int action,
 
 }
 
-#ifdef CONFIG_FREETYPE
 /// Subtitle scale (RW)
 static int mp_property_sub_scale(m_option_t *prop, int action, void *arg,
                                  MPContext *mpctx)
@@ -2080,7 +2078,6 @@ static int mp_property_sub_scale(m_option_t *prop, int action, void *arg,
         }
 #endif
         text_font_scale_factor = *(float *) arg;
-        force_load_font = 1;
         vo_osd_changed(OSDTYPE_SUBTITLE);
         return M_PROPERTY_OK;
     case M_PROPERTY_STEP_UP:
@@ -2096,7 +2093,6 @@ static int mp_property_sub_scale(m_option_t *prop, int action, void *arg,
         text_font_scale_factor += (arg ? *(float *) arg : 0.1) *
                                   (action == M_PROPERTY_STEP_UP ? 1.0 : -1.0);
         M_PROPERTY_CLAMP(prop, text_font_scale_factor);
-        force_load_font = 1;
         vo_osd_changed(OSDTYPE_SUBTITLE);
         return M_PROPERTY_OK;
     default:
@@ -2108,7 +2104,6 @@ static int mp_property_sub_scale(m_option_t *prop, int action, void *arg,
         return m_property_float_ro(prop, action, arg, text_font_scale_factor);
     }
 }
-#endif
 
 
 #ifdef CONFIG_TV
@@ -2377,10 +2372,8 @@ static const m_option_t mp_properties[] = {
       M_OPT_RANGE, 0, 1, NULL },
     { "sub_forced_only", mp_property_sub_forced_only, CONF_TYPE_FLAG,
       M_OPT_RANGE, 0, 1, NULL },
-#ifdef CONFIG_FREETYPE
     { "sub_scale", mp_property_sub_scale, CONF_TYPE_FLOAT,
       M_OPT_RANGE, 0, 100, NULL },
-#endif
 #ifdef CONFIG_ASS
     { "ass_use_margins", mp_property_ass_use_margins, CONF_TYPE_FLAG,
       M_OPT_RANGE, 0, 1, NULL },
@@ -2496,9 +2489,7 @@ static struct property_osd_display {
     { "sub_delay", 0, OSD_MSG_SUB_DELAY, _("Sub delay: %s") },
     { "sub_visibility", 0, -1, _("Subtitles: %s") },
     { "sub_forced_only", 0, -1, _("Forced sub only: %s") },
-#ifdef CONFIG_FREETYPE
     { "sub_scale", 0, -1, _("Sub Scale: %s")},
-#endif
     { "ass_vsfilter_aspect_compat", 0, -1,
       _("Subtitle VSFilter aspect compat: %s")},
 #ifdef CONFIG_TV
@@ -2623,9 +2614,7 @@ static struct {
     { "sub_delay", MP_CMD_SUB_DELAY, 0},
     { "sub_visibility", MP_CMD_SUB_VISIBILITY, 1},
     { "sub_forced_only", MP_CMD_SUB_FORCED_ONLY, 1},
-#ifdef CONFIG_FREETYPE
     { "sub_scale", MP_CMD_SUB_SCALE, 0},
-#endif
 #ifdef CONFIG_ASS
     { "ass_use_margins", MP_CMD_ASS_USE_MARGINS, 1},
 #endif
