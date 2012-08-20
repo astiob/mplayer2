@@ -91,16 +91,11 @@ SRCS_COMMON-$(LIBDVDCSS_INTERNAL)    += libdvdcss/css.c \
 
 SRCS_COMMON-$(LIBMAD)                += libmpcodecs/ad_libmad.c
 
-SRCS_COMMON-$(LIBNEMESI)             += libmpdemux/demux_nemesi.c \
-                                        stream/stream_nemesi.c
 SRCS_COMMON-$(LIBNUT)                += libmpdemux/demux_nut.c
 SRCS_COMMON-$(LIBPOSTPROC)           += libmpcodecs/vf_pp.c
 SRCS_COMMON-$(LIBSMBCLIENT)          += stream/stream_smb.c
 
 SRCS_COMMON-$(LIBTHEORA)             += libmpcodecs/vd_theora.c
-SRCS_COMMON-$(LIVE555)               += libmpdemux/demux_rtp.cpp \
-                                        libmpdemux/demux_rtp_codec.cpp \
-                                        stream/stream_live555.c
 SRCS_COMMON-$(MACOSX_FINDER)         += osdep/macosx_finder_args.m
 SRCS_COMMON-$(COCOA)                 += libvo/osx_common.c \
                                         libvo/cocoa_common.m \
@@ -110,13 +105,6 @@ SRCS_COMMON-$(MPG123)                += libmpcodecs/ad_mpg123.c
 
 SRCS_COMMON-$(MUSEPACK)              += libmpcodecs/ad_mpc.c \
                                         libmpdemux/demux_mpc.c
-SRCS_COMMON-$(NATIVE_RTSP)           += stream/stream_rtsp.c \
-                                        stream/freesdp/common.c \
-                                        stream/freesdp/errorlist.c \
-                                        stream/freesdp/parser.c \
-                                        stream/librtsp/rtsp.c \
-                                        stream/librtsp/rtsp_rtp.c \
-                                        stream/librtsp/rtsp_session.c \
 
 SRCS_COMMON-$(NEED_GETTIMEOFDAY)     += osdep/gettimeofday.c
 SRCS_COMMON-$(NEED_GLOB)             += osdep/glob-win.c
@@ -137,12 +125,6 @@ SRCS_COMMON-$(NETWORKING)            += stream/stream_netstream.c \
                                         stream/tcp.c \
                                         stream/stream_rtp.c \
                                         stream/stream_udp.c \
-                                        stream/librtsp/rtsp.c \
-                                        stream/realrtsp/asmrp.c \
-                                        stream/realrtsp/real.c \
-                                        stream/realrtsp/rmff.c \
-                                        stream/realrtsp/sdpplin.c \
-                                        stream/realrtsp/xbuffer.c \
 
 SRCS_COMMON-$(PNG)                   += libmpcodecs/vd_mpng.c
 SRCS_COMMON-$(PRIORITY)              += osdep/priority.c
@@ -500,7 +482,7 @@ OBJS_MPLAYER-$(PE_EXECUTABLE) += osdep/mplayer-rc.o
 OBJS_MPLAYER   += $(OBJS_MPLAYER-yes)
 
 MPLAYER_DEPS  = $(OBJS_MPLAYER)  $(OBJS_COMMON) $(COMMON_LIBS)
-DEP_FILES = $(patsubst %.S,%.d,$(patsubst %.cpp,%.d,$(patsubst %.c,%.d,$(SRCS_COMMON:.m=.d) $(SRCS_MPLAYER:.m=.d))))
+DEP_FILES = $(patsubst %.S,%.d,$(patsubst %.c,%.d,$(SRCS_COMMON:.m=.d) $(SRCS_MPLAYER:.m=.d)))
 
 ALL_PRG-$(MPLAYER)  += mplayer$(EXESUF)
 
@@ -526,9 +508,6 @@ DIRS =  . \
         loader/wine \
         osdep \
         stream \
-        stream/freesdp \
-        stream/librtsp \
-        stream/realrtsp \
         sub \
         timeline \
         TOOLS \
@@ -557,9 +536,6 @@ all: $(ALL_PRG-yes) locales
 
 %.o: %.c
 	$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
-
-%.o: %.cpp
-	$(CC) $(DEPFLAGS) $(CXXFLAGS) -c -o $@ $<
 
 %.o: %.m
 	$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<

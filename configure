@@ -62,10 +62,6 @@ cc_check() {
   compile_check $TMPC $@
 }
 
-cxx_check() {
-  compile_check $TMPCPP $@ -lstdc++
-}
-
 cflag_check() {
   cat > $TMPC << EOF
 int main(void) { return 0; }
@@ -190,7 +186,7 @@ die () {
   echo
   echo "Error: $@" >&2
   echo >&2
-  rm -f "$TMPEXE" "$TMPC" "$TMPS" "$TMPCPP"
+  rm -f "$TMPEXE" "$TMPC" "$TMPS"
   echo "Check \"$TMPLOG\" if you do not understand why it failed."
   exit 1
 }
@@ -333,9 +329,7 @@ Optional features:
   --disable-networking   disable networking [enable]
   --enable-winsock2_h    enable winsock2_h [autodetect]
   --enable-smb           enable Samba (SMB) input [autodetect]
-  --enable-live          enable LIVE555 Streaming Media [disable]
   --enable-libquvi       enable libquvi [autodetect]
-  --enable-nemesi        enable Nemesi Streaming Media [autodetect]
   --disable-vcd          disable VCD support [autodetect]
   --disable-bluray       disable Blu-ray support [autodetect]
   --disable-dvdnav       disable libdvdnav [autodetect]
@@ -586,9 +580,6 @@ _dvdread_internal=auto
 _libdvdcss_internal=auto
 _xanim=auto
 _real=auto
-_live=no
-_nemesi=auto
-_native_rtsp=yes
 _xinerama=auto
 _vm=auto
 _xf86keysym=auto
@@ -892,10 +883,6 @@ for ac_option do
   --disable-xanim)      _xanim=no       ;;
   --enable-real)        _real=yes       ;;
   --disable-real)       _real=no        ;;
-  --enable-live)        _live=yes       ;;
-  --disable-live)       _live=no        ;;
-  --enable-nemesi)      _nemesi=yes     ;;
-  --disable-nemesi)     _nemesi=no      ;;
   --enable-xinerama)    _xinerama=yes   ;;
   --disable-xinerama)   _xinerama=no    ;;
   --enable-vm)          _vm=yes         ;;
@@ -1274,7 +1261,6 @@ if qnx ; then
 fi
 
 TMPC="$mplayer_tmpdir/tmp.c"
-TMPCPP="$mplayer_tmpdir/tmp.cpp"
 TMPEXE="$mplayer_tmpdir/tmp$_exesuf"
 TMPH="$mplayer_tmpdir/tmp.h"
 TMPS="$mplayer_tmpdir/tmp.S"
@@ -5001,76 +4987,6 @@ else
 fi
 echores "$_qtx"
 
-echocheck "Nemesi Streaming Media libraries"
-if test "$_nemesi" = auto  && test "$networking" = yes ; then
-    _nemesi=no
-    if pkg_config_add libnemesi ; then
-        _nemesi=yes
-    fi
-fi
-if test "$_nemesi" = yes; then
-    _native_rtsp=no
-    def_nemesi='#define CONFIG_LIBNEMESI 1'
-    inputmodules="nemesi $inputmodules"
-else
-    _native_rtsp="$networking"
-    _nemesi=no
-    def_nemesi='#undef CONFIG_LIBNEMESI'
-    noinputmodules="nemesi $noinputmodules"
-fi
-echores "$_nemesi"
-
-echocheck "LIVE555 Streaming Media libraries"
-if test "$_live" != no  && test "$networking" = yes ; then
-  cat > $TMPCPP << EOF
-#include <liveMedia.hh>
-#if (LIVEMEDIA_LIBRARY_VERSION_INT < 1141257600)
-#error Please upgrade to version 2006.03.03 or later of the "LIVE555 Streaming Media" libraries - available from <www.live555.com/liveMedia/>
-#endif
-int main(void) { return 0; }
-EOF
-
-  _live=no
-  for I in $extra_cflags "-I$_libdir/live" "-I/usr/lib/live" "-I/usr/lib64/live" "-I/usr/local/live" "-I/usr/local/lib/live" ; do
-    cxx_check $I/liveMedia/include $I/UsageEnvironment/include $I/groupsock/include &&
-        _livelibdir=$(echo $I| sed s/-I//) &&
-      extra_ldflags="$_livelibdir/liveMedia/libliveMedia.a \
-                 $_livelibdir/groupsock/libgroupsock.a \
-                 $_livelibdir/UsageEnvironment/libUsageEnvironment.a \
-                 $_livelibdir/BasicUsageEnvironment/libBasicUsageEnvironment.a \
-                 $extra_ldflags  -lstdc++" \
-      extra_cxxflags="-I$_livelibdir/liveMedia/include \
-                  -I$_livelibdir/UsageEnvironment/include \
-                  -I$_livelibdir/BasicUsageEnvironment/include \
-                  -I$_livelibdir/groupsock/include" &&
-      _live=yes && break
-  done
-  if test "$_live" != yes ; then
-      ld_tmp="-lliveMedia -lgroupsock -lUsageEnvironment -lBasicUsageEnvironment -lstdc++"
-      if cxx_check -I/usr/include/liveMedia -I/usr/include/UsageEnvironment -I/usr/include/groupsock $ld_tmp; then
-          _live_dist=yes
-      fi
-  fi
-fi
-if test "$_live" = yes && test "$networking" = yes; then
-  test $_livelibdir && res_comment="using $_livelibdir"
-  def_live='#define CONFIG_LIVE555 1'
- inputmodules="live555 $inputmodules"
-elif test "$_live_dist" = yes && test "$networking" = yes; then
-  res_comment="using distribution version"
-  _live="yes"
-  def_live='#define CONFIG_LIVE555 1'
-  extra_ldflags="$extra_ldflags $ld_tmp"
-  extra_cxxflags="-I/usr/include/liveMedia -I/usr/include/UsageEnvironment -I/usr/include/BasicUsageEnvironment -I/usr/include/groupsock"
- inputmodules="live555 $inputmodules"
-else
-  _live=no
-  def_live='#undef CONFIG_LIVE555'
-  noinputmodules="live555 $noinputmodules"
-fi
-echores "$_live"
-
-
 
 # Test with > against Libav 0.8 versions which will NOT work rather than
 # specify minimum version, to allow (future) point releases to possibly work.
@@ -5570,8 +5486,6 @@ echores "$_lircc"
 
 CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE"
 
-CXXFLAGS=" $CFLAGS -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS"
-
 # This must be the last test to be performed. Any other tests following it
 # could fail due to linker errors. libdvdnavmini is intentionally not linked
 # against libdvdread (to permit MPlayer to use its own copy of the library).
@@ -5656,13 +5570,11 @@ LOCALEDIR = \$(DESTDIR)$_localedir
 AR      = $_ar
 AS      = $_cc
 CC      = $_cc
-CXX     = $_cc
 INSTALL = $_install
 INSTALLSTRIP = $_install_strip
 WINDRES = $_windres
 
 CFLAGS   = $WARNFLAGS $ERRORFLAGS $WARN_CFLAGS $CFLAGS $extra_cflags
-CXXFLAGS = $WARNFLAGS $ERRORFLAGS $CXXFLAGS $extra_cflags $extra_cxxflags
 DEPFLAGS = $DEPFLAGS
 
 CFLAGS_LIBDVDCSS         = $cflags_libdvdcss
@@ -5739,20 +5651,17 @@ LIBDCA = $_libdca
 LIBDV = $_libdv
 LIBDVDCSS_INTERNAL = $_libdvdcss_internal
 LIBMAD = $_mad
-LIBNEMESI = $_nemesi
 LIBNUT = $_libnut
 LIBPOSTPROC = $libpostproc
 LIBSMBCLIENT = $_smb
 LIBQUVI = $_libquvi
 LIBTHEORA = $_theora
 LIRC = $_lirc
-LIVE555 = $_live
 MACOSX_FINDER = $_macosx_finder
 MD5SUM = $_md5sum
 MNG = $_mng
 MPG123 = $_mpg123
 MUSEPACK = $_musepack
-NATIVE_RTSP = $_native_rtsp
 NETWORKING = $networking
 OPENAL = $_openal
 OSS = $_ossaudio
@@ -6064,8 +5973,6 @@ $def_ftp
 $def_inet6
 $def_inet_aton
 $def_inet_pton
-$def_live
-$def_nemesi
 $def_networking
 $def_smb
 $def_libquvi

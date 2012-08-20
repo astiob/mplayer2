@@ -414,11 +414,6 @@ int stream_enable_cache(stream_t *stream,int size,int min,int seek_limit){
   int res = -1;
   cache_vars_t* s;
 
-  if (stream->flags & STREAM_NON_CACHEABLE) {
-    mp_msg(MSGT_CACHE,MSGL_STATUS,"\rThis stream is non-cacheable\n");
-    return 1;
-  }
-
   s=cache_init(size,ss);
   if(s == NULL) return -1;
   stream->cache_data=s;
