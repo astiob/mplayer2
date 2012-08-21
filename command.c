@@ -3121,13 +3121,8 @@ void run_command(MPContext *mpctx, mp_cmd_t *cmd)
         break;
 
     case MP_CMD_OSD_SHOW_PROGRESSION: {
-        int len = get_time_length(mpctx);
-        int pts = get_current_time(mpctx);
         set_osd_bar(mpctx, 0, "Position", 0, 100, get_percent_pos(mpctx));
-        set_osd_msg(OSD_MSG_TEXT, 1, osd_duration,
-                    "%c %02d:%02d:%02d / %02d:%02d:%02d",
-                    mpctx->osd_function, pts / 3600, (pts / 60) % 60, pts % 60,
-                    len / 3600, (len / 60) % 60, len % 60);
+        set_osd_progressmsg(OSD_MSG_TEXT, 1, osd_duration);
         break;
     }
 

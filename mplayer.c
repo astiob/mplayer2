@@ -1436,6 +1436,8 @@ struct mp_osd_msg {
     int id, level, started;
     /// Display duration in ms.
     unsigned time;
+    // Show full OSD for duration of message instead of static text ('P' key)
+    bool show_position;
 };
 
 /// OSD message stack.
@@ -1448,8 +1450,8 @@ static mp_osd_msg_t *osd_msg_stack = NULL;
  *  it is pulled on top of the stack, otherwise a new message is created.
  *
  */
-static void set_osd_msg_va(int id, int level, int time, const char *fmt,
-                           va_list ap)
+static void set_osd_msg_va(int id, int level, int time, bool show_position,
+                           const char *fmt, va_list ap)
 {
     mp_osd_msg_t *msg, *last = NULL;
 
@@ -1473,14 +1475,14 @@ static void set_osd_msg_va(int id, int level, int time, const char *fmt,
     msg->id = id;
     msg->level = level;
     msg->time = time;
-
+    msg->show_position = show_position;
 }
 
 void set_osd_msg(int id, int level, int time, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    set_osd_msg_va(id, level, time, fmt, ap);
+    set_osd_msg_va(id, level, time, false, fmt, ap);
     va_end(ap);
 }
 
@@ -1488,7 +1490,15 @@ void set_osd_tmsg(int id, int level, int time, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    set_osd_msg_va(id, level, time, mp_gtext(fmt), ap);
+    set_osd_msg_va(id, level, time, false, mp_gtext(fmt), ap);
+    va_end(ap);
+}
+
+void set_osd_progressmsg(int id, int level, int time, ...)
+{
+    va_list ap;
+    va_start(ap, time);
+    set_osd_msg_va(id, level, time, true, "", ap);
     va_end(ap);
 }
 
@@ -1676,7 +1686,7 @@ static void update_osd_msg(struct MPContext *mpctx)
     }
 
     // Look if we have a msg
-    if ((msg = get_osd_msg(mpctx))) {
+    if ((msg = get_osd_msg(mpctx)) && !msg->show_position) {
         if (strcmp(osd->osd_text, msg->msg)) {
             osd_set_text(osd, msg->msg);
             if (mpctx->sh_video)
@@ -1688,9 +1698,13 @@ static void update_osd_msg(struct MPContext *mpctx)
         return;
     }
 
+    int osdlevel = opts->osd_level;
+    if (msg && msg->show_position)
+        osdlevel = 3;
+
     if (mpctx->sh_video) {
         // fallback on the timer
-        if (opts->osd_level >= 2) {
+        if (osdlevel >= 2) {
             int len = get_time_length(mpctx);
             int percentage = -1;
             char percentage_text[10];
@@ -1731,7 +1745,7 @@ static void update_osd_msg(struct MPContext *mpctx)
                 fractions_text[0] = 0;
             }
 
-            if (opts->osd_level == 3)
+            if (osdlevel == 3)
                 snprintf(osd_text_timer, sizeof(osd_text_timer),
                          "%c %02d:%02d:%02d%s / %02d:%02d:%02d%s",
                          mpctx->osd_function, pts / 3600, (pts / 60) % 60, pts % 60,
