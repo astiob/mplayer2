@@ -19,7 +19,10 @@
 #ifndef MPLAYER_IMG_FORMAT_H
 #define MPLAYER_IMG_FORMAT_H
 
+#include <stdbool.h>
+
 #include "config.h"
+#include "bstr.h"
 
 /* RGB/BGR Formats */
 
@@ -203,6 +206,14 @@
 #define IMGFMT_VDPAU_MPEG4         (IMGFMT_VDPAU|0x06)
 
 #define IMGFMT_IS_HWACCEL(fmt) IMGFMT_IS_VDPAU(fmt)
+
+struct imgfmt_name {
+    char *name;
+    unsigned int fmt;
+};
+
+extern const struct imgfmt_name mp_imgfmt_list[];
+unsigned int imgfmt_parse(struct bstr name, bool special_fmts);
 
 typedef struct {
     void* data;
