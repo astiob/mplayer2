@@ -84,6 +84,8 @@ static const unsigned int outfmt_list[]={
     IMGFMT_422P16_BE,
     IMGFMT_422P10_LE,
     IMGFMT_422P10_BE,
+    IMGFMT_422P9_LE,
+    IMGFMT_422P9_BE,
     IMGFMT_YV12,
     IMGFMT_I420,
     IMGFMT_420P16_LE,
@@ -107,6 +109,9 @@ static const unsigned int outfmt_list[]={
     IMGFMT_RGB32,
     IMGFMT_BGR24,
     IMGFMT_RGB24,
+    IMGFMT_GBRP,
+    IMGFMT_GBRP10,
+    IMGFMT_GBRP9,
     IMGFMT_RGB48LE,
     IMGFMT_RGB48BE,
     IMGFMT_BGR16,
@@ -141,6 +146,10 @@ static int preferred_conversions[][2] = {
     {IMGFMT_UYVY, IMGFMT_422P},
     {IMGFMT_422P, IMGFMT_YUY2},
     {IMGFMT_422P, IMGFMT_UYVY},
+    {IMGFMT_GBRP, IMGFMT_BGR24},
+    {IMGFMT_GBRP, IMGFMT_RGB24},
+    {IMGFMT_GBRP, IMGFMT_BGR32},
+    {IMGFMT_GBRP, IMGFMT_RGB32},
     {0, 0}
 };
 

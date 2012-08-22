@@ -33,6 +33,8 @@ const struct imgfmt_name mp_imgfmt_list[] = {
     {"422p16be", IMGFMT_422P16_BE},
     {"422p10le", IMGFMT_422P10_LE},
     {"422p10be", IMGFMT_422P10_BE},
+    {"422p9le", IMGFMT_422P9_LE},
+    {"422p9be", IMGFMT_422P9_BE},
     {"420p16le", IMGFMT_420P16_LE},
     {"420p16be", IMGFMT_420P16_BE},
     {"420p10le", IMGFMT_420P10_LE},
@@ -44,6 +46,7 @@ const struct imgfmt_name mp_imgfmt_list[] = {
     {"444p9", IMGFMT_444P9},
     {"422p16", IMGFMT_422P16},
     {"422p10", IMGFMT_422P10},
+    {"422p9", IMGFMT_422P9},
     {"420p10", IMGFMT_420P10},
     {"420p9", IMGFMT_420P9},
     {"420p16", IMGFMT_420P16},
@@ -91,6 +94,13 @@ const struct imgfmt_name mp_imgfmt_list[] = {
     {"argb", IMGFMT_ARGB},
     {"bgra", IMGFMT_BGRA},
     {"abgr", IMGFMT_ABGR},
+    {"gbrp", IMGFMT_GBRP},
+    {"gbrp9", IMGFMT_GBRP9},
+    {"gbrp9le", IMGFMT_GBRP9LE},
+    {"gbrp9be", IMGFMT_GBRP9BE},
+    {"gbrp10", IMGFMT_GBRP10},
+    {"gbrp10le", IMGFMT_GBRP10LE},
+    {"gbrp10be", IMGFMT_GBRP10BE},
     {"mjpeg", IMGFMT_MJPEG},
     {"mjpg", IMGFMT_MJPEG},
     { NULL, 0 }
@@ -149,6 +159,11 @@ const char *vo_format_name(int format)
     case IMGFMT_BGRA: return "BGRA";
     case IMGFMT_ARGB: return "ARGB";
     case IMGFMT_RGBA: return "RGBA";
+    case IMGFMT_GBRP: return "Planar GBR 24-bit";
+    case IMGFMT_GBRP9LE: return "Planar GBR 27-bit little-endian";
+    case IMGFMT_GBRP9BE: return "Planar GBR 27-bit big-endian";
+    case IMGFMT_GBRP10LE: return "Planar GBR 30-bit little-endian";
+    case IMGFMT_GBRP10BE: return "Planar GBR 30-bit big-endian";
     case IMGFMT_YVU9: return "Planar YVU9";
     case IMGFMT_IF09: return "Planar IF09";
     case IMGFMT_YV12: return "Planar YV12";
@@ -167,6 +182,8 @@ const char *vo_format_name(int format)
     case IMGFMT_422P16_BE: return "Planar 422P 16-bit big-endian";
     case IMGFMT_422P10_LE: return "Planar 422P 10-bit little-endian";
     case IMGFMT_422P10_BE: return "Planar 422P 10-bit big-endian";
+    case IMGFMT_422P9_LE:  return "Planar 422P 9-bit little-endian";
+    case IMGFMT_422P9_BE:  return "Planar 422P 9-bit big-endian";
     case IMGFMT_444P16_LE: return "Planar 444P 16-bit little-endian";
     case IMGFMT_444P16_BE: return "Planar 444P 16-bit big-endian";
     case IMGFMT_444P10_LE: return "Planar 444P 10-bit little-endian";
