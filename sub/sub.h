@@ -73,22 +73,6 @@ typedef struct mp_osd_obj_s {
     struct ass_track *osd_track;
 } mp_osd_obj_t;
 
-struct osd_state {
-    struct ass_library *ass_library;
-    struct ass_renderer *ass_renderer;
-    int w, h;
-    char *osd_text;
-    struct ass_track *ass_track;
-    double pts;
-    double sub_offset;
-    bool vsfilter_aspect;
-
-    struct ass_renderer *osd_render;
-    struct ass_library *osd_ass_library;
-
-    struct MPOpts *opts;
-};
-
 extern subtitle* vo_sub;
 
 extern void* vo_osd_teletext_page;
@@ -132,7 +116,6 @@ extern char *sub_cp;
 extern int sub_pos;
 extern int sub_width_p;
 extern int sub_alignment;
-extern int sub_visibility;
 extern int sub_bg_color; /* subtitles background color */
 extern int sub_bg_alpha;
 extern int spu_alignment;

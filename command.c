@@ -1578,10 +1578,8 @@ static int mp_property_sub(m_option_t *prop, int action, void *arg,
         char *sub_name = NULL;
         if (mpctx->subdata)
             sub_name = mpctx->subdata->filename;
-#ifdef CONFIG_ASS
-        if (mpctx->osd->ass_track)
-            sub_name = mpctx->osd->ass_track->name;
-#endif
+        if (sub_source(mpctx) == SUB_SOURCE_SUBS && mpctx->osd->sh_sub)
+            sub_name = mpctx->osd->sh_sub->title;
         if (!sub_name && mpctx->subdata)
             sub_name = mpctx->subdata->filename;
         if (sub_name) {
@@ -1697,22 +1695,18 @@ static int mp_property_sub(m_option_t *prop, int action, void *arg,
             reset_spu = 1;
         d_sub->id = -2;
     }
-    mpctx->osd->ass_track = NULL;
     uninit_player(mpctx, INITIALIZED_SUB);
 
     if (source == SUB_SOURCE_VOBSUB)
         vobsub_id = vobsub_get_id_by_index(vo_vobsub, source_pos);
     else if (source == SUB_SOURCE_SUBS) {
         mpctx->set_of_sub_pos = source_pos;
-#ifdef CONFIG_ASS
         if (opts->ass_enabled
-            && mpctx->set_of_ass_tracks[mpctx->set_of_sub_pos]) {
-            mpctx->osd->ass_track =
-                mpctx->set_of_ass_tracks[mpctx->set_of_sub_pos];
-            mpctx->osd->vsfilter_aspect =
-                mpctx->track_was_native_ass[mpctx->set_of_sub_pos];
+                && mpctx->set_of_ass_tracks[mpctx->set_of_sub_pos]) {
+            sub_init(mpctx->set_of_ass_tracks[mpctx->set_of_sub_pos],
+                     mpctx->osd);
+            mpctx->initialized_flags |= INITIALIZED_SUB;
         } else
-#endif
             mpctx->subdata = mpctx->set_of_subtitles[mpctx->set_of_sub_pos];
         vo_osd_changed(OSDTYPE_SUBTITLE);
     } else if (source == SUB_SOURCE_DEMUX) {
@@ -1975,6 +1969,8 @@ static int mp_property_sub_alignment(m_option_t *prop, int action,
 static int mp_property_sub_visibility(m_option_t *prop, int action,
                                       void *arg, MPContext *mpctx)
 {
+    struct MPOpts *opts = &mpctx->opts;
+
     if (!mpctx->sh_video)
         return M_PROPERTY_UNAVAILABLE;
 
@@ -1988,7 +1984,7 @@ static int mp_property_sub_visibility(m_option_t *prop, int action,
         if (vo_spudec)
             vo_osd_changed(OSDTYPE_SPU);
     default:
-        return m_property_flag(prop, action, arg, &sub_visibility);
+        return m_property_flag(prop, action, arg, &opts->sub_visibility);
     }
 }
 
@@ -2067,34 +2063,28 @@ static int mp_property_sub_scale(m_option_t *prop, int action, void *arg,
         if (!arg)
             return M_PROPERTY_ERROR;
         M_PROPERTY_CLAMP(prop, *(float *) arg);
-#ifdef CONFIG_ASS
         if (opts->ass_enabled)
             opts->ass_font_scale = *(float *) arg;
-#endif
         text_font_scale_factor = *(float *) arg;
         vo_osd_changed(OSDTYPE_SUBTITLE);
         return M_PROPERTY_OK;
     case M_PROPERTY_STEP_UP:
     case M_PROPERTY_STEP_DOWN:
-#ifdef CONFIG_ASS
         if (opts->ass_enabled) {
             opts->ass_font_scale += (arg ? *(float *) arg : 0.1) *
                               (action == M_PROPERTY_STEP_UP ? 1.0 : -1.0);
             M_PROPERTY_CLAMP(prop, opts->ass_font_scale);
         }
-#endif
         text_font_scale_factor += (arg ? *(float *) arg : 0.1) *
                                   (action == M_PROPERTY_STEP_UP ? 1.0 : -1.0);
         M_PROPERTY_CLAMP(prop, text_font_scale_factor);
         vo_osd_changed(OSDTYPE_SUBTITLE);
         return M_PROPERTY_OK;
     default:
-#ifdef CONFIG_ASS
         if (opts->ass_enabled)
             return m_property_float_ro(prop, action, arg, opts->ass_font_scale);
         else
-#endif
-        return m_property_float_ro(prop, action, arg, text_font_scale_factor);
+            return m_property_float_ro(prop, action, arg, text_font_scale_factor);
     }
 }
 
@@ -2712,9 +2702,7 @@ static void remove_subtitle_range(MPContext *mpctx, int start, int count)
     int end = start + count;
     int after = mpctx->set_of_sub_size - end;
     sub_data **subs = mpctx->set_of_subtitles;
-#ifdef CONFIG_ASS
-    struct ass_track **ass_tracks = mpctx->set_of_ass_tracks;
-#endif
+    struct sh_sub **ass_tracks = mpctx->set_of_ass_tracks;
     if (count < 0 || count > mpctx->set_of_sub_size ||
         start < 0 || start > mpctx->set_of_sub_size - count) {
         mp_msg(MSGT_CPLAYER, MSGL_ERR,
@@ -2726,20 +2714,19 @@ static void remove_subtitle_range(MPContext *mpctx, int start, int count)
         char *filename = "";
         if (subd)
             filename = subd->filename;
-#ifdef CONFIG_ASS
         if (!subd)
-            filename = ass_tracks[idx]->name;
-#endif
+            filename = ass_tracks[idx]->title;
         mp_msg(MSGT_CPLAYER, MSGL_STATUS,
                "SUB: Removed subtitle file (%d): %s\n", idx + 1,
                filename_recode(filename));
         sub_free(subd);
         subs[idx] = NULL;
-#ifdef CONFIG_ASS
-        if (ass_tracks[idx])
-            ass_free_track(ass_tracks[idx]);
+        if (ass_tracks[idx]) {
+            sub_switchoff(ass_tracks[idx], mpctx->osd);
+            sub_uninit(ass_tracks[idx]);
+        }
+        talloc_free(ass_tracks[idx]);
         ass_tracks[idx] = NULL;
-#endif
     }
 
     mpctx->global_sub_size -= count;
@@ -2749,15 +2736,12 @@ static void remove_subtitle_range(MPContext *mpctx, int start, int count)
 
     memmove(subs + start, subs + end, after * sizeof(*subs));
     memset(subs + start + after, 0, count * sizeof(*subs));
-#ifdef CONFIG_ASS
     memmove(ass_tracks + start, ass_tracks + end, after * sizeof(*ass_tracks));
     memset(ass_tracks + start + after, 0, count * sizeof(*ass_tracks));
-#endif
 
     if (mpctx->set_of_sub_pos >= start && mpctx->set_of_sub_pos < end) {
         mpctx->global_sub_pos = -2;
         mpctx->subdata = NULL;
-        mpctx->osd->ass_track = NULL;
         mp_input_queue_cmd(mpctx->input, mp_input_parse_cmd("sub_select"));
     } else if (mpctx->set_of_sub_pos >= end) {
         mpctx->set_of_sub_pos -= count;
@@ -2992,7 +2976,8 @@ void run_command(MPContext *mpctx, mp_cmd_t *cmd)
         if (sh_video) {
             int movement = cmd->args[0].v.i;
             step_sub(mpctx->subdata, mpctx->video_pts, movement);
-#ifdef CONFIG_ASS
+#if 0
+            // currently not implemented with libass
             if (mpctx->osd->ass_track)
                 sub_delay +=
                     ass_step_sub(mpctx->osd->ass_track,
@@ -3332,7 +3317,7 @@ void run_command(MPContext *mpctx, mp_cmd_t *cmd)
     case MP_CMD_GET_SUB_VISIBILITY:
         if (sh_video) {
             mp_msg(MSGT_GLOBAL, MSGL_INFO,
-                   "ANS_SUB_VISIBILITY=%d\n", sub_visibility);
+                   "ANS_SUB_VISIBILITY=%d\n", opts->sub_visibility);
         }
         break;
 

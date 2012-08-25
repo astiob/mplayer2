@@ -587,8 +587,8 @@ void uninit_player(struct MPContext *mpctx, unsigned int mask)
 
     if (mask & INITIALIZED_SUB) {
         mpctx->initialized_flags &= ~INITIALIZED_SUB;
-        if (mpctx->d_sub->sh)
-            sub_switchoff(mpctx->d_sub->sh, mpctx->osd);
+        if (mpctx->osd->sh_sub)
+            sub_switchoff(mpctx->osd->sh_sub, mpctx->osd);
     }
 
     if (mask & INITIALIZED_VCODEC) {
@@ -1046,20 +1046,20 @@ void add_subtitles(struct MPContext *mpctx, char *filename, float fps,
 {
     struct MPOpts *opts = &mpctx->opts;
     sub_data *subd = NULL;
-    struct ass_track *asst = NULL;
-    bool is_native_ass = false;
+    struct sh_sub *sh = NULL;
 
     if (filename == NULL || mpctx->set_of_sub_size >= MAX_SUBTITLE_FILES)
         return;
 
-#ifdef CONFIG_ASS
     if (opts->ass_enabled) {
+#ifdef CONFIG_ASS
+        struct ass_track *asst;
 #ifdef CONFIG_ICONV
         asst = mp_ass_read_stream(mpctx->ass_library, filename, sub_cp);
 #else
         asst = mp_ass_read_stream(mpctx->ass_library, filename, 0);
 #endif
-        is_native_ass = asst;
+        bool is_native_ass = asst;
         if (!asst) {
             subd = sub_read_file(filename, fps, &mpctx->opts);
             if (subd) {
@@ -1068,20 +1068,21 @@ void add_subtitles(struct MPContext *mpctx, char *filename, float fps,
                 subd = NULL;
             }
         }
-    } else
+        if (asst)
+            sh = sd_ass_create_from_track(asst, is_native_ass, opts);
 #endif
-    subd = sub_read_file(filename, fps, &mpctx->opts);
+    } else
+        subd = sub_read_file(filename, fps, &mpctx->opts);
 
 
-    if (!asst && !subd) {
+    if (!sh && !subd) {
         mp_tmsg(MSGT_CPLAYER, noerr ? MSGL_WARN : MSGL_ERR,
                 "Cannot load subtitles: %s\n", filename_recode(filename));
         return;
     }
 
-    mpctx->set_of_ass_tracks[mpctx->set_of_sub_size] = asst;
+    mpctx->set_of_ass_tracks[mpctx->set_of_sub_size] = sh;
     mpctx->set_of_subtitles[mpctx->set_of_sub_size] = subd;
-    mpctx->track_was_native_ass[mpctx->set_of_sub_size] = is_native_ass;
     mp_msg(MSGT_IDENTIFY, MSGL_INFO,
            "ID_FILE_SUB_ID=%d\n", mpctx->set_of_sub_size);
     mp_msg(MSGT_IDENTIFY, MSGL_INFO, "ID_FILE_SUB_FILENAME=%s\n",
@@ -2674,11 +2675,9 @@ int reinit_video_chain(struct MPContext *mpctx)
 
     sh_video->vfilter = append_filters(sh_video->vfilter, opts->vf_settings);
 
-#ifdef CONFIG_ASS
     if (opts->ass_enabled)
         sh_video->vfilter->control(sh_video->vfilter, VFCTRL_INIT_EOSD,
                                    mpctx->ass_library);
-#endif
 
     current_module = "init_video_codec";
 
@@ -3007,7 +3006,10 @@ static int redraw_osd(struct MPContext *mpctx)
         return -1;
     if (vo_redraw_frame(mpctx->video_out) < 0)
         return -1;
-    mpctx->osd->pts = mpctx->video_pts - mpctx->osd->sub_offset;
+    mpctx->osd->sub_pts = mpctx->video_pts;
+    if (mpctx->osd->sub_pts != MP_NOPTS_VALUE)
+        mpctx->osd->sub_pts += sub_delay - mpctx->osd->sub_offset;
+
     if (!(sh_video->output_flags & VFCAP_EOSD_FILTER))
         vf->control(vf, VFCTRL_DRAW_EOSD, mpctx->osd);
     vf->control(vf, VFCTRL_DRAW_OSD, mpctx->osd);
@@ -3547,7 +3549,9 @@ static void run_playloop(struct MPContext *mpctx)
         update_teletext(sh_video, mpctx->demuxer, 0);
         update_osd_msg(mpctx);
         struct vf_instance *vf = sh_video->vfilter;
-        mpctx->osd->pts = mpctx->video_pts - mpctx->osd->sub_offset;
+        mpctx->osd->sub_pts = mpctx->video_pts;
+        if (mpctx->osd->sub_pts != MP_NOPTS_VALUE)
+            mpctx->osd->sub_pts += sub_delay - mpctx->osd->sub_offset;
         vf->control(vf, VFCTRL_DRAW_EOSD, mpctx->osd);
         vf->control(vf, VFCTRL_DRAW_OSD, mpctx->osd);
         vo_osd_changed(0);
@@ -4962,17 +4966,13 @@ goto_next_file:  // don't jump here after ao/vo/getch initialization!
         current_module = "sub_free";
         for (i = 0; i < mpctx->set_of_sub_size; ++i) {
             sub_free(mpctx->set_of_subtitles[i]);
-#ifdef CONFIG_ASS
-            if (mpctx->set_of_ass_tracks[i])
-                ass_free_track(mpctx->set_of_ass_tracks[i]);
-#endif
+            talloc_free(mpctx->set_of_ass_tracks[i]);
         }
         mpctx->set_of_sub_size = 0;
     }
     mpctx->vo_sub_last = vo_sub = NULL;
     mpctx->subdata = NULL;
 #ifdef CONFIG_ASS
-    mpctx->osd->ass_track = NULL;
     if (mpctx->osd->ass_renderer)
         ass_renderer_done(mpctx->osd->ass_renderer);
     mpctx->osd->ass_renderer = NULL;

@@ -3,11 +3,37 @@
 
 struct sh_sub;
 struct osd_state;
+struct ass_track;
 
 typedef struct mp_eosd_res {
     int w, h; // screen dimensions, including black borders
     int mt, mb, ml, mr; // borders (top, bottom, left, right)
 } mp_eosd_res_t;
+
+struct osd_state {
+    struct ass_library *ass_library;
+    struct ass_renderer *ass_renderer;
+    struct sh_sub *sh_sub;
+    bool changed_outside_sd;
+    double sub_pts;
+    double sub_offset;
+    struct mp_eosd_res dim;
+    double normal_scale;
+    double vsfilter_scale;
+    bool unscaled;
+
+    struct ass_renderer *osd_render;
+    struct ass_library *osd_ass_library;
+    char *osd_text;
+    int w, h;
+
+    struct MPOpts *opts;
+};
+
+typedef struct sub_bitmaps {
+    struct ass_image *imgs;
+    int changed;
+} mp_eosd_images_t;
 
 static inline bool is_text_sub(int type)
 {
@@ -16,9 +42,14 @@ static inline bool is_text_sub(int type)
 
 void sub_decode(struct sh_sub *sh, struct osd_state *osd, void *data,
                 int data_len, double pts, double duration);
+void sub_get_bitmaps(struct osd_state *osd, struct sub_bitmaps *res);
 void sub_init(struct sh_sub *sh, struct osd_state *osd);
 void sub_reset(struct sh_sub *sh, struct osd_state *osd);
 void sub_switchoff(struct sh_sub *sh, struct osd_state *osd);
 void sub_uninit(struct sh_sub *sh);
+
+struct sh_sub *sd_ass_create_from_track(struct ass_track *track,
+                                        bool vsfilter_aspect,
+                                        struct MPOpts *opts);
 
 #endif
