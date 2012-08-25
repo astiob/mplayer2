@@ -4561,7 +4561,7 @@ goto_enable_cache:
     mpctx->initialized_flags |= INITIALIZED_DEMUXER;
 
 #ifdef CONFIG_ASS
-    if (opts->ass_enabled && mpctx->ass_library) {
+    if (opts->ass_enabled) {
         for (int j = 0; j < mpctx->num_sources; j++) {
             struct demuxer *d = mpctx->sources[j].demuxer;
             for (int i = 0; i < d->num_attachments; i++) {
@@ -4572,6 +4572,16 @@ goto_enable_cache:
             }
         }
     }
+    /* libass seems to misbehave if fonts are changed while a renderer
+     * exists, so we (re)create the renderer after fonts are set.
+     */
+    assert(!mpctx->osd->ass_renderer);
+    mpctx->osd->ass_renderer = ass_renderer_init(mpctx->osd->ass_library);
+    if (!mpctx->osd->ass_renderer) {
+        mp_msg(MSGT_OSD, MSGL_FATAL, "Failed to create libass renderer\n");
+        exit_player(mpctx, EXIT_ERROR);
+    }
+    mp_ass_configure_fonts(mpctx->osd->ass_renderer);
 #endif
 
     current_module = "demux_open2";
@@ -4963,8 +4973,10 @@ goto_next_file:  // don't jump here after ao/vo/getch initialization!
     mpctx->subdata = NULL;
 #ifdef CONFIG_ASS
     mpctx->osd->ass_track = NULL;
-    if (mpctx->ass_library)
-        ass_clear_fonts(mpctx->ass_library);
+    if (mpctx->osd->ass_renderer)
+        ass_renderer_done(mpctx->osd->ass_renderer);
+    mpctx->osd->ass_renderer = NULL;
+    ass_clear_fonts(mpctx->ass_library);
 #endif
 
     if (!mpctx->stop_play) // In case some goto jumped here...
