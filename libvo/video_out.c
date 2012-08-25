@@ -65,7 +65,6 @@ int64_t WinID = -1;
 int vo_pts=0; // for hw decoding
 float vo_fps=0;
 
-char *vo_subdevice = NULL;
 int vo_directrendering=0;
 
 int vo_colorkey = 0x0000ff00; // default colorkey is green
@@ -351,7 +350,7 @@ struct vo *init_best_video_out(struct MPOpts *opts, struct vo_x11_state *x11,
     if (vo_list && vo_list[0])
         while (vo_list[0][0]) {
             char *name = strdup(vo_list[0]);
-            vo_subdevice = strchr(name,':');
+            char *vo_subdevice = strchr(name,':');
             if (!strcmp(name, "pgm"))
                 mp_tmsg(MSGT_CPLAYER, MSGL_ERR, "The pgm video output driver has been replaced by -vo pnm:pgmyuv.\n");
             if (!strcmp(name, "md5"))
@@ -377,20 +376,21 @@ struct vo *init_best_video_out(struct MPOpts *opts, struct vo_x11_state *x11,
             // continue...
             free(name);
             ++vo_list;
-            if (!(vo_list[0]))
+            if (!(vo_list[0])) {
+                talloc_free(vo);
                 return NULL; // do NOT fallback to others
+            }
 	}
     // now try the rest...
-    vo_subdevice = NULL;
     for (i = 0; video_out_drivers[i]; i++) {
         const struct vo_driver *video_driver = video_out_drivers[i];
         *vo = initial_values;
         vo->driver = video_driver;
-        if (!vo_preinit(vo, vo_subdevice))
+        if (!vo_preinit(vo, NULL))
             return vo; // success!
         talloc_free_children(vo);
     }
-    free(vo);
+    talloc_free(vo);
     return NULL;
 }
 
