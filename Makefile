@@ -388,6 +388,7 @@ SRCS_COMMON = asxparser.c \
               libmpdemux/yuv4mpeg.c \
               libmpdemux/yuv4mpeg_ratio.c \
               libvo/osd.c \
+              libvo/bitmap_packer.c \
               osdep/numcores.c \
               osdep/io.c \
               osdep/$(GETCH) \

@@ -34,6 +34,9 @@
 #include <stdbool.h>
 #include <limits.h>
 
+#include <libavutil/common.h>
+#include <libavcodec/vdpau.h>
+
 #include "config.h"
 #include "mp_msg.h"
 #include "options.h"
@@ -47,13 +50,8 @@
 #include "libmpcodecs/vfcap.h"
 #include "libmpcodecs/mp_image.h"
 #include "osdep/timer.h"
-
-#include "libavcodec/vdpau.h"
-
-#include "libavutil/common.h"
-#include "libavutil/mathematics.h"
-
 #include "sub/ass_mp.h"
+#include "bitmap_packer.h"
 
 #define WRAP_ADD(x, a, m) ((a) < 0 \
                            ? ((x)+(a)+(m) < (m) ? (x)+(a)+(m) : (x)+(a)) \
@@ -82,9 +80,6 @@
 
 /* number of palette entries */
 #define PALETTE_SIZE 256
-
-/* Initial size of EOSD surface in pixels (x*x) */
-#define EOSD_SURFACE_INITIAL_SIZE 256
 
 /* Pixelformat used for output surfaces */
 #define OUTPUT_RGBA_FORMAT VDP_RGBA_FORMAT_B8G8R8A8
@@ -171,13 +166,11 @@ struct vdpctx {
     uint32_t                           palette[PALETTE_SIZE];
 
     // EOSD
-    // Pool of surfaces
     struct eosd_bitmap_surface {
         VdpBitmapSurface surface;
-        int w;
-        int h;
         uint32_t max_width;
         uint32_t max_height;
+        struct bitmap_packer *packer;
     } eosd_surface;
 
     // List of surfaces to be rendered
@@ -187,8 +180,6 @@ struct vdpctx {
         VdpColor color;
     } *eosd_targets;
     int eosd_targets_size;
-    int *eosd_scratch;
-
     int eosd_render_count;
 
     // Video equalizer
@@ -769,8 +760,6 @@ static int create_vdp_decoder(struct vo *vo, int max_refs)
 static int initialize_vdpau_objects(struct vo *vo)
 {
     struct vdpctx *vc = vo->priv;
-    struct vdp_functions *vdp = vc->vdp;
-    VdpStatus vdp_st;
 
     vc->vdp_chroma_type = VDP_CHROMA_TYPE_420;
     switch (vc->image_format) {
@@ -796,13 +785,6 @@ static int initialize_vdpau_objects(struct vo *vo)
     if (create_vdp_mixer(vo, vc->vdp_chroma_type) < 0)
         return -1;
 
-    vdp_st = vdp->
-        bitmap_surface_query_capabilities(vc->vdp_device,
-                                          VDP_RGBA_FORMAT_A8,
-                                          &(VdpBool){0},
-                                          &vc->eosd_surface.max_width,
-                                          &vc->eosd_surface.max_height);
-    CHECK_ST_WARNING("Query to get max EOSD surface size failed");
     forget_frames(vo);
     resize(vo);
     return 0;
@@ -822,6 +804,7 @@ static void mark_vdpau_objects_uninitialized(struct vo *vo)
     for (int i = 0; i <= MAX_OUTPUT_SURFACES; i++)
         vc->output_surfaces[i] = VDP_INVALID_HANDLE;
     vc->vdp_device = VDP_INVALID_HANDLE;
+    talloc_free(vc->eosd_surface.packer);
     vc->eosd_surface = (struct eosd_bitmap_surface){
         .surface = VDP_INVALID_HANDLE,
     };
@@ -1057,158 +1040,52 @@ static void draw_eosd(struct vo *vo)
     }
 }
 
-#define HEIGHT_SORT_BITS 4
-static int size_index(struct eosd_target *r)
-{
-    unsigned int h = r->source.y1;
-    int n = av_log2_16bit(h);
-    return (n << HEIGHT_SORT_BITS)
-        + (- 1 - (h << HEIGHT_SORT_BITS >> n) & (1 << HEIGHT_SORT_BITS) - 1);
-}
-
-/* Pack the given rectangles into an area of size w * h.
- * The size of each rectangle is read from .source.x1/.source.y1.
- * The height of each rectangle must be at least 1 and less than 65536.
- * The .source rectangle is then set corresponding to the packed position.
- * 'scratch' must point to work memory for num_rects+16 ints.
- * Return 0 on success, -1 if the rectangles did not fit in w*h.
- *
- * The rectangles are placed in rows in order approximately sorted by
- * height (the approximate sorting is simpler than a full one would be,
- * and allows the algorithm to work in linear time). Additionally, to
- * reduce wasted space when there are a few tall rectangles, empty
- * lower-right parts of rows are filled recursively when the size of
- * rectangles in the row drops past a power-of-two threshold. So if a
- * row starts with rectangles of size 3x50, 10x40 and 5x20 then the
- * free rectangle with corners (13, 20)-(w, 50) is filled recursively.
- */
-static int pack_rectangles(struct eosd_target *rects, int num_rects,
-                           int w, int h, int *scratch)
-{
-    int bins[16 << HEIGHT_SORT_BITS];
-    int sizes[16 << HEIGHT_SORT_BITS] = {};
-    for (int i = 0; i < num_rects; i++)
-        sizes[size_index(rects + i)]++;
-    int idx = 0;
-    for (int i = 0; i < 16 << HEIGHT_SORT_BITS; i += 1 << HEIGHT_SORT_BITS) {
-        for (int j = 0; j < 1 << HEIGHT_SORT_BITS; j++) {
-            bins[i + j] = idx;
-            idx += sizes[i + j];
-        }
-        scratch[idx++] = -1;
-    }
-    for (int i = 0; i < num_rects; i++)
-        scratch[bins[size_index(rects + i)]++] = i;
-    for (int i = 0; i < 16; i++)
-        bins[i] = bins[i << HEIGHT_SORT_BITS] - sizes[i << HEIGHT_SORT_BITS];
-    struct {
-        int size, x, bottom;
-    } stack[16] = {{15, 0, h}}, s = {};
-    int stackpos = 1;
-    int y;
-    while (stackpos) {
-        y = s.bottom;
-        s = stack[--stackpos];
-        s.size++;
-        while (s.size--) {
-            int maxy = -1;
-            int obj;
-            while ((obj = scratch[bins[s.size]]) >= 0) {
-                int bottom = y + rects[obj].source.y1;
-                if (bottom > s.bottom)
-                    break;
-                int right = s.x + rects[obj].source.x1;
-                if (right > w)
-                    break;
-                bins[s.size]++;
-                rects[obj].source.x0 = s.x;
-                rects[obj].source.x1 += s.x;
-                rects[obj].source.y0 = y;
-                rects[obj].source.y1 += y;
-                num_rects--;
-                if (maxy <= 0)
-                    stack[stackpos++] = s;
-                s.x = right;
-                maxy = FFMAX(maxy, bottom);
-            }
-            if (maxy > 0)
-                s.bottom = maxy;
-        }
-    }
-    return num_rects ? -1 : 0;
-}
-
 static void generate_eosd(struct vo *vo, mp_eosd_images_t *imgs)
 {
     struct vdpctx *vc = vo->priv;
     struct vdp_functions *vdp = vc->vdp;
     VdpStatus vdp_st;
-    int i;
-    ASS_Image *img = imgs->imgs;
-    ASS_Image *p;
     struct eosd_bitmap_surface *sfc = &vc->eosd_surface;
     bool need_upload = false;
 
-    if (imgs->changed == 0)
-        return; // Nothing changed, no need to redraw
+    if (imgs->changed == 0 && sfc->packer)
+        return; // Nothing changed and we still have the old data
 
     vc->eosd_render_count = 0;
 
-    if (!img)
+    if (!imgs->imgs)
         return; // There's nothing to render!
 
     if (imgs->changed == 1)
         goto eosd_skip_upload;
 
     need_upload = true;
-    bool reallocate = false;
-    while (1) {
-        for (p = img, i = 0; p; p = p->next) {
-            if (p->w <= 0 || p->h <= 0)
-                continue;
-            // Allocate new space for surface/target arrays
-            if (i >= vc->eosd_targets_size) {
-                vc->eosd_targets_size = FFMAX(vc->eosd_targets_size * 2, 512);
-                vc->eosd_targets  =
-                    talloc_realloc_size(vc, vc->eosd_targets,
-                                        vc->eosd_targets_size
-                                        * sizeof(*vc->eosd_targets));
-                vc->eosd_scratch =
-                    talloc_realloc_size(vc, vc->eosd_scratch,
-                                        (vc->eosd_targets_size + 16)
-                                        * sizeof(*vc->eosd_scratch));
-            }
-            vc->eosd_targets[i].source.x1 = p->w;
-            vc->eosd_targets[i].source.y1 = p->h;
-            i++;
-        }
-        if (pack_rectangles(vc->eosd_targets, i, sfc->w, sfc->h,
-                            vc->eosd_scratch) >= 0)
-            break;
-        int w = FFMIN(FFMAX(sfc->w * 2, EOSD_SURFACE_INITIAL_SIZE),
-                      sfc->max_width);
-        int h = FFMIN(FFMAX(sfc->h * 2, EOSD_SURFACE_INITIAL_SIZE),
-                      sfc->max_height);
-        if (w == sfc->w && h == sfc->h) {
-            mp_msg(MSGT_VO, MSGL_ERR, "[vdpau] EOSD bitmaps do not fit on "
-                   "a surface with the maximum supported size\n");
-            return;
-        } else {
-            sfc->w = w;
-            sfc->h = h;
-        }
-        reallocate = true;
+    if (!sfc->packer) {
+        sfc->packer = talloc_zero(vo, struct bitmap_packer);
+        uint32_t w_max = 0, h_max = 0;
+        vdp_st = vdp->
+            bitmap_surface_query_capabilities(vc->vdp_device,
+                                              VDP_RGBA_FORMAT_A8,
+                                              &(VdpBool){0}, &w_max, &h_max);
+        CHECK_ST_WARNING("Query to get max EOSD surface size failed");
+        sfc->packer->w_max = w_max;
+        sfc->packer->h_max = h_max;
     }
-    if (reallocate) {
+    int r = packer_pack_from_assimg(sfc->packer, imgs->imgs);
+    if (r < 0) {
+        mp_msg(MSGT_VO, MSGL_ERR, "[vdpau] EOSD bitmaps do not fit on "
+               "a surface with the maximum supported size\n");
+        return;
+    } else if (r == 1) {
         if (sfc->surface != VDP_INVALID_HANDLE) {
             vdp_st = vdp->bitmap_surface_destroy(sfc->surface);
             CHECK_ST_WARNING("Error when calling vdp_bitmap_surface_destroy");
         }
         mp_msg(MSGT_VO, MSGL_V, "[vdpau] Allocating a %dx%d surface for "
-               "EOSD bitmaps.\n", sfc->w, sfc->h);
+               "EOSD bitmaps.\n", sfc->packer->w, sfc->packer->h);
         vdp_st = vdp->bitmap_surface_create(vc->vdp_device, VDP_RGBA_FORMAT_A8,
-                                            sfc->w, sfc->h, true,
-                                            &sfc->surface);
+                                            sfc->packer->w, sfc->packer->h,
+                                            true, &sfc->surface);
         if (vdp_st != VDP_STATUS_OK)
             sfc->surface = VDP_INVALID_HANDLE;
         CHECK_ST_WARNING("EOSD: error when creating surface");
@@ -1217,10 +1094,21 @@ static void generate_eosd(struct vo *vo, mp_eosd_images_t *imgs)
 eosd_skip_upload:
     if (sfc->surface == VDP_INVALID_HANDLE)
         return;
-    for (p = img; p; p = p->next) {
-        if (p->w <= 0 || p->h <= 0)
+    if (sfc->packer->count > vc->eosd_targets_size) {
+        talloc_free(vc->eosd_targets);
+        vc->eosd_targets_size = sfc->packer->count;
+        vc->eosd_targets = talloc_size(vc, vc->eosd_targets_size
+                                           * sizeof(*vc->eosd_targets));
+        }
+
+    int i = 0;
+    for (ASS_Image *p = imgs->imgs; p; p = p->next, i++) {
+        if (p->w == 0 || p->h == 0)
             continue;
         struct eosd_target *target = &vc->eosd_targets[vc->eosd_render_count];
+        int x = sfc->packer->result[i].x;
+        int y = sfc->packer->result[i].y;
+        target->source = (VdpRect){x, y, x + p->w, y + p->h};
         if (need_upload) {
             vdp_st = vdp->
                 bitmap_surface_put_bits_native(sfc->surface,
