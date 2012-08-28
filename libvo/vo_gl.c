@@ -77,6 +77,8 @@ struct gl_priv {
     GLuint osdDispList[MAX_OSD_PARTS];
     GLuint osdaDispList[MAX_OSD_PARTS];
     GLuint eosdDispList;
+    unsigned int bitmap_id;
+    unsigned int bitmap_pos_id;
     //! How many parts the OSD currently consists of
     int osdtexCnt;
     int eosdtexCnt;
@@ -334,11 +336,10 @@ static void genEOSD(struct vo *vo, mp_eosd_images_t *imgs)
     ASS_Image *img = imgs->imgs;
     ASS_Image *i;
 
-    if (imgs->changed == 0) // there are elements, but they are unchanged
-        return;
-    if (img && imgs->changed == 1) // there are elements, but they just moved
-        goto skip_upload;
-
+    if (imgs->bitmap_pos_id == p->bitmap_pos_id)
+        return;   // contents are exactly same as before
+    if (imgs->bitmap_id == p->bitmap_id)
+        goto skip_upload;  // bitmaps are the same, just position changed
     clearEOSD(vo);
     if (!img)
         return;
@@ -420,6 +421,8 @@ skip_upload:
     }
     gl->EndList();
     gl->BindTexture(p->target, 0);
+    p->bitmap_id = imgs->bitmap_id;
+    p->bitmap_pos_id = imgs->bitmap_pos_id;
 }
 
 /**
@@ -441,6 +444,7 @@ static void uninitGl(struct vo *vo)
     p->default_texs[0] = 0;
     clearOSD(vo);
     clearEOSD(vo);
+    p->bitmap_id = p->bitmap_pos_id = 0;
     if (p->largeeosdtex[0])
         gl->DeleteTextures(2, p->largeeosdtex);
     p->largeeosdtex[0] = 0;

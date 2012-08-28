@@ -14,7 +14,8 @@ struct osd_state {
     struct ass_library *ass_library;
     struct ass_renderer *ass_renderer;
     struct sh_sub *sh_sub;
-    bool changed_outside_sd;
+    unsigned int bitmap_id;
+    unsigned int bitmap_pos_id;
     double sub_pts;
     double sub_offset;
     struct mp_eosd_res dim;
@@ -32,7 +33,8 @@ struct osd_state {
 
 typedef struct sub_bitmaps {
     struct ass_image *imgs;
-    int changed;
+    unsigned int bitmap_id;
+    unsigned int bitmap_pos_id;
 } mp_eosd_images_t;
 
 static inline bool is_text_sub(int type)
