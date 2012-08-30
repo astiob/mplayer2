@@ -123,5 +123,13 @@ void mp_gen_gamma_map(unsigned char *map, int size, float gamma);
 #define COL_C 3
 void mp_get_yuv2rgb_coeffs(struct mp_csp_params *params, float yuv2rgb[3][4]);
 void mp_gen_yuv2rgb_map(struct mp_csp_params *params, uint8_t *map, int size);
+#define ROW_Y 0
+#define ROW_U 1
+#define ROW_V 2
+#define COL_R 0
+#define COL_G 1
+#define COL_B 2
+// COL_C 3
+void mp_get_rgb2yuv_coeffs(struct mp_csp_params *params, float rgb2yuv[3][4]);
 
 #endif /* MPLAYER_CSPUTILS_H */

@@ -178,7 +178,7 @@ void mp_get_yuv2rgb_coeffs(struct mp_csp_params *params, float m[3][4])
         m[i][COL_Y] *= ymul;
         m[i][COL_U] *= cmul;
         m[i][COL_V] *= cmul;
-        // Set COL_C so that Y=umin,UV=cmid maps to RGB=min (black to black)
+        // Set COL_C so that Y=ymin,UV=cmid maps to RGB=min (black to black)
         m[i][COL_C] = rgblev.min - m[i][COL_Y] * yuvlev.ymin
                       -(m[i][COL_U] + m[i][COL_V]) * yuvlev.cmid;
     }
@@ -231,6 +231,108 @@ void mp_gen_yuv2rgb_map(struct mp_csp_params *params, unsigned char *map, int si
         }
         v += (i == -1 || i == size - 1) ? step / 2 : step;
     }
+}
+
+/* Fill in the R, G, B vectors of an rgb2yuv conversion matrix
+ * based on the given luma weights of the components (lr, lg, lb).
+ * lr+lg+lb is assumed to equal 1.
+ * All the conditions listed for luma_coeffs apply.
+ */
+static void rgb_coeffs(float m[3][4], float lr, float lg, float lb)
+{
+    assert(fabs(lr+lg+lb - 1) < 1e-6);
+    m[0][0] = lr;
+    m[0][1] = lg;
+    m[0][2] = lb;
+    m[1][0] = -0.5f * lr / (1-lb);
+    m[1][1] = -0.5f * lg / (1-lb);
+    m[1][2] = m[2][0] = 0.5f;
+    m[2][1] = -0.5f * lg / (1-lr);
+    m[2][2] = -0.5f * lb / (1-lr);
+    // Constant coefficients (m[x][3]) not set here
+}
+
+/**
+ * \brief get the coefficients of the inverse yuv -> rgb conversion matrix
+ * \param params struct specifying the properties of the conversion like
+ *  brightness, ...
+ * \param m array to store coefficients into
+ */
+void mp_get_rgb2yuv_coeffs(struct mp_csp_params *params, float m[3][4])
+{
+    int format = params->colorspace.format;
+    if (format <= MP_CSP_AUTO || format >= MP_CSP_COUNT)
+        format = MP_CSP_BT_601;
+    switch (format) {
+    case MP_CSP_BT_601:     rgb_coeffs(m, 0.299,  0.587,  0.114 ); break;
+    case MP_CSP_BT_709:     rgb_coeffs(m, 0.2126, 0.7152, 0.0722); break;
+    case MP_CSP_SMPTE_240M: rgb_coeffs(m, 0.2122, 0.7013, 0.0865); break;
+    default:
+        abort();
+    };
+
+    // Hue is equivalent to rotating the [U, V] subvector around the origin.
+    // Saturation scales [U, V].
+    float huecos = cos(params->hue) / params->saturation;
+    float huesin = sin(params->hue) / params->saturation;
+    for (int i = 0; i < 3; i++) {
+        float u = m[ROW_U][i];
+        m[ROW_U][i] = huecos * u - huesin * m[ROW_V][i];
+        m[ROW_V][i] = huesin * u + huecos * m[ROW_V][i];
+    }
+
+    int levels_in = params->colorspace.levels_in;
+    if (levels_in <= MP_CSP_LEVELS_AUTO || levels_in >= MP_CSP_LEVELS_COUNT)
+        levels_in = MP_CSP_LEVELS_TV;
+    assert(params->input_bits >= 8);
+    assert(params->texture_bits >= params->input_bits);
+    double s = (1 << params->input_bits-8) / ((1<<params->texture_bits)-1.);
+    // The values below are written in 0-255 scale
+    struct yuvlevels { double ymin, ymax, cmin, cmid; }
+        yuvlim =  { 16*s, 235*s, 16*s, 128*s },
+        yuvfull = {  0*s, 255*s,  1*s, 128*s },  // '1' for symmetry around 128
+        yuvlev;
+    switch (levels_in) {
+    case MP_CSP_LEVELS_TV: yuvlev = yuvlim; break;
+    case MP_CSP_LEVELS_PC: yuvlev = yuvfull; break;
+    default:
+        abort();
+    }
+
+    int levels_out = params->colorspace.levels_out;
+    if (levels_out <= MP_CSP_LEVELS_AUTO || levels_out >= MP_CSP_LEVELS_COUNT)
+        levels_out = MP_CSP_LEVELS_PC;
+    struct rgblevels { double min, max; }
+        rgblim =  { 16/255., 235/255. },
+        rgbfull = {      0,        1  },
+        rgblev;
+    switch (levels_out) {
+    case MP_CSP_LEVELS_TV: rgblev = rgblim; break;
+    case MP_CSP_LEVELS_PC: rgblev = rgbfull; break;
+    default:
+        abort();
+    }
+
+    double ymul =     (yuvlev.ymax - yuvlev.ymin) / (rgblev.max - rgblev.min);
+    double cmul = 2 * (yuvlev.cmid - yuvlev.cmin) / (rgblev.max - rgblev.min);
+    for (int i = 0; i < 3; i++) {
+        m[ROW_Y][i] *= ymul;
+        m[ROW_U][i] *= cmul;
+        m[ROW_V][i] *= cmul;
+    }
+
+    // Set COL_C so that RGB=min+brightness maps to Y=ymin,UV=cmid (black).
+    // Invert the crazy contrast calculations of mp_get_yuv2rgb_coeffs.
+    m[ROW_Y][COL_C] = yuvlev.ymin;
+    m[ROW_U][COL_C] = yuvlev.cmid;
+    m[ROW_V][COL_C] = yuvlev.cmid;
+    for (int i = 0; i < 3; i++) {
+        float offset = rgblev.min + params->brightness +
+                       (rgblev.max-rgblev.min) * (1 - params->contrast)/2;
+        m[i][COL_C] -= offset * (m[i][0] + m[i][1] + m[i][2]);
+    }
+    for (int i = 0; i < 4; i++)
+        m[ROW_Y][i] /= params->contrast;
 }
 
 // Copy settings from eq into params.
