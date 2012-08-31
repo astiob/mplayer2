@@ -298,7 +298,7 @@ static void genEOSD(struct vo *vo, mp_eosd_images_t *imgs)
 
     if (imgs->bitmap_id != p->bitmap_id) {
         need_upload = true;
-        int res = packer_pack_from_assimg(p->eosd, imgs->imgs);
+        int res = packer_pack_from_subbitmaps(p->eosd, imgs, 0);
         if (res < 0) {
             mp_msg(MSGT_VO, MSGL_ERR,
                    "[gl] subtitle bitmaps do not fit in maximum texture\n");

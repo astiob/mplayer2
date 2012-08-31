@@ -5,6 +5,12 @@ struct sh_sub;
 struct osd_state;
 struct ass_track;
 
+enum sub_bitmap_type {
+    SUBBITMAP_EMPTY,
+    SUBBITMAP_LIBASS,
+    SUBBITMAP_RGBA,
+};
+
 typedef struct mp_eosd_res {
     int w, h; // screen dimensions, including black borders
     int mt, mb, ml, mr; // borders (top, bottom, left, right)
@@ -22,6 +28,7 @@ struct osd_state {
     double normal_scale;
     double vsfilter_scale;
     bool unscaled;
+    bool support_rgba;
 
     struct ass_renderer *osd_render;
     struct ass_library *osd_ass_library;
@@ -32,7 +39,20 @@ struct osd_state {
 };
 
 typedef struct sub_bitmaps {
+    enum sub_bitmap_type type;
+
     struct ass_image *imgs;
+
+    struct sub_bitmap {
+        int w, h;
+        int x, y;
+        // Note: not clipped, going outside the screen area is allowed
+        int dw, dh;
+        void *bitmap;
+    } *parts;
+    int part_count;
+
+    bool scaled;
     unsigned int bitmap_id;
     unsigned int bitmap_pos_id;
 } mp_eosd_images_t;
