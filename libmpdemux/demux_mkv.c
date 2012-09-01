@@ -50,8 +50,6 @@
 
 #include "mp_msg.h"
 
-#include "sub/sub.h"
-
 
 #ifdef CONFIG_QTX_CODECS
 #include "loader/qtx/qtxsdk/components.h"
@@ -2051,7 +2049,6 @@ static int handle_block(demuxer_t *demuxer, uint8_t *block, uint64_t length,
                    "lacing. This is abnormal and not supported.\n");
             use_this_block = 0;
         }
-        sub_utf8 = 1; // XXX this variable should be eventually removed
     } else
         use_this_block = 0;
 
