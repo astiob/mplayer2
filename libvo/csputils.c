@@ -145,11 +145,12 @@ void mp_get_yuv2rgb_coeffs(struct mp_csp_params *params, float m[3][4])
         levels_in = MP_CSP_LEVELS_TV;
     assert(params->input_bits >= 8);
     assert(params->texture_bits >= params->input_bits);
-    double s = (1 << params->input_bits-8) / ((1<<params->texture_bits)-1.);
-    // The values below are written in 0-255 scale
+    double slim =   (1<<params->input_bits-8)  / ((1<<params->texture_bits)-1.),
+           sfull = ((1<<params->input_bits)-1) / ((1<<params->texture_bits)-1.);
+    // yuvlim values are written in 0-255 scale, yuvfull in 0-1 scale
     struct yuvlevels { double ymin, ymax, cmin, cmid; }
-        yuvlim =  { 16*s, 235*s, 16*s, 128*s },
-        yuvfull = {  0*s, 255*s,  1*s, 128*s },  // '1' for symmetry around 128
+        yuvlim =  { 16*slim, 235*slim, 16*slim,  128*slim  },
+        yuvfull = {  0*sfull,  1*sfull, 0*sfull, 0.5*sfull },
         yuvlev;
     switch (levels_in) {
     case MP_CSP_LEVELS_TV: yuvlev = yuvlim; break;
@@ -286,11 +287,12 @@ void mp_get_rgb2yuv_coeffs(struct mp_csp_params *params, float m[3][4])
         levels_in = MP_CSP_LEVELS_TV;
     assert(params->input_bits >= 8);
     assert(params->texture_bits >= params->input_bits);
-    double s = (1 << params->input_bits-8) / ((1<<params->texture_bits)-1.);
-    // The values below are written in 0-255 scale
+    double slim =   (1<<params->input_bits-8)  / ((1<<params->texture_bits)-1.),
+           sfull = ((1<<params->input_bits)-1) / ((1<<params->texture_bits)-1.);
+    // yuvlim values are written in 0-255 scale, yuvfull in 0-1 scale
     struct yuvlevels { double ymin, ymax, cmin, cmid; }
-        yuvlim =  { 16*s, 235*s, 16*s, 128*s },
-        yuvfull = {  0*s, 255*s,  1*s, 128*s },  // '1' for symmetry around 128
+        yuvlim =  { 16*slim, 235*slim, 16*slim,  128*slim  },
+        yuvfull = {  0*sfull,  1*sfull, 0*sfull, 0.5*sfull },
         yuvlev;
     switch (levels_in) {
     case MP_CSP_LEVELS_TV: yuvlev = yuvlim; break;
