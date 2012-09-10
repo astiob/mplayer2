@@ -79,7 +79,7 @@ extern struct vo_driver video_out_vdpau;
 extern struct vo_driver video_out_xv;
 extern struct vo_driver video_out_gl_nosw;
 extern struct vo_driver video_out_gl;
-extern struct vo_driver video_out_gl_sdl;
+extern struct vo_driver video_out_gl3;
 extern struct vo_driver video_out_sdl;
 extern struct vo_driver video_out_null;
 extern struct vo_driver video_out_png;
@@ -117,20 +117,17 @@ const struct vo_driver *video_out_drivers[] =
 #ifdef CONFIG_XV
         &video_out_xv,
 #endif
-#ifdef CONFIG_X11
 #ifdef CONFIG_GL
-        &video_out_gl_nosw,
+        &video_out_gl3,
+#ifndef CONFIG_GL_COCOA
+        &video_out_gl,
 #endif
+#endif
+#ifdef CONFIG_X11
         &video_out_x11,
 #endif
 #ifdef CONFIG_SDL
         &video_out_sdl,
-#endif
-#if (defined CONFIG_GL && !defined CONFIG_GL_COCOA)
-        &video_out_gl,
-#endif
-#ifdef CONFIG_GL_SDL
-        &video_out_gl_sdl,
 #endif
 #ifdef CONFIG_CACA
         &video_out_caca,
@@ -165,6 +162,11 @@ const struct vo_driver *video_out_drivers[] =
 #endif
 #ifdef CONFIG_SHAREDBUFFER
         &video_out_sharedbuffer,
+#endif
+#ifdef CONFIG_X11
+#ifdef CONFIG_GL
+        &video_out_gl_nosw,
+#endif
 #endif
         NULL
 };

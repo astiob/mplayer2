@@ -20,7 +20,7 @@
 #import <Cocoa/Cocoa.h>
 #import <OpenGL/OpenGL.h>
 #import <QuartzCore/QuartzCore.h>
-#import <CoreServices/CoreServices.h> // for CGDisplayHideCursor
+#import <CoreServices/CoreServices.h> // for CGDisplayHideCursor and Gestalt
 #include <dlfcn.h>
 
 #include "cocoa_common.h"
@@ -38,6 +38,18 @@
 #include "input/keycodes.h"
 #include "osx_common.h"
 #include "mp_msg.h"
+
+#ifndef NSOpenGLPFAOpenGLProfile
+#define NSOpenGLPFAOpenGLProfile 99
+#endif
+
+#ifndef NSOpenGLProfileVersionLegacy
+#define NSOpenGLProfileVersionLegacy 0x1000
+#endif
+
+#ifndef NSOpenGLProfileVersion3_2Core
+#define NSOpenGLProfileVersion3_2Core 0x3200
+#endif
 
 #define NSLeftAlternateKeyMask (0x000020 | NSAlternateKeyMask)
 #define NSRightAlternateKeyMask (0x000040 | NSAlternateKeyMask)
@@ -249,7 +261,8 @@ void vo_cocoa_ontop(struct vo *vo)
 }
 
 int vo_cocoa_create_window(struct vo *vo, uint32_t d_width,
-                           uint32_t d_height, uint32_t flags)
+                           uint32_t d_height, uint32_t flags,
+                           int gl3profile)
 {
     struct MPOpts *opts = vo->opts;
     if (s->current_video_size.width > 0 || s->current_video_size.height > 0)
@@ -267,12 +280,27 @@ int vo_cocoa_create_window(struct vo *vo, uint32_t d_width,
         if (supports_hidpi(glView))
             [glView setWantsBestResolutionOpenGLSurface:YES];
 
-        NSOpenGLPixelFormatAttribute attrs[] = {
-            NSOpenGLPFADoubleBuffer, // double buffered
-            (NSOpenGLPixelFormatAttribute)0
-        };
+        int i = 0;
+        NSOpenGLPixelFormatAttribute attr[32];
+        if (is_osx_version_at_least(10, 7, 0)) {
+          attr[i++] = NSOpenGLPFAOpenGLProfile;
+          attr[i++] = (gl3profile ? NSOpenGLProfileVersion3_2Core : NSOpenGLProfileVersionLegacy);
+        } else if(gl3profile) {
+            mp_msg(MSGT_VO, MSGL_ERR,
+                "[cocoa] Invalid pixel format attribute "
+                "(GL3 is not supported on OSX versions prior to 10.7)\n");
+            return -1;
+        }
+        attr[i++] = NSOpenGLPFADoubleBuffer; // double buffered
+        attr[i] = (NSOpenGLPixelFormatAttribute)0;
 
-        s->pixelFormat = [[[NSOpenGLPixelFormat alloc] initWithAttributes:attrs] autorelease];
+        s->pixelFormat = [[[NSOpenGLPixelFormat alloc] initWithAttributes:attr] autorelease];
+        if (!s->pixelFormat) {
+            mp_msg(MSGT_VO, MSGL_ERR,
+                "[cocoa] Invalid pixel format attribute "
+                "(GL3 not supported?)\n");
+            return -1;
+        }
         s->glContext = [[NSOpenGLContext alloc] initWithFormat:s->pixelFormat shareContext:nil];
 
         create_menu();
@@ -411,7 +439,23 @@ void *vo_cocoa_cgl_context(void)
 
 void *vo_cocoa_cgl_pixel_format(void)
 {
-    return [s->pixelFormat CGLPixelFormatObj];
+    return CGLGetPixelFormat(vo_cocoa_cgl_context());
+}
+
+int vo_cocoa_cgl_color_size(void)
+{
+    GLint value;
+    CGLDescribePixelFormat(vo_cocoa_cgl_pixel_format(), 0,
+                           kCGLPFAColorSize, &value);
+    switch (value) {
+        case 32:
+        case 24:
+            return 8;
+        case 16:
+            return 5;
+    }
+
+    return 8;
 }
 
 static NSMenuItem *new_menu_item(NSMenu *parent_menu, NSString *title,

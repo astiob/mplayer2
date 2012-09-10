@@ -428,7 +428,7 @@ SRCS_MPLAYER-$(DIRECT3D)     += libvo/vo_direct3d.c libvo/w32_common.c
 SRCS_MPLAYER-$(DIRECTFB)     += libvo/vo_directfb2.c
 SRCS_MPLAYER-$(DIRECTX)      += libao2/ao_dsound.c libvo/vo_directx.c
 SRCS_MPLAYER-$(GIF)          += libvo/vo_gif89a.c
-SRCS_MPLAYER-$(GL)           += libvo/gl_common.c libvo/vo_gl.c \
+SRCS_MPLAYER-$(GL)           += libvo/gl_common.c libvo/vo_gl.c libvo/vo_gl3.c \
                                 pnm_loader.c
 SRCS_MPLAYER-$(GL_SDL)       += libvo/sdl_common.c
 SRCS_MPLAYER-$(GL_WIN32)     += libvo/w32_common.c
@@ -468,6 +468,7 @@ SRCS_MPLAYER = command.c \
                libao2/audio_out.c \
                libvo/aspect.c \
                libvo/csputils.c \
+               libvo/filter_kernels.c \
                libvo/geometry.c \
                libvo/old_vo_wrapper.c \
                libvo/video_out.c \
@@ -555,6 +556,9 @@ codecs.conf.h: TOOLS/file2string.py etc/codecs.conf
 libvo/vdpau_template.c: TOOLS/vdpau_functions.py
 	./$< > $@
 
+libvo/vo_gl3_shaders.h: TOOLS/file2string.py libvo/vo_gl3_shaders.glsl
+	./$^ >$@
+
 libmpdemux/ebml_types.h: TOOLS/matroska.py
 	./$< --generate-header > $@
 
@@ -597,6 +601,7 @@ checkheaders: $(ALLHEADERS:.h=.ho)
 # Make sure all generated header files are created.
 codec-cfg.o: codecs.conf.h
 mpcommon.o osdep/mplayer-rc.o: version.h
+libvo/vo_gl3.o: libvo/vo_gl3_shaders.h
 libvo/vo_vdpau.o: libvo/vdpau_template.c
 libmpdemux/ebml.o libmpdemux/demux_mkv.o: libmpdemux/ebml_types.h
 libmpdemux/ebml.o: libmpdemux/ebml_defs.c
@@ -672,7 +677,9 @@ distclean: clean testsclean toolsclean
 	-$(RM) -r locale
 	-$(RM) config.log config.mak config.h codecs.conf.h version.h TAGS tags
 	-$(RM) libvo/vdpau_template.c
+	-$(RM) libvo/vo_gl3_shaders.h
 	-$(RM) libmpdemux/ebml_types.h libmpdemux/ebml_defs.c
+	-$(RM) sub/osd_font.h
 	-$(RM) $(call ADD_ALL_EXESUFS,cpuinfo)
 
 doxygen:

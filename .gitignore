@@ -18,4 +18,5 @@
 /libmpdemux/ebml_defs.c
 /libmpdemux/ebml_types.h
 /libvo/vdpau_template.c
+/libvo/vo_gl3_shaders.h
 /sub/osd_font.h
