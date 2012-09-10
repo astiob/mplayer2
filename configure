@@ -527,7 +527,6 @@ _cross_compile=no
 _prefix="/usr/local"
 ffmpeg=auto
 ffmpeg_internals=no
-_mplayer=yes
 _x11=auto
 _xshape=auto
 _xss=auto
@@ -781,8 +780,6 @@ for ac_option do
   --disable-runtime-cpudetection)   _runtime_cpudetection=no    ;;
   --enable-cross-compile)           _cross_compile=yes          ;;
   --disable-cross-compile)          _cross_compile=no           ;;
-  --enable-mplayer)     _mplayer=yes    ;;
-  --disable-mplayer)    _mplayer=no     ;;
   --enable-x11)         _x11=yes        ;;
   --disable-x11)        _x11=no         ;;
   --enable-xshape)      _xshape=yes     ;;
@@ -5614,8 +5611,6 @@ ARCH = $arch
 $(mak_enable "$arch_all"    "$arch"    ARCH)
 $(mak_enable "$subarch_all" "$subarch" ARCH)
 $(mak_enable "$cpuexts_all" "$cpuexts" HAVE)
-
-MPLAYER  = $_mplayer
 
 NEED_GETTIMEOFDAY = $need_gettimeofday
 NEED_GLOB         = $need_glob

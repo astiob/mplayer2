@@ -486,10 +486,11 @@ OBJS_MPLAYER   += $(OBJS_MPLAYER-yes)
 MPLAYER_DEPS  = $(OBJS_MPLAYER)  $(OBJS_COMMON) $(COMMON_LIBS)
 DEP_FILES = $(patsubst %.S,%.d,$(patsubst %.c,%.d,$(SRCS_COMMON:.m=.d) $(SRCS_MPLAYER:.m=.d)))
 
-ALL_PRG-$(MPLAYER)  += mplayer$(EXESUF)
-
-INSTALL_TARGETS-$(MPLAYER)  += install-mplayer \
+INSTALL_TARGETS             += install-mplayer \
                                install-mplayer-man \
+                               install-mplayer-msg
+
+INSTALL_NO_MAN_TARGETS      += install-mplayer \
                                install-mplayer-msg
 
 DIRS =  . \
@@ -531,7 +532,11 @@ endif
 
 ###### generic rules #######
 
-all: $(ALL_PRG-yes) locales
+all: mplayer$(EXESUF) locales
+
+%.1: %.rst
+	@which rst2man >/dev/null 2>&1 || (printf "\n\trst2man not found. You need the Docutils system to generate the manpages (preferably version >= 0.9; 0.8 and older are known to corrupt the arguments shown in some option descriptions). Alternatively you can use 'install-no-man' rule.\n\n" && exit 1)
+	rst2man $< $@
 
 %.o: %.S
 	$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
@@ -630,7 +635,9 @@ stream/stream_dvdnav%: CFLAGS := $(CFLAGS_LIBDVDNAV) $(CFLAGS)
 
 ###### installation / clean / generic rules #######
 
-install: $(INSTALL_TARGETS-yes)
+install: $(INSTALL_TARGETS)
+
+install-no-man: $(INSTALL_NO_MAN_TARGETS)
 
 install-dirs:
 	if test ! -d $(BINDIR) ; then $(INSTALL) -d $(BINDIR) ; fi
@@ -643,12 +650,14 @@ install-%: %$(EXESUF) install-dirs
 install-mplayer-man:  $(foreach lang,$(MAN_LANGS),install-mplayer-man-$(lang))
 install-mplayer-msg:  $(foreach lang,$(MSG_LANGS),install-mplayer-msg-$(lang))
 
-install-mplayer-man-en:
+DOCS/man/en/mplayer.1: DOCS/man/en/*.rst
+install-mplayer-man-en: DOCS/man/en/mplayer.1
 	if test ! -d $(MANDIR)/man1 ; then $(INSTALL) -d $(MANDIR)/man1 ; fi
 	$(INSTALL) -m 644 DOCS/man/en/mplayer.1 $(MANDIR)/man1/
 
 define MPLAYER_MAN_RULE
-install-mplayer-man-$(lang):
+DOCS/man/$(lang)/mplayer.1: DOCS/man/$(lang)/*.rst
+install-mplayer-man-$(lang): DOCS/man/$(lang)/mplayer.1
 	if test ! -d $(MANDIR)/$(lang)/man1 ; then $(INSTALL) -d $(MANDIR)/$(lang)/man1 ; fi
 	$(INSTALL) -m 644 DOCS/man/$(lang)/mplayer.1 $(MANDIR)/$(lang)/man1/
 endef
@@ -679,6 +688,7 @@ clean:
 distclean: clean testsclean toolsclean
 	-$(RM) -r DOCS/tech/doxygen
 	-$(RM) -r locale
+	-$(RM) $(foreach lang,$(MAN_LANGS),$(foreach man,mplayer.1,DOCS/man/$(lang)/$(man)))
 	-$(RM) config.log config.mak config.h codecs.conf.h version.h TAGS tags
 	-$(RM) input/input.conf.h
 	-$(RM) libvo/vdpau_template.c

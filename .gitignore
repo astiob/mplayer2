@@ -15,6 +15,7 @@
 /TAGS
 /locale
 /po
+/DOCS/man/*/mplayer.1
 /input/input.conf.h
 /libmpdemux/ebml_defs.c
 /libmpdemux/ebml_types.h
