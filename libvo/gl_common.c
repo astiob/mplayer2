@@ -2430,6 +2430,8 @@ MPGLContext *init_mpglcontext(enum MPGLType type, struct vo *vo)
         ctx->update_xinerama_info = cocoa_update_xinerama_info;
         ctx->fullscreen = cocoa_fullscreen;
         ctx->ontop = vo_cocoa_ontop;
+        ctx->pause = vo_cocoa_pause;
+        ctx->resume = vo_cocoa_resume;
         ctx->vo_uninit = vo_cocoa_uninit;
         if (vo_cocoa_init(vo))
             return ctx;
