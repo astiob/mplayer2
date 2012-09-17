@@ -308,12 +308,11 @@ speed_mult <value>
 speed_set <value>
     Set the speed to <value>.
 
-step_property <property> [value] [direction]
+step_property <property> [value]
     Change a property by value, or increase by a default if value is
-    not given or zero. The direction is reversed if direction is less
-    than zero.
+    not given.
 
-step_property_osd <property> [value] [direction]
+step_property_osd <property> [value]
     Same as above, but show the new value on the OSD in the standard
     manner defined for that property (if any).
 

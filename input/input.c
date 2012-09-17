@@ -209,8 +209,8 @@ static const mp_cmd_t mp_cmds[] = {
   { MP_CMD_SET_PROPERTY, "set_property", { ARG_STRING,  ARG_STRING } },
   { MP_CMD_SET_PROPERTY_OSD, "set_property_osd", { ARG_STRING,  ARG_STRING } },
   { MP_CMD_GET_PROPERTY, "get_property", { ARG_STRING } },
-  { MP_CMD_STEP_PROPERTY, "step_property", { ARG_STRING, OARG_FLOAT(0), OARG_INT(0) } },
-  { MP_CMD_STEP_PROPERTY_OSD, "step_property_osd", { ARG_STRING, OARG_FLOAT(0), OARG_INT(0) } },
+  { MP_CMD_STEP_PROPERTY, "step_property", { ARG_STRING, OARG_FLOAT(0) } },
+  { MP_CMD_STEP_PROPERTY_OSD, "step_property_osd", { ARG_STRING, OARG_FLOAT(0) } },
 
   { MP_CMD_SEEK_CHAPTER, "seek_chapter", { ARG_INT, OARG_INT(0) } },
   { MP_CMD_SET_MOUSE_POS, "set_mouse_pos", { ARG_INT, ARG_INT } },
