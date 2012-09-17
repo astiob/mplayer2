@@ -120,7 +120,6 @@ static const mp_cmd_t mp_cmds[] = {
   { MP_CMD_OSD_SHOW_PROGRESSION, "osd_show_progression", },
   { MP_CMD_VOLUME, "volume", { ARG_FLOAT, OARG_INT(0) } },
   { MP_CMD_BALANCE, "balance", { ARG_FLOAT, OARG_INT(0) } },
-  { MP_CMD_MIXER_USEMASTER, "use_master", },
   { MP_CMD_MUTE, "mute", { OARG_INT(-1) } },
   { MP_CMD_CONTRAST, "contrast", { ARG_INT, OARG_INT(0) } },
   { MP_CMD_GAMMA, "gamma", { ARG_INT, OARG_INT(0) }  },

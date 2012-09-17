@@ -27,14 +27,12 @@ enum mp_command_type {
     MP_CMD_AUDIO_DELAY,
     MP_CMD_QUIT,
     MP_CMD_PAUSE,
-    MP_CMD_GRAB_FRAMES, // deprecated: was a no-op command for years
     MP_CMD_PLAY_TREE_STEP,
     MP_CMD_PLAY_TREE_UP_STEP,
     MP_CMD_PLAY_ALT_SRC_STEP,
     MP_CMD_SUB_DELAY,
     MP_CMD_OSD,
     MP_CMD_VOLUME,
-    MP_CMD_MIXER_USEMASTER,
     MP_CMD_CONTRAST,
     MP_CMD_BRIGHTNESS,
     MP_CMD_HUE,
@@ -55,7 +53,6 @@ enum mp_command_type {
     MP_CMD_VF_CHANGE_RECTANGLE,
     MP_CMD_GAMMA,
     MP_CMD_SUB_VISIBILITY,
-    MP_CMD_VOBSUB_LANG, // deprecated: combined with SUB_SELECT
     MP_CMD_GET_TIME_LENGTH,
     MP_CMD_GET_PERCENT_POS,
     MP_CMD_SUB_STEP,
