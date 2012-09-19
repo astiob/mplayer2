@@ -553,6 +553,9 @@ mplayer$(EXESUF):
 codecs.conf.h: TOOLS/file2string.py etc/codecs.conf
 	./$^ >$@
 
+input/input.conf.h: TOOLS/file2string.py etc/input.conf
+	./$^ >$@
+
 libvo/vdpau_template.c: TOOLS/vdpau_functions.py
 	./$< > $@
 
@@ -601,6 +604,7 @@ checkheaders: $(ALLHEADERS:.h=.ho)
 # Make sure all generated header files are created.
 codec-cfg.o: codecs.conf.h
 mpcommon.o osdep/mplayer-rc.o: version.h
+input/input.o: input/input.conf.h
 libvo/vo_gl3.o: libvo/vo_gl3_shaders.h
 libvo/vo_vdpau.o: libvo/vdpau_template.c
 libmpdemux/ebml.o libmpdemux/demux_mkv.o: libmpdemux/ebml_types.h
@@ -676,6 +680,7 @@ distclean: clean testsclean toolsclean
 	-$(RM) -r DOCS/tech/doxygen
 	-$(RM) -r locale
 	-$(RM) config.log config.mak config.h codecs.conf.h version.h TAGS tags
+	-$(RM) input/input.conf.h
 	-$(RM) libvo/vdpau_template.c
 	-$(RM) libvo/vo_gl3_shaders.h
 	-$(RM) libmpdemux/ebml_types.h libmpdemux/ebml_defs.c

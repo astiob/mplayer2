@@ -15,6 +15,7 @@
 /TAGS
 /locale
 /po
+/input/input.conf.h
 /libmpdemux/ebml_defs.c
 /libmpdemux/ebml_types.h
 /libvo/vdpau_template.c

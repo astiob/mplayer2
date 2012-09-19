@@ -64,6 +64,13 @@
 #include "osdep/cocoa_events.h"
 #endif
 
+static const char embedded_file[] =
+#include "input.conf.h"
+    ;
+static const struct bstr builtin_input_conf = {
+    .start = (char *)embedded_file, .len = sizeof(embedded_file) - 1
+};
+
 #define MP_MAX_KEY_DOWN 32
 
 struct cmd_bind {
@@ -393,162 +400,6 @@ struct key_name modifier_names[] = {
 
 #define KEY_MODIFIER_MASK (KEY_MODIFIER_SHIFT | KEY_MODIFIER_CTRL | KEY_MODIFIER_ALT | KEY_MODIFIER_META)
 
-// This is the default binding. The content of input.conf overrides these.
-// The first arg is a null terminated array of key codes.
-// The second is the command
-
-static const struct cmd_bind def_cmd_binds[] = {
-
-  { { MOUSE_BTN0_DBL, 0 }, "vo_fullscreen" },
-  { { MOUSE_BTN2, 0 }, "pause" },
-  { {  MOUSE_BTN3, 0 }, "seek 10" },
-  { {  MOUSE_BTN4, 0 }, "seek -10" },
-  { {  MOUSE_BTN5, 0 }, "volume 1" },
-  { {  MOUSE_BTN6, 0 }, "volume -1" },
-
-#ifdef CONFIG_DVDNAV
-  { { KEY_KP8, 0 }, "dvdnav up" },   // up
-  { { KEY_KP2, 0 }, "dvdnav down" },   // down
-  { { KEY_KP4, 0 }, "dvdnav left" },   // left
-  { { KEY_KP6, 0 }, "dvdnav right" },   // right
-  { { KEY_KP5, 0 }, "dvdnav menu" },   // menu
-  { { KEY_KPENTER, 0 }, "dvdnav select" },   // select
-  { { MOUSE_BTN0, 0 }, "dvdnav mouse" },   //select
-  { { KEY_KP7, 0 }, "dvdnav prev" },   // previous menu
-#endif
-
-  { { KEY_RIGHT, 0 }, "seek 10" },
-  { {  KEY_LEFT, 0 }, "seek -10" },
-  { { KEY_MODIFIER_SHIFT + KEY_RIGHT, 0 }, "seek  1 0 1" },
-  { { KEY_MODIFIER_SHIFT + KEY_LEFT,  0 }, "seek -1 0 1" },
-  { {  KEY_UP, 0 }, "seek 60" },
-  { {  KEY_DOWN, 0 }, "seek -60" },
-  { { KEY_MODIFIER_SHIFT + KEY_UP,    0 }, "seek  5 0 1" },
-  { { KEY_MODIFIER_SHIFT + KEY_DOWN,  0 }, "seek -5 0 1" },
-  { {  KEY_PAGE_UP, 0 }, "seek 600" },
-  { { KEY_PAGE_DOWN, 0 }, "seek -600" },
-  { { '+', 0 }, "audio_delay 0.100" },
-  { { '-', 0 }, "audio_delay -0.100" },
-  { { '[', 0 }, "speed_mult 0.9091" },
-  { { ']', 0 }, "speed_mult 1.1" },
-  { { '{', 0 }, "speed_mult 0.5" },
-  { { '}', 0 }, "speed_mult 2.0" },
-  { { KEY_BACKSPACE, 0 }, "speed_set 1.0" },
-  { { 'q', 0 }, "quit" },
-  { { KEY_ESC, 0 }, "quit" },
-  { { 'p', 0 }, "pause" },
-  { { ' ', 0 }, "pause" },
-  { { '.', 0 }, "frame_step" },
-  { { KEY_HOME, 0 }, "pt_up_step 1" },
-  { { KEY_END, 0 }, "pt_up_step -1" },
-  { { '>', 0 }, "pt_step 1" },
-  { { KEY_ENTER, 0 }, "pt_step 1 1" },
-  { { '<', 0 }, "pt_step -1" },
-  { { KEY_INS, 0 }, "alt_src_step 1" },
-  { { KEY_DEL, 0 }, "alt_src_step -1" },
-  { { 'o', 0 }, "osd" },
-  { { 'I', 0 }, "osd_show_property_text \"${filename}\"" },
-  { { 'P', 0 }, "osd_show_progression" },
-  { { 'z', 0 }, "sub_delay -0.1" },
-  { { 'x', 0 }, "sub_delay +0.1" },
-  { { 'g', 0 }, "sub_step -1" },
-  { { 'y', 0 }, "sub_step +1" },
-  { { '9', 0 }, "volume -1" },
-  { { '/', 0 }, "volume -1" },
-  { { '0', 0 }, "volume 1" },
-  { { '*', 0 }, "volume 1" },
-  { { '(', 0 }, "balance -0.1" },
-  { { ')', 0 }, "balance 0.1" },
-  { { 'm', 0 }, "mute" },
-  { { '1', 0 }, "contrast -1" },
-  { { '2', 0 }, "contrast 1" },
-  { { '3', 0 }, "brightness -1" },
-  { { '4', 0 }, "brightness 1" },
-  { { '5', 0 }, "hue -1" },
-  { { '6', 0 }, "hue 1" },
-  { { '7', 0 }, "saturation -1" },
-  { { '8', 0 }, "saturation 1" },
-  { { 'd', 0 }, "frame_drop" },
-  { { 'D', 0 }, "step_property_osd deinterlace" },
-  { { 'c', 0 }, "step_property_osd colormatrix" },
-  { { 'r', 0 }, "sub_pos -1" },
-  { { 't', 0 }, "sub_pos +1" },
-  { { 'a', 0 }, "sub_alignment" },
-  { { 'v', 0 }, "sub_visibility" },
-  { { 'V', 0 }, "step_property_osd ass_vsfilter_aspect_compat" },
-  { { 'j', 0 }, "sub_select" },
-  { { 'J', 0 }, "sub_select -3" },
-  { { 'F', 0 }, "forced_subs_only" },
-  { { '#', 0 }, "switch_audio" },
-  { { '_', 0 }, "step_property switch_video" },
-  { { KEY_TAB, 0 }, "step_property switch_program" },
-  { { 'i', 0 }, "edl_mark" },
-#ifdef CONFIG_TV
-  { { 'h', 0 }, "tv_step_channel 1" },
-  { { 'k', 0 }, "tv_step_channel -1" },
-  { { 'n', 0 }, "tv_step_norm" },
-  { { 'u', 0 }, "tv_step_chanlist" },
-#endif
-  { { 'X', 0 }, "step_property teletext_mode 1" },
-  { { 'W', 0 }, "step_property teletext_page 1" },
-  { { 'Q', 0 }, "step_property teletext_page -1" },
-#ifdef CONFIG_JOYSTICK
-  { { JOY_AXIS0_PLUS, 0 }, "seek 10" },
-  { { JOY_AXIS0_MINUS, 0 }, "seek -10" },
-  { { JOY_AXIS1_MINUS, 0 }, "seek 60" },
-  { { JOY_AXIS1_PLUS, 0 }, "seek -60" },
-  { { JOY_BTN0, 0 }, "pause" },
-  { { JOY_BTN1, 0 }, "osd" },
-  { { JOY_BTN2, 0 }, "volume 1"},
-  { { JOY_BTN3, 0 }, "volume -1"},
-#endif
-#ifdef CONFIG_APPLE_REMOTE
-  { { AR_PLAY, 0}, "pause" },
-  { { AR_PLAY_HOLD, 0}, "quit" },
-  { { AR_NEXT, 0 }, "seek 30" },
-  { { AR_NEXT_HOLD, 0 }, "seek 120" },
-  { { AR_PREV, 0 }, "seek -10" },
-  { { AR_PREV_HOLD, 0 }, "seek -120" },
-  { { AR_MENU, 0 }, "osd" },
-  { { AR_MENU_HOLD, 0 }, "mute" },
-  { { AR_VUP, 0 }, "volume 1"},
-  { { AR_VDOWN, 0 }, "volume -1"},
-#endif
-  { { 'T', 0 }, "vo_ontop" },
-  { { 'f', 0 }, "vo_fullscreen" },
-  { { 'C', 0 }, "step_property_osd capturing" },
-  { { 's', 0 }, "screenshot 0" },
-  { { 'S', 0 }, "screenshot 1" },
-  { { KEY_MODIFIER_ALT + 's', 0 }, "screenshot 0 1" },
-  { { KEY_MODIFIER_ALT + 'S', 0 }, "screenshot 1 1" },
-  { { 'w', 0 }, "panscan -0.1" },
-  { { 'e', 0 }, "panscan +0.1" },
-
-  { { KEY_POWER, 0 }, "quit" },
-  { { KEY_MENU, 0 }, "osd" },
-  { { KEY_PLAY, 0 }, "pause" },
-  { { KEY_PAUSE, 0 }, "pause" },
-  { { KEY_PLAYPAUSE, 0 }, "pause" },
-  { { KEY_STOP, 0 }, "quit" },
-  { { KEY_FORWARD, 0 }, "seek 60" },
-  { { KEY_REWIND, 0 }, "seek -60" },
-  { { KEY_NEXT, 0 }, "pt_step 1" },
-  { { KEY_PREV, 0 }, "pt_step -1" },
-  { { KEY_VOLUME_UP, 0 }, "volume 1" },
-  { { KEY_VOLUME_DOWN, 0 }, "volume -1" },
-  { { KEY_MUTE, 0 }, "mute" },
-
-  { { KEY_CLOSE_WIN, 0 }, "quit" },
-
-  { { '!', 0 }, "seek_chapter -1" },
-  { { '@', 0 }, "seek_chapter 1" },
-  { { 'A', 0 }, "switch_angle 1" },
-  { { 'U', 0 }, "stop" },
-
-  { { 0 }, NULL }
-};
-
-
 #ifndef MP_MAX_KEY_FD
 #define MP_MAX_KEY_FD 10
 #endif
@@ -577,7 +428,7 @@ struct input_fd {
 
 struct cmd_bind_section {
     struct cmd_bind *cmd_binds;
-    char *section;
+    struct bstr section;
     struct cmd_bind_section *next;
 };
 
@@ -605,14 +456,10 @@ struct input_ctx {
     unsigned int num_key_down;
     unsigned int last_key_down;
 
-    bool default_bindings;
     // List of command binding sections
     struct cmd_bind_section *cmd_bind_sections;
     // Name of currently used command section
-    char *section;
-    // The command binds of current section
-    struct cmd_bind *cmd_binds;
-    struct cmd_bind *cmd_binds_default;
+    struct bstr section;
 
     // Used to track whether we managed to read something while checking
     // events sources. If yes, the sources may have more queued.
@@ -839,30 +686,6 @@ int mp_input_add_key_fd(struct input_ctx *ictx, int fd, int select,
     ictx->num_key_fd++;
 
     return 1;
-}
-
-int mp_input_parse_and_queue_cmds(struct input_ctx *ictx, const char *str)
-{
-    int cmd_num = 0;
-
-    while (*str == '\n' || *str == '\r' || *str == ' ')
-        ++str;
-    while (*str) {
-        mp_cmd_t *cmd;
-        size_t len = strcspn(str, "\r\n");
-        char *cmdbuf = talloc_size(NULL, len + 1);
-        av_strlcpy(cmdbuf, str, len + 1);
-        cmd = mp_input_parse_cmd(cmdbuf);
-        if (cmd) {
-            mp_input_queue_cmd(ictx, cmd);
-            ++cmd_num;
-        }
-        str += len;
-        while (*str == '\n' || *str == '\r' || *str == ' ')
-            ++str;
-        talloc_free(cmdbuf);
-    }
-    return cmd_num;
 }
 
 mp_cmd_t *mp_input_parse_cmd(char *str)
@@ -1118,12 +941,41 @@ static int read_wakeup(void *ctx, int fd)
 }
 
 
-static char *find_bind_for_key(const struct cmd_bind *binds, int n, int *keys)
+static struct cmd_bind_section *get_bind_section(struct input_ctx *ictx,
+                                                 struct bstr section)
 {
-    int j;
+    struct cmd_bind_section *bind_section = ictx->cmd_bind_sections;
 
+    while (bind_section) {
+        if (bstrcmp(section, bind_section->section) == 0)
+            return bind_section;
+        if (bind_section->next == NULL)
+            break;
+        bind_section = bind_section->next;
+    }
+    if (bind_section) {
+        bind_section->next = talloc_ptrtype(ictx, bind_section->next);
+        bind_section = bind_section->next;
+    } else {
+        ictx->cmd_bind_sections = talloc_ptrtype(ictx, ictx->cmd_bind_sections);
+        bind_section = ictx->cmd_bind_sections;
+    }
+    bind_section->cmd_binds = NULL;
+    bind_section->section = bstrdup(bind_section, section);
+    bind_section->next = NULL;
+    return bind_section;
+}
+
+static char *find_bind_for_key(struct input_ctx *ictx, struct bstr section,
+                               int n, int *keys)
+{
     if (n <= 0)
         return NULL;
+    struct cmd_bind_section *s = get_bind_section(ictx, section);
+    struct cmd_bind *binds = s->cmd_binds;
+    if (!binds)
+        return NULL;
+    int j;
     for (j = 0; binds[j].cmd != NULL; j++) {
         int found = 1, s;
         for (s = 0; s < n && binds[j].input[s] != 0; s++) {
@@ -1138,45 +990,11 @@ static char *find_bind_for_key(const struct cmd_bind *binds, int n, int *keys)
     return binds[j].cmd;
 }
 
-static struct cmd_bind_section *get_bind_section(struct input_ctx *ictx,
-                                                 char *section)
-{
-    struct cmd_bind_section *bind_section = ictx->cmd_bind_sections;
-
-    if (section == NULL)
-        section = "default";
-    while (bind_section) {
-        if (strcmp(section, bind_section->section) == 0)
-            return bind_section;
-        if (bind_section->next == NULL)
-            break;
-        bind_section = bind_section->next;
-    }
-    if (bind_section) {
-        bind_section->next = talloc_ptrtype(ictx, bind_section->next);
-        bind_section = bind_section->next;
-    } else {
-        ictx->cmd_bind_sections = talloc_ptrtype(ictx, ictx->cmd_bind_sections);
-        bind_section = ictx->cmd_bind_sections;
-    }
-    bind_section->cmd_binds = NULL;
-    bind_section->section = talloc_strdup(bind_section, section);
-    bind_section->next = NULL;
-    return bind_section;
-}
-
 static mp_cmd_t *get_cmd_from_keys(struct input_ctx *ictx, int n, int *keys)
 {
-    char *cmd = NULL;
-    mp_cmd_t *ret;
-
-    if (ictx->cmd_binds)
-        cmd = find_bind_for_key(ictx->cmd_binds, n, keys);
-    if (ictx->cmd_binds_default && cmd == NULL)
-        cmd = find_bind_for_key(ictx->cmd_binds_default, n, keys);
-    if (ictx->default_bindings && cmd == NULL)
-        cmd = find_bind_for_key(def_cmd_binds, n, keys);
-
+    char *cmd = find_bind_for_key(ictx, ictx->section, n, keys);
+    if (cmd == NULL)
+        cmd = find_bind_for_key(ictx, bstr("default"), n, keys);
     if (cmd == NULL) {
         char *key_buf = get_key_combo_name(keys, n);
         mp_tmsg(MSGT_INPUT, MSGL_WARN,
@@ -1186,7 +1004,7 @@ static mp_cmd_t *get_cmd_from_keys(struct input_ctx *ictx, int n, int *keys)
     }
     if (strcmp(cmd, "ignore") == 0)
         return NULL;
-    ret =  mp_input_parse_cmd(cmd);
+    struct mp_cmd *ret =  mp_input_parse_cmd(cmd);
     if (!ret) {
         char *key_buf = get_key_combo_name(keys, n);
         mp_tmsg(MSGT_INPUT, MSGL_ERR,
@@ -1580,22 +1398,18 @@ static int get_input_from_name(char *name, int *keys)
     return 1;
 }
 
-#define SPACE_CHAR " \n\r\t"
-
 static void bind_keys(struct input_ctx *ictx,
-                      const int keys[MP_MAX_KEY_DOWN + 1], char *cmd)
+                      const int keys[MP_MAX_KEY_DOWN + 1], struct bstr cmd)
 {
     int i = 0, j;
     struct cmd_bind *bind = NULL;
     struct cmd_bind_section *bind_section = NULL;
-    char *section = NULL, *p;
+    struct bstr section = bstr("default");
+    int idx;
 
-    if (*cmd == '{' && (p = strchr(cmd, '}'))) {
-        *p = 0;
-        section = ++cmd;
-        cmd = ++p;
-        // Jump beginning space
-        cmd += strspn(cmd, SPACE_CHAR);
+    if (bstr_startswith0(cmd, "{") && (idx = bstrchr(cmd, '}')) > 0) {
+        section = bstr_strip(bstr_splice(cmd, 1, idx));
+        cmd = bstr_strip(bstr_cut(cmd, idx + 1));
     }
     bind_section = get_bind_section(ictx, section);
 
@@ -1618,7 +1432,7 @@ static void bind_keys(struct input_ctx *ictx,
         bind = &bind_section->cmd_binds[i];
     }
     talloc_free(bind->cmd);
-    bind->cmd = talloc_strdup(bind_section->cmd_binds, cmd);
+    bind->cmd = bstrdup0(bind_section->cmd_binds, cmd);
     memcpy(bind->input, keys, (MP_MAX_KEY_DOWN + 1) * sizeof(int));
 }
 
@@ -1632,7 +1446,7 @@ static int parse_config(struct input_ctx *ictx, struct bstr data)
             continue;
         struct bstr command;
         // Find the key name starting a line
-        struct bstr keyname = bstr_split(line, SPACE_CHAR, &command);
+        struct bstr keyname = bstr_split(line, WHITESPACE, &command);
         command = bstr_strip(command);
         if (command.len == 0) {
             mp_tmsg(MSGT_INPUT, MSGL_ERR,
@@ -1647,10 +1461,8 @@ static int parse_config(struct input_ctx *ictx, struct bstr data)
             continue;
         }
         talloc_free(name);
-        char *cmd = bstrdup0(NULL, command);
-        bind_keys(ictx, keys, cmd);
+        bind_keys(ictx, keys, command);
         n_binds++;
-        talloc_free(cmd);
     }
 
     return n_binds;
@@ -1680,26 +1492,8 @@ static int parse_config_file(struct input_ctx *ictx, char *file)
 
 void mp_input_set_section(struct input_ctx *ictx, char *name)
 {
-    struct cmd_bind_section *bind_section = NULL;
-
-    ictx->cmd_binds = NULL;
-    ictx->cmd_binds_default = NULL;
-    talloc_free(ictx->section);
-    if (name)
-        ictx->section = talloc_strdup(ictx, name);
-    else
-        ictx->section = talloc_strdup(ictx, "default");
-    if ((bind_section = get_bind_section(ictx, ictx->section)))
-        ictx->cmd_binds = bind_section->cmd_binds;
-    if (strcmp(ictx->section, "default") == 0)
-        return;
-    if ((bind_section = get_bind_section(ictx, NULL)))
-        ictx->cmd_binds_default = bind_section->cmd_binds;
-}
-
-char *mp_input_get_section(struct input_ctx *ictx)
-{
-    return ictx->section;
+    talloc_free(ictx->section.start);
+    ictx->section = bstrdup(ictx, name ? bstr(name) : bstr("default"));
 }
 
 struct input_ctx *mp_input_init(struct input_conf *input_conf)
@@ -1710,7 +1504,7 @@ struct input_ctx *mp_input_init(struct input_conf *input_conf)
         .ar_state = -1,
         .ar_delay = input_conf->ar_delay,
         .ar_rate = input_conf->ar_rate,
-        .default_bindings = input_conf->default_bindings,
+        .section = bstrdup(ictx, bstr("default")),
         .wakeup_pipe = {-1, -1},
     };
 
@@ -1734,13 +1528,14 @@ struct input_ctx *mp_input_init(struct input_conf *input_conf)
                             NULL, NULL);
 #endif
 
+    if (input_conf->default_bindings)
+        parse_config(ictx, builtin_input_conf);
+
     char *file;
     char *config_file = input_conf->config_file;
     file = config_file[0] != '/' ? get_path(config_file) : config_file;
-    if (!file)
-        return ictx;
 
-    if (!parse_config_file(ictx, file)) {
+    if (file && !parse_config_file(ictx, file)) {
         // free file if it was allocated by get_path(),
         // before it gets overwritten
         if (file != config_file)
