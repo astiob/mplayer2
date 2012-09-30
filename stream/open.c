@@ -76,8 +76,7 @@ static const char *resolve_quvi(const char *url, struct MPOpts *opts)
     // That call requires an extra net access. quvi_next_media_url() doesn't
     // seem to do anything useful. So we can't really do anything useful
     // except pass through the user's format setting.
-    quvi_setopt(q, QUVIOPT_FORMAT, opts->quvi_format
-                                   ? opts->quvi_format : "best");
+    quvi_setopt(q, QUVIOPT_FORMAT, opts->quvi_format);
 
     rc = quvi_parse(q, (char *)url, &m);
     if (rc != QUVI_OK) {

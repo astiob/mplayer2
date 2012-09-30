@@ -1569,6 +1569,15 @@
     useful on slow terminals or broken ones which do not properly handle
     carriage return (i.e. \\r).
 
+--quvi-format=<format>
+    When mplayer2 is given a video streaming site URL to play, and libquvi is
+    used to translate that into the address of the actual video file, this
+    option affects which video format is chosen in case there are several
+    alternatives for the original URL. The value is passed directly to
+    libquvi. Available values depend on the site and video. According to
+    libquvi documentation, the only values that are guaranteed to be available
+    are "default" (usually lowest quality) and "best". Defaults to "best".
+
 --radio=<option1:option2:...>
     These options set various parameters of the radio capture module. For
     listening to radio with MPlayer use ``radio://<frequency>`` (if channels
