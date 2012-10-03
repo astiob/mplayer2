@@ -671,10 +671,9 @@ void uninit_player(struct MPContext *mpctx, unsigned int mask)
     if (mask & INITIALIZED_AO) {
         mpctx->initialized_flags &= ~INITIALIZED_AO;
         current_module = "uninit_ao";
-        if (mpctx->ao) {
-            mixer_uninit(&mpctx->mixer);
+        mixer_uninit(&mpctx->mixer);
+        if (mpctx->ao)
             ao_uninit(mpctx->ao, mpctx->stop_play != AT_END_OF_FILE);
-        }
         mpctx->ao = NULL;
     }
 
