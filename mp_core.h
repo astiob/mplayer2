@@ -102,6 +102,7 @@ typedef struct MPContext {
     struct play_tree *playtree;
     struct play_tree_iter *playtree_iter;
     char *filename; // currently playing file
+    struct mp_resolve_result *resolve_result;
     enum stop_play_reason stop_play;
     int play_tree_step;
     unsigned int initialized_flags;  // which subsystems have been initialized

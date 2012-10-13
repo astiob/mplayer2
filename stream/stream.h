@@ -382,4 +382,11 @@ typedef struct {
  int channels;
 } stream_language_t;
 
+struct mp_resolve_result {
+    char *url;
+    char *title;
+};
+
+struct mp_resolve_result *mp_resolve_quvi(const char *url, struct MPOpts *opts);
+
 #endif /* MPLAYER_STREAM_H */

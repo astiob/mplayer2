@@ -4323,7 +4323,13 @@ play_next_file:
     mpctx->sh_video = NULL;
 
     current_module = "open_stream";
-    mpctx->stream = open_stream(mpctx->filename, opts, &mpctx->file_format);
+    char *stream_filename = mpctx->filename;
+#ifdef CONFIG_LIBQUVI
+    mpctx->resolve_result = mp_resolve_quvi(stream_filename, opts);
+#endif
+    if (mpctx->resolve_result)
+        stream_filename = mpctx->resolve_result->url;
+    mpctx->stream = open_stream(stream_filename, opts, &mpctx->file_format);
     if (!mpctx->stream) { // error...
         mpctx->stop_play = libmpdemux_was_interrupted(mpctx, PT_NEXT_ENTRY);
         goto goto_next_file;
@@ -4948,6 +4954,10 @@ goto_next_file:  // don't jump here after ao/vo/getch initialization!
     if (opts->gapless_audio && mpctx->stop_play == AT_END_OF_FILE)
         uninitialize_parts -= INITIALIZED_AO;
     uninit_player(mpctx, uninitialize_parts);
+
+    mpctx->file_format = DEMUXER_TYPE_UNKNOWN;
+    talloc_free(mpctx->resolve_result);
+    mpctx->resolve_result = NULL;
 
     if (mpctx->set_of_sub_size > 0) {
         current_module = "sub_free";

@@ -315,6 +315,8 @@ static int mp_property_playback_speed(m_option_t *prop, int action,
 static int mp_property_path(m_option_t *prop, int action, void *arg,
                             MPContext *mpctx)
 {
+    if (!mpctx->filename)
+        return M_PROPERTY_UNAVAILABLE;
     return m_property_string_ro(prop, action, arg, mpctx->filename);
 }
 
@@ -329,6 +331,26 @@ static int mp_property_filename(m_option_t *prop, int action, void *arg,
     if (!*f)
         f = mpctx->filename;
     return m_property_string_ro(prop, action, arg, f);
+}
+
+static int mp_property_media_title(m_option_t *prop, int action, void *arg,
+                                   MPContext *mpctx)
+{
+    char *name = NULL;
+    if (mpctx->resolve_result)
+        name = mpctx->resolve_result->title;
+    if (name && name[0])
+        return m_property_string_ro(prop, action, arg, name);
+    return mp_property_filename(prop, action, arg, mpctx);
+}
+
+static int mp_property_stream_path(m_option_t *prop, int action, void *arg,
+                                   MPContext *mpctx)
+{
+    struct stream *stream = mpctx->stream;
+    if (!stream || !stream->url)
+        return M_PROPERTY_UNAVAILABLE;
+    return m_property_string_ro(prop, action, arg, stream->url);
 }
 
 /// Demuxer name (RO)
@@ -2175,6 +2197,10 @@ static const m_option_t mp_properties[] = {
     { "filename", mp_property_filename, CONF_TYPE_STRING,
       0, 0, 0, NULL },
     { "path", mp_property_path, CONF_TYPE_STRING,
+      0, 0, 0, NULL },
+    { "media_title", mp_property_media_title, CONF_TYPE_STRING,
+      0, 0, 0, NULL },
+    { "stream_path", mp_property_stream_path, CONF_TYPE_STRING,
       0, 0, 0, NULL },
     { "demuxer", mp_property_demuxer, CONF_TYPE_STRING,
       0, 0, 0, NULL },

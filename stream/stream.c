@@ -53,6 +53,10 @@
 
 #include "cache2.h"
 
+char* cdrom_device=NULL;
+char* dvd_device=NULL;
+int dvd_title=0;
+
 struct input_ctx;
 static int (*stream_check_interrupt_cb)(struct input_ctx *ctx, int time);
 static struct input_ctx *stream_check_interrupt_ctx;
@@ -243,6 +247,17 @@ stream_t *open_stream_full(const char *filename, int mode,
 
   mp_tmsg(MSGT_OPEN,MSGL_ERR, "No stream found to handle url %s\n", filename);
   return NULL;
+}
+
+stream_t *open_stream(const char *filename, struct MPOpts *options,
+                      int *file_format)
+{
+    if (!file_format)
+        file_format = &(int){DEMUXER_TYPE_UNKNOWN};
+    if (*file_format != DEMUXER_TYPE_PLAYLIST)
+        *file_format = DEMUXER_TYPE_UNKNOWN;
+
+    return open_stream_full(filename, STREAM_READ, options, file_format);
 }
 
 stream_t *open_output_stream(const char *filename, struct MPOpts *options)

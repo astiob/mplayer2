@@ -503,7 +503,9 @@ pts_association_mode string                  X   X   X    as -pts-association-mo
 pause              flag      0       1       X            1 if paused
 filename           string                    X            file playing wo path
 path               string                    X            file playing
+media_title        string                    X            filename or libquvi QUVIPROP_PAGETITLE
 demuxer            string                    X            demuxer used
+stream_path        string                    X            filename (full path) of stream layer filename
 stream_pos         pos       0               X   X        position in stream
 stream_start       pos       0               X            start pos in stream
 stream_end         pos       0               X            end pos in stream
