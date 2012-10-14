@@ -388,6 +388,12 @@ gl3
     Note that some cheaper LCDs do dithering that gravely interferes with
     vo_gl3's dithering. Disabling dithering with ``dither-depth=-1`` helps.
 
+    Sometimes you can achieve better quality or performance by changing the
+    fbo-format sub-option to ``rgb16f``, ``rgb32f`` or ``rgb``. (Known
+    problems include Mesa/Intel not accepting ``rgb16``, Mesa sometimes not
+    being compiled with float texture support, and some OSX setups being very
+    slow with ``rgb16``, but fast with ``rgb32f``.)
+
     lscale=<filter>
         Set the scaling filter. Possible choices:
             bilinear
@@ -466,9 +472,10 @@ gl3
         Enable gamma-correct scaling by working in linear light. This
         makes use of sRGB textures and framebuffers.
         This option forces the options 'indirect' and 'gamma'.
-        NOTE: for BT.709 colorspaces, a gamma of 2.35 is assumed. For
-        other YUV colorspaces, 2.2 is assumed. RGB input is always
+        NOTE: for YUV colorspaces, gamma 2.2 is assumed. RGB input is always
         assumed to be in sRGB.
+        This option is not really useful, as gamma-correct scaling does not
+        have much influence on typical video playback.
 
     pbo
         Enable use of PBOs. This is faster, but can sometimes lead to
@@ -548,6 +555,7 @@ gl3
         is used only on YUV conversion, and only if the video uses
         chroma-subsampling.
         This mechanism is disabled on RGB input.
+        Specifying this option directly is generally useful for debugging only.
 
     fbo-format=<fmt>
         Selects the internal format of any FBO textures used.
@@ -570,7 +578,7 @@ gl3
         this file. This can be used to speed up loading, since
         LittleCMS2 can take a while to create the 3D LUT.
         Note that this file contains an uncompressed LUT. Its size depends on
-        the ``3dlut-size``, can become very big.
+        the ``3dlut-size``, and can be very big.
 
     icc-intent=<value>
         0
