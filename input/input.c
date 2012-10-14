@@ -1135,8 +1135,10 @@ void mp_input_feed_key(struct input_ctx *ictx, int code)
         return;
     struct cmd_queue *queue = &ictx->key_cmd_queue;
     if (queue->num_cmds >= ictx->key_fifo_size &&
-            (!is_abort_cmd(cmd->id) || queue->num_abort_cmds))
+            (!is_abort_cmd(cmd->id) || queue->num_abort_cmds)) {
+        talloc_free(cmd);
         return;
+    }
     queue_add(queue, cmd, false);
 }
 
