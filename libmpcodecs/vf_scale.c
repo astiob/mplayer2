@@ -54,6 +54,7 @@ static struct vf_priv_s {
     int interlaced;
     int noup;
     int accurate_rnd;
+    int full_chr_h_int;
     struct mp_csp_details colorspace;
 } const vf_priv_dflt = {
   0, 0,
@@ -315,6 +316,7 @@ static int config(struct vf_instance *vf,
     sws_getFlagsAndFilterFromCmdLine(&int_sws_flags, &srcFilter, &dstFilter);
     int_sws_flags|= vf->priv->v_chr_drop << SWS_SRC_V_CHR_DROP_SHIFT;
     int_sws_flags|= vf->priv->accurate_rnd * SWS_ACCURATE_RND;
+    int_sws_flags|= vf->priv->full_chr_h_int * SWS_FULL_CHR_H_INT;
     vf->priv->ctx=sws_getContext(width, height >> vf->priv->interlaced,
 	    sfmt,
 		  vf->priv->w, vf->priv->h >> vf->priv->interlaced,
@@ -796,6 +798,7 @@ static const m_option_t vf_opts_fields[] = {
   {"presize", 0, CONF_TYPE_OBJ_PRESETS, 0, 0, 0, (void *)&size_preset},
   {"noup", ST_OFF(noup), CONF_TYPE_INT, M_OPT_RANGE, 0, 2, NULL},
   {"arnd", ST_OFF(accurate_rnd), CONF_TYPE_FLAG, 0, 0, 1, NULL},
+  {"chr-full", ST_OFF(full_chr_h_int), CONF_TYPE_FLAG, 0, 0, 1, NULL},
   { NULL, NULL, 0, 0, 0, 0,  NULL }
 };
 
