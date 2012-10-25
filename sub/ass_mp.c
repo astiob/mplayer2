@@ -38,6 +38,8 @@
 #include "stream/stream.h"
 #include "options.h"
 
+#include "libvo/csputils.h"
+
 #ifndef CONFIG_ICONV
 static char *sub_cp = 0;
 #endif
@@ -286,4 +288,44 @@ ASS_Library *mp_ass_init(struct MPOpts *opts)
     ass_set_extract_fonts(priv, opts->use_embedded_fonts);
     free(path);
     return priv;
+}
+
+struct mp_csp_details mp_ass_get_colorspace(ASS_Track *track)
+{
+    struct mp_csp_details colorspace;
+    colorspace.levels_out = MP_CSP_LEVELS_PC;
+    switch (track->YCbCrMatrix) {
+    case YCBCR_NONE:
+        colorspace.format = MP_CSP_AUTO;
+        colorspace.levels_in = MP_CSP_LEVELS_AUTO;
+        break;
+    case YCBCR_BT601_TV:
+    case YCBCR_DEFAULT:
+    case YCBCR_UNKNOWN:
+    default:
+        colorspace.format = MP_CSP_BT_601;
+        colorspace.levels_in = MP_CSP_LEVELS_TV;
+        break;
+    case YCBCR_BT601_PC:
+        colorspace.format = MP_CSP_BT_601;
+        colorspace.levels_in = MP_CSP_LEVELS_PC;
+        break;
+    case YCBCR_BT709_TV:
+        colorspace.format = MP_CSP_BT_709;
+        colorspace.levels_in = MP_CSP_LEVELS_TV;
+        break;
+    case YCBCR_BT709_PC:
+        colorspace.format = MP_CSP_BT_709;
+        colorspace.levels_in = MP_CSP_LEVELS_PC;
+        break;
+    case YCBCR_SMPTE240M_TV:
+        colorspace.format = MP_CSP_SMPTE_240M;
+        colorspace.levels_in = MP_CSP_LEVELS_TV;
+        break;
+    case YCBCR_SMPTE240M_PC:
+        colorspace.format = MP_CSP_SMPTE_240M;
+        colorspace.levels_in = MP_CSP_LEVELS_PC;
+        break;
+    }
+    return colorspace;
 }

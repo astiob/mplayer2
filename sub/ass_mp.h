@@ -27,6 +27,8 @@
 #include "config.h"
 #include "subreader.h"
 
+#include "libvo/csputils.h"
+
 #ifdef CONFIG_ASS
 #include <ass/ass.h>
 #include <ass/ass_types.h>
@@ -45,6 +47,8 @@ void mp_ass_configure(ASS_Renderer *priv, struct MPOpts *opts,
                       struct mp_eosd_res *dim, bool unscaled);
 void mp_ass_configure_fonts(ASS_Renderer *priv);
 ASS_Library *mp_ass_init(struct MPOpts *opts);
+
+struct mp_csp_details mp_ass_get_colorspace(ASS_Track *track);
 
 #else /* CONFIG_ASS */
 

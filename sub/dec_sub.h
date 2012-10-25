@@ -1,6 +1,8 @@
 #ifndef MPLAYER_DEC_SUB_H
 #define MPLAYER_DEC_SUB_H
 
+#include "libvo/csputils.h"
+
 struct sh_sub;
 struct osd_state;
 struct ass_track;
@@ -42,6 +44,7 @@ typedef struct sub_bitmaps {
     enum sub_bitmap_type type;
 
     struct ass_image *imgs;
+    struct mp_csp_details colorspace;
 
     struct sub_bitmap {
         int w, h;

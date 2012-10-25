@@ -35,6 +35,7 @@
 #include "vf.h"
 #include "sub/dec_sub.h"
 
+#include "libvo/csputils.h"
 #include "libvo/fastmemcpy.h"
 
 #include "m_option.h"
@@ -46,15 +47,16 @@
 #define _g(c)  (((c)>>16)&0xFF)
 #define _b(c)  (((c)>>8)&0xFF)
 #define _a(c)  ((c)&0xFF)
-#define rgba2y(c)  ( (( 263*_r(c) + 516*_g(c) + 100*_b(c) + 512) >> 10) + 16  )
-#define rgba2u(c)  ( ((-152*_r(c) - 298*_g(c) + 450*_b(c) + 512) >> 10) + 128 )
-#define rgba2v(c)  ( (( 450*_r(c) - 377*_g(c) -  73*_b(c) + 512) >> 10) + 128 )
+#define from_rgb(c, m) \
+    ( (int) ((m)[COL_R]*_r(c) + (m)[COL_G]*_g(c) + \
+             (m)[COL_B]*_b(c) + (m)[COL_C]*255 + 0.5f) )
 
 
 static const struct vf_priv_s {
     int outh, outw;
 
     unsigned int outfmt;
+    struct mp_csp_details video_colorspace;
 
     // 1 = auto-added filter: insert only if chain does not support EOSD already
     // 0 = insert always
@@ -300,11 +302,11 @@ static void copy_to_image(struct vf_instance *vf)
 
 static void my_draw_bitmap(struct vf_instance *vf, unsigned char *bitmap,
 			   int bitmap_w, int bitmap_h, int stride,
-			   int dst_x, int dst_y, unsigned color)
+			   int dst_x, int dst_y, unsigned color, float rgb2yuv[3][4])
 {
-    unsigned char y = rgba2y(color);
-    unsigned char u = rgba2u(color);
-    unsigned char v = rgba2v(color);
+    unsigned char y = from_rgb(color, rgb2yuv[0]);
+    unsigned char u = from_rgb(color, rgb2yuv[1]);
+    unsigned char v = from_rgb(color, rgb2yuv[2]);
     unsigned char opacity = 255 - _a(color);
     unsigned char *src, *dsty, *dstu, *dstv;
     int i, j;
@@ -329,7 +331,7 @@ static void my_draw_bitmap(struct vf_instance *vf, unsigned char *bitmap,
 }
 
 static int render_frame(struct vf_instance *vf, mp_image_t *mpi,
-			const ASS_Image *img)
+			const ASS_Image *img, float rgb2yuv[3][4])
 {
     if (img) {
         for (int i = 0; i < (vf->priv->outh + 1) / 2; i++)
@@ -340,7 +342,7 @@ static int render_frame(struct vf_instance *vf, mp_image_t *mpi,
         copy_from_image(vf);
         while (img) {
             my_draw_bitmap(vf, img->bitmap, img->w, img->h, img->stride,
-                           img->dst_x, img->dst_y, img->color);
+                           img->dst_x, img->dst_y, img->color, rgb2yuv);
             img = img->next;
         }
         copy_to_image(vf);
@@ -354,6 +356,7 @@ static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts)
     struct MPOpts *opts = vf->opts;
     struct osd_state *osd = priv->osd;
     ASS_Image *images = 0;
+    float rgb2yuv[3][4];
     if (pts != MP_NOPTS_VALUE) {
         osd->dim = (struct mp_eosd_res){ .w = vf->priv->outw,
                                          .h = vf->priv->outh,
@@ -366,10 +369,20 @@ static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts)
         struct sub_bitmaps b;
         sub_get_bitmaps(osd, &b);
         images = b.imgs;
+        if (b.colorspace.format == MP_CSP_AUTO)
+            b.colorspace = vf->priv->video_colorspace;
+        struct mp_csp_params csp_params = { .colorspace = b.colorspace,
+                                            .brightness = 0,
+                                            .contrast = 1,
+                                            .hue = 0,
+                                            .saturation = 1,
+                                            .texture_bits = 8,
+                                            .input_bits = 8 };
+        mp_get_rgb2yuv_coeffs(&csp_params, rgb2yuv);
     }
 
     prepare_image(vf, mpi);
-    render_frame(vf, mpi, images);
+    render_frame(vf, mpi, images, rgb2yuv);
 
     return vf_next_put_image(vf, vf->dmpi, pts);
 }
@@ -390,6 +403,9 @@ static int control(vf_instance_t *vf, int request, void *data)
     switch (request) {
     case VFCTRL_SET_OSD_OBJ:
         vf->priv->osd = data;
+        break;
+    case VFCTRL_SET_YUV_COLORSPACE:
+        vf->priv->video_colorspace = *(struct mp_csp_details *)data;
         break;
     case VFCTRL_INIT_EOSD:
         return CONTROL_TRUE;
