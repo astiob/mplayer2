@@ -4477,7 +4477,7 @@ echores "$_speex"
 echocheck "OggTheora support"
 if test "$_theora" = auto ; then
   _theora=no
-  if pkg_config_add theora ; then
+  if pkg_config_add theoradec ; then
       _theora=yes
   fi
 fi
