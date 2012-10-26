@@ -2894,7 +2894,7 @@ fi #if hpux
 echocheck "termcap"
 if test "$_termcap" = auto ; then
   _termcap=no
-  for _ld_tmp in "-lncurses" "-ltinfo" "-ltermcap"; do
+  for _ld_tmp in "-lncursesw" "-lncurses" "-ltinfo" "-ltermcap"; do
     statement_check term.h 'tgetent(0, 0)' $_ld_tmp &&
       extra_ldflags="$extra_ldflags $_ld_tmp" && _termcap=yes && break
   done
