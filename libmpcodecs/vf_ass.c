@@ -48,8 +48,8 @@
 #define _b(c)  (((c)>>8)&0xFF)
 #define _a(c)  ((c)&0xFF)
 #define from_rgb(c, m, max) \
-    ( (int) ((m)[COL_R]*_r(c)*max/255 + (m)[COL_G]*_g(c)*max/255 + \
-             (m)[COL_B]*_b(c)*max/255 + (m)[COL_C]*max + 0.5f) )
+    ( ((m)[COL_R]*_r(c)*max/255 + (m)[COL_G]*_g(c)*max/255 + \
+       (m)[COL_B]*_b(c)*max/255 + (m)[COL_C]*max) )
 
 
 static const struct vf_priv_s {
@@ -331,9 +331,10 @@ static void my_draw_bitmap(struct vf_instance *vf, unsigned char *bitmap,
 			   int bitmap_w, int bitmap_h, int stride,
 			   int dst_x, int dst_y, unsigned color, float rgb2yuv[3][4])
 {
-    unsigned char y = from_rgb(color, rgb2yuv[0], 255);
-    unsigned char u = from_rgb(color, rgb2yuv[1], 255);
-    unsigned char v = from_rgb(color, rgb2yuv[2], 255);
+    // These should stay double to preserve precision in the inner loop
+    double y = from_rgb(color, rgb2yuv[0], 255);
+    double u = from_rgb(color, rgb2yuv[1], 255);
+    double v = from_rgb(color, rgb2yuv[2], 255);
     unsigned char opacity = 255 - _a(color);
     unsigned char *src, *dsty, *dstu, *dstv;
     int i, j;
@@ -345,10 +346,10 @@ static void my_draw_bitmap(struct vf_instance *vf, unsigned char *bitmap,
     dstv = vf->priv->planes[2] + dst_x + dst_y * vf->priv->outw;
     for (i = 0; i < bitmap_h; ++i) {
         for (j = 0; j < bitmap_w; ++j) {
-            unsigned k = (src[j] * opacity + 255) >> 8;
-            dsty[j] = (k * y + (255 - k) * dsty[j] + 255) >> 8;
-            dstu[j] = (k * u + (255 - k) * dstu[j] + 255) >> 8;
-            dstv[j] = (k * v + (255 - k) * dstv[j] + 255) >> 8;
+            unsigned k = src[j] * opacity;
+            dsty[j] = (k * y + (65025 - k) * dsty[j]) / 65025 + 0.5;
+            dstu[j] = (k * u + (65025 - k) * dstu[j]) / 65025 + 0.5;
+            dstv[j] = (k * v + (65025 - k) * dstv[j]) / 65025 + 0.5;
         }
         src  += stride;
         dsty += dmpi->stride[0];
@@ -363,9 +364,10 @@ static void my_draw_bitmap_16(struct vf_instance *vf, unsigned char *bitmap,
 {
     mp_image_t *dmpi = vf->dmpi;
     unsigned max = (1 << IMGFMT_YUVP16_DEPTH(dmpi->imgfmt)) - 1;
-    uint16_t y = from_rgb(color, rgb2yuv[0], max);
-    uint16_t u = from_rgb(color, rgb2yuv[1], max);
-    uint16_t v = from_rgb(color, rgb2yuv[2], max);
+    // These should stay double to preserve precision in the inner loop
+    double y = from_rgb(color, rgb2yuv[0], max);
+    double u = from_rgb(color, rgb2yuv[1], max);
+    double v = from_rgb(color, rgb2yuv[2], max);
     unsigned char opacity = 255 - _a(color);
     unsigned char *src;
     uint16_t *dsty, *dstu, *dstv;
@@ -377,10 +379,10 @@ static void my_draw_bitmap_16(struct vf_instance *vf, unsigned char *bitmap,
     dstv = (uint16_t *)vf->priv->planes[2] + dst_x + dst_y * vf->priv->outw;
     for (i = 0; i < bitmap_h; ++i) {
         for (j = 0; j < bitmap_w; ++j) {
-            unsigned k = (src[j] * opacity + 255) >> 8;
-            dsty[j] = (k * y + (255 - k) * dsty[j] + 255) >> 8;
-            dstu[j] = (k * u + (255 - k) * dstu[j] + 255) >> 8;
-            dstv[j] = (k * v + (255 - k) * dstv[j] + 255) >> 8;
+            unsigned k = src[j] * opacity;
+            dsty[j] = (k * y + (65025 - k) * dsty[j]) / 65025 + 0.5;
+            dstu[j] = (k * u + (65025 - k) * dstu[j]) / 65025 + 0.5;
+            dstv[j] = (k * v + (65025 - k) * dstv[j]) / 65025 + 0.5;
         }
         src  += stride;
         dsty += dmpi->stride[0] / 2;
