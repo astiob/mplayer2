@@ -138,26 +138,7 @@ static void get_image(struct vf_instance *vf, mp_image_t *mpi)
 
 static void blank(mp_image_t *mpi, int y1, int y2)
 {
-    int color[3] = {16, 128, 128};    // black (YUV)
-    int y;
-    unsigned char *dst;
-    int chroma_rows = (y2 - y1) >> mpi->chroma_y_shift;
-
-    dst = mpi->planes[0] + y1 * mpi->stride[0];
-    for (y = 0; y < y2 - y1; ++y) {
-        memset(dst, color[0], mpi->w);
-        dst += mpi->stride[0];
-    }
-    dst = mpi->planes[1] + (y1 >> mpi->chroma_y_shift) * mpi->stride[1];
-    for (y = 0; y < chroma_rows; ++y) {
-        memset(dst, color[1], mpi->chroma_width);
-        dst += mpi->stride[1];
-    }
-    dst = mpi->planes[2] + (y1 >> mpi->chroma_y_shift) * mpi->stride[2];
-    for (y = 0; y < chroma_rows; ++y) {
-        memset(dst, color[2], mpi->chroma_width);
-        dst += mpi->stride[2];
-    }
+    vf_mpi_clear(mpi, 0, y1, mpi->w, y2 - y1);
 }
 
 static int prepare_image(struct vf_instance *vf, mp_image_t *mpi)
