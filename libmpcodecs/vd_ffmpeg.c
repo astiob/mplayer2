@@ -365,7 +365,11 @@ static void uninit(sh_video_t *sh)
     }
 
     av_freep(&avctx);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54, 28, 0)
+    avcodec_free_frame(&ctx->pic);
+#else
     av_freep(&ctx->pic);
+#endif
     talloc_free(ctx);
 }
 

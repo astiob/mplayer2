@@ -245,7 +245,11 @@ static void uninit(sh_audio_t *sh)
         av_freep(&lavc_context->extradata);
         av_freep(&lavc_context);
     }
+#if LIBAVCODEC_VERSION_INT >= (54 << 16 | 28 << 8)
+    avcodec_free_frame(&ctx->avframe);
+#else
     av_free(ctx->avframe);
+#endif
     talloc_free(ctx);
     sh->context = NULL;
 }

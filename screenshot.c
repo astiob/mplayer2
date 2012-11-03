@@ -56,7 +56,11 @@ typedef struct screenshot_ctx {
 static int destroy_ctx(void *ptr)
 {
     struct screenshot_ctx *ctx = ptr;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54, 28, 0)
+    avcodec_free_frame(&ctx->pic);
+#else
     av_free(ctx->pic);
+#endif
     return 0;
 }
 
