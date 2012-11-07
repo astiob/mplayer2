@@ -535,8 +535,8 @@ endif
 all: mplayer$(EXESUF) locales
 
 %.1: %.rst
-	@which rst2man >/dev/null 2>&1 || (printf "\n\trst2man not found. You need the Docutils system to generate the manpages (preferably version >= 0.9; 0.8 and older are known to corrupt the arguments shown in some option descriptions). Alternatively you can use 'install-no-man' rule.\n\n" && exit 1)
-	rst2man $< $@
+	@which $(RST2MAN) >/dev/null 2>&1 || (printf "\n\trst2man not found. You need the Docutils system to generate the manpages (preferably version >= 0.9; 0.8 and older are known to corrupt the arguments shown in some option descriptions). Alternatively you can use 'install-no-man' rule.\n\n" && exit 1)
+	$(RST2MAN) $< $@
 
 %.o: %.S
 	$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<

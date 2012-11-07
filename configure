@@ -1274,6 +1274,10 @@ if test "$_runtime_cpudetection" = yes && ! x86 && ! ppc; then
   die "Runtime CPU detection only works for x86, x86-64 and PPC!"
 fi
 
+_rst2man=rst2man
+if [ -f "$(which rst2man.py)" ] ; then
+  _rst2man=rst2man.py
+fi
 
 # Checking CC version...
 # Intel C++ Compilers (no autoselect, use CC=/some/binary ./configure)
@@ -5620,6 +5624,7 @@ EXTRALIBS_MPLAYER  = $libs_mplayer
 
 GETCH = $_getch
 TIMER = $_timer
+RST2MAN = $_rst2man
 
 EXESUF      = $_exesuf
 EXESUFS_ALL = .exe
