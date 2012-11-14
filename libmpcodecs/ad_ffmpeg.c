@@ -239,7 +239,6 @@ static int init(sh_audio_t *sh_audio)
         lavc_context->bits_per_coded_sample = sh_audio->wf->wBitsPerSample;
     }
     lavc_context->request_channels = opts->audio_output_channels;
-    lavc_context->request_sample_fmt = AV_SAMPLE_FMT_S16P;
     lavc_context->codec_tag = sh_audio->format; //FOURCC
     lavc_context->codec_type = AVMEDIA_TYPE_AUDIO;
     lavc_context->codec_id = lavc_codec->id; // not sure if required, imho not --A'rpi
