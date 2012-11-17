@@ -1073,7 +1073,7 @@ struct demuxer *demux_open_withparams(struct MPOpts *opts, stream_t *vs,
     }
 
     if (opts->audio_stream) {
-        as = open_stream(opts->audio_stream, 0, &afmt);
+        as = open_stream(opts->audio_stream, opts, &afmt);
         if (!as) {
             mp_tmsg(MSGT_DEMUXER, MSGL_ERR, "Cannot open audio stream: %s\n",
                    opts->audio_stream);
@@ -1088,7 +1088,7 @@ struct demuxer *demux_open_withparams(struct MPOpts *opts, stream_t *vs,
         }
     }
     if (opts->sub_stream) {
-        ss = open_stream(opts->sub_stream, 0, &sfmt);
+        ss = open_stream(opts->sub_stream, opts, &sfmt);
         if (!ss) {
             mp_tmsg(MSGT_DEMUXER, MSGL_ERR, "Cannot open subtitle stream: %s\n",
                    opts->sub_stream);

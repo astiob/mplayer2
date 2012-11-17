@@ -321,7 +321,7 @@ static codecs_t *audio_codecs=NULL;
 static int nr_vcodecs = 0;
 static int nr_acodecs = 0;
 
-int parse_codec_cfg(const char *cfgfile)
+int parse_codec_cfg(const char *cfgfile, struct MPOpts *opts)
 {
     codecs_t *codec = NULL; // current codec
     codecs_t **codecsp = NULL;// points to audio_codecs or to video_codecs
@@ -355,7 +355,7 @@ int parse_codec_cfg(const char *cfgfile)
         }
         mp_msg(MSGT_CODECCFG, MSGL_V, "Reading codec config file: %s\n",
                 cfgfile);
-        struct stream *s = open_stream(cfgfile, NULL, NULL);
+        struct stream *s = open_stream(cfgfile, opts, NULL);
         if (!s)
             return 0;
         filetext = stream_read_complete(s, NULL, 10000000, 1);

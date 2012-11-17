@@ -1427,7 +1427,7 @@ sub_data* sub_read_file(char *filename, float fps, struct MPOpts *opts)
     const struct subreader *srp;
 
     if(filename==NULL) return NULL; //qnx segfault
-    fd=open_stream (filename, NULL, NULL); if (!fd) return NULL;
+    fd=open_stream (filename, opts, NULL); if (!fd) return NULL;
 
     sub_format = SUB_INVALID;
     for (utf16 = 0; sub_format == SUB_INVALID && utf16 < 3; utf16++) {

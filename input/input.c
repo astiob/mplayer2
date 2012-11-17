@@ -475,6 +475,8 @@ struct input_ctx {
     struct cmd_queue control_cmd_queue;
 
     int wakeup_pipe[2];
+
+    struct MPOpts *opts;
 };
 
 
@@ -1472,7 +1474,7 @@ static int parse_config(struct input_ctx *ictx, struct bstr data)
 
 static int parse_config_file(struct input_ctx *ictx, char *file)
 {
-    stream_t *s = open_stream(file, NULL, NULL);
+    stream_t *s = open_stream(file, ictx->opts, NULL);
     if (!s) {
         mp_msg(MSGT_INPUT, MSGL_V, "Can't open input config file %s.\n", file);
         return 0;
@@ -1498,8 +1500,9 @@ void mp_input_set_section(struct input_ctx *ictx, char *name)
     ictx->section = bstrdup(ictx, name ? bstr(name) : bstr("default"));
 }
 
-struct input_ctx *mp_input_init(struct input_conf *input_conf)
+struct input_ctx *mp_input_init(struct MPOpts *opts)
 {
+    struct input_conf *input_conf = &opts->input;
     struct input_ctx *ictx = talloc_ptrtype(NULL, ictx);
     *ictx = (struct input_ctx){
         .key_fifo_size = input_conf->key_fifo_size,
@@ -1508,6 +1511,7 @@ struct input_ctx *mp_input_init(struct input_conf *input_conf)
         .ar_rate = input_conf->ar_rate,
         .section = bstrdup(ictx, bstr("default")),
         .wakeup_pipe = {-1, -1},
+        .opts = opts,
     };
 
 #ifdef CONFIG_COCOA

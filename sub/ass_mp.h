@@ -37,8 +37,8 @@ struct mp_eosd_res;
 ASS_Track *mp_ass_default_track(ASS_Library *library, struct MPOpts *opts);
 ASS_Track *mp_ass_read_subdata(ASS_Library *library, struct MPOpts *opts,
                                sub_data *subdata, double fps);
-ASS_Track *mp_ass_read_stream(ASS_Library *library, const char *fname,
-                              char *charset);
+ASS_Track *mp_ass_read_stream(ASS_Library *library, struct MPOpts *opts,
+                              const char *fname, char *charset);
 
 struct MPOpts;
 void mp_ass_configure(ASS_Renderer *priv, struct MPOpts *opts,

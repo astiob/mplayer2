@@ -3034,7 +3034,7 @@ void run_command(MPContext *mpctx, mp_cmd_t *cmd)
     }
 
     case MP_CMD_LOADLIST: {
-        play_tree_t *e = parse_playlist_file(mpctx->mconfig,
+        play_tree_t *e = parse_playlist_file(&mpctx->opts,
                                              bstr(cmd->args[0].v.s));
         if (!e)
             mp_tmsg(MSGT_CPLAYER, MSGL_ERR,

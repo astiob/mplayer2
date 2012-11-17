@@ -201,12 +201,12 @@ ASS_Track *mp_ass_read_subdata(ASS_Library *library, struct MPOpts *opts,
     return track;
 }
 
-ASS_Track *mp_ass_read_stream(ASS_Library *library, const char *fname,
-                              char *charset)
+ASS_Track *mp_ass_read_stream(ASS_Library *library, struct MPOpts *opts,
+                              const char *fname, char *charset)
 {
     ASS_Track *track;
 
-    struct stream *s = open_stream(fname, NULL, NULL);
+    struct stream *s = open_stream(fname, opts, NULL);
     if (!s)
         // Stream code should have printed an error already
         return NULL;

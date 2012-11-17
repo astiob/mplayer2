@@ -252,8 +252,8 @@ struct mp_cmd *mp_cmd_clone(struct mp_cmd *cmd);
 void mp_input_set_section(struct input_ctx *ictx, char *name);
 
 // Initialize the input system
-struct input_conf;
-struct input_ctx *mp_input_init(struct input_conf *input_conf);
+struct MPOpts;
+struct input_ctx *mp_input_init(struct MPOpts *opts);
 
 void mp_input_uninit(struct input_ctx *ictx);
 

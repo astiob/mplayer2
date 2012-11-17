@@ -1048,9 +1048,9 @@ void add_subtitles(struct MPContext *mpctx, char *filename, float fps,
 #ifdef CONFIG_ASS
         struct ass_track *asst;
 #ifdef CONFIG_ICONV
-        asst = mp_ass_read_stream(mpctx->ass_library, filename, sub_cp);
+        asst = mp_ass_read_stream(mpctx->ass_library, opts, filename, sub_cp);
 #else
-        asst = mp_ass_read_stream(mpctx->ass_library, filename, 0);
+        asst = mp_ass_read_stream(mpctx->ass_library, opts, filename, 0);
 #endif
         bool is_native_ass = asst;
         if (!asst) {
@@ -3993,10 +3993,10 @@ int main(int argc, char *argv[])
     }
 
     /* Check codecs.conf. */
-    if (!codecs_file || !parse_codec_cfg(codecs_file)) {
-        if (!parse_codec_cfg(mem_ptr = get_path("codecs.conf"))) {
-            if (!parse_codec_cfg(MPLAYER_CONFDIR "/codecs.conf")) {
-                if (!parse_codec_cfg(NULL))
+    if (!codecs_file || !parse_codec_cfg(codecs_file, opts)) {
+        if (!parse_codec_cfg(mem_ptr = get_path("codecs.conf"), opts)) {
+            if (!parse_codec_cfg(MPLAYER_CONFDIR "/codecs.conf", opts)) {
+                if (!parse_codec_cfg(NULL, opts))
                     exit_player_with_rc(mpctx, EXIT_NONE, 0);
                 mp_tmsg(MSGT_CPLAYER, MSGL_V,
                         "Using built-in default codecs.conf.\n");
@@ -4123,7 +4123,7 @@ int main(int argc, char *argv[])
 
     // Init input system
     current_module = "init_input";
-    mpctx->input = mp_input_init(&opts->input);
+    mpctx->input = mp_input_init(opts);
     mpctx->key_fifo = mp_fifo_create(mpctx->input, opts);
     if (slave_mode)
         mp_input_add_cmd_fd(mpctx->input, 0, USE_FD0_CMD_SELECT, MP_INPUT_SLAVE_CMD_FUNC, NULL);
@@ -4212,7 +4212,7 @@ play_next_file:
             // The entry is added to the main playtree after the switch().
             break;
         case MP_CMD_LOADLIST:
-            entry = parse_playlist_file(mpctx->mconfig, bstr(cmd->args[0].v.s));
+            entry = parse_playlist_file(&mpctx->opts, bstr(cmd->args[0].v.s));
             break;
         case MP_CMD_QUIT:
             exit_player_with_rc(mpctx, EXIT_QUIT,
