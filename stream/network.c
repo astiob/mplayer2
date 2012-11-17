@@ -40,7 +40,6 @@
 
 #include "stream.h"
 #include "libmpdemux/demuxer.h"
-#include "m_config.h"
 #include "mpcommon.h"
 #include "network.h"
 #include "tcp.h"
@@ -477,18 +476,4 @@ nop_streaming_read( int fd, char *buffer, int size, streaming_ctrl_t *stream_ctr
 int
 nop_streaming_seek( int fd, off_t pos, streaming_ctrl_t *stream_ctrl ) {
 	return -1;
-}
-
-
-void fixup_network_stream_cache(stream_t *stream) {
-  struct MPOpts *opts = stream->opts;
-  if(stream->streaming_ctrl->buffering) {
-    if(opts->stream_cache_size<0) {
-      // cache option not set, will use our computed value.
-      // buffer in KBytes, *5 because the prefill is 20% of the buffer.
-      opts->stream_cache_size = (stream->streaming_ctrl->prebuffer_size/1024)*5;
-      if( opts->stream_cache_size<64 ) opts->stream_cache_size = 64;	// 16KBytes min buffer
-    }
-    mp_tmsg(MSGT_NETWORK,MSGL_INFO,"Cache size set to %d KBytes\n", opts->stream_cache_size);
-  }
 }

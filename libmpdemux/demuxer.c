@@ -1079,18 +1079,12 @@ struct demuxer *demux_open_withparams(struct MPOpts *opts, stream_t *vs,
                    opts->audio_stream);
             return NULL;
         }
-        if (opts->audio_stream_cache) {
-            if (!stream_enable_cache
-                (as, opts->audio_stream_cache * 1024,
-                 opts->audio_stream_cache * 1024 *
-                            (opts->stream_cache_min_percent / 100.0),
-                 opts->audio_stream_cache * 1024 *
-                            (opts->stream_cache_seek_min_percent / 100.0))) {
-                free_stream(as);
-                mp_msg(MSGT_DEMUXER, MSGL_ERR,
-                       "Can't enable audio stream cache\n");
-                return NULL;
-            }
+        if (!stream_enable_cache_percent(as, opts->audio_stream_cache,
+                                         opts->stream_cache_min_percent,
+                                         opts->stream_cache_seek_min_percent)) {
+            free_stream(as);
+            mp_msg(MSGT_DEMUXER, MSGL_ERR, "Can't enable audio stream cache\n");
+            return NULL;
         }
     }
     if (opts->sub_stream) {

@@ -1296,7 +1296,7 @@ static void print_status(struct MPContext *mpctx, double a_pos, bool at_frame)
 
 #ifdef CONFIG_STREAM_CACHE
     // cache stats
-    if (opts->stream_cache_size > 0)
+    if (mpctx->stream->cached)
         saddf(line, &pos, width, "%d%% ", cache_fill_status(mpctx->stream));
 #endif
 
@@ -2912,8 +2912,7 @@ static double update_video(struct MPContext *mpctx)
 static int get_cache_fill(struct MPContext *mpctx)
 {
 #ifdef CONFIG_STREAM_CACHE
-    struct MPOpts *opts = &mpctx->opts;
-    if (opts->stream_cache_size > 0)
+    if (mpctx->stream && mpctx->stream->cached)
         return cache_fill_status(mpctx->stream);
 #endif
     return -1;
@@ -4431,17 +4430,16 @@ play_next_file:
 
     // CACHE2: initial prefill: 20%  later: 5%  (should be set by -cacheopts)
 goto_enable_cache:
-    if (opts->stream_cache_size > 0) {
-        int res;
-        current_module = "enable_cache";
-        res = stream_enable_cache_percent(mpctx->stream,
-                opts->stream_cache_size,
-                opts->stream_cache_min_percent,
-                opts->stream_cache_seek_min_percent);
-        if (res == 0)
-            if ((mpctx->stop_play = libmpdemux_was_interrupted(mpctx, PT_NEXT_ENTRY)))
-                goto goto_next_file;
-    }
+    current_module = "enable_cache";
+    int res = stream_enable_cache_percent(mpctx->stream,
+                                      opts->stream_cache_size,
+                                      opts->stream_cache_min_percent,
+                                      opts->stream_cache_seek_min_percent);
+    if (res == 0)
+        if ((mpctx->stop_play = libmpdemux_was_interrupted(mpctx,
+                                                           PT_NEXT_ENTRY)))
+            goto goto_next_file;
+
 
     //============ Open DEMUXERS --- DETECT file type =======================
     current_module = "demux_open";

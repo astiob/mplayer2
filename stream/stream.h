@@ -158,15 +158,15 @@ typedef struct stream {
   off_t pos,start_pos,end_pos;
   int eof;
   int mode; //STREAM_READ or STREAM_WRITE
+  int cache_size;   // cache size to use if enabled
+  bool cached;
   unsigned int cache_pid;
   void* cache_data;
   void* priv; // used for DVD, TV, RTSP etc
   char* url;  // strdup() of filename/url
   char *lavf_type; // name of expected demuxer type for lavf
   struct MPOpts *opts;
-#ifdef CONFIG_NETWORKING
   streaming_ctrl_t *streaming_ctrl;
-#endif
   unsigned char buffer[STREAM_BUFFER_SIZE>STREAM_MAX_SECTOR_SIZE?STREAM_BUFFER_SIZE:STREAM_MAX_SECTOR_SIZE];
   FILE *capture_file;
 } stream_t;
@@ -349,8 +349,6 @@ void free_stream(stream_t *s);
 stream_t* new_memory_stream(unsigned char* data,int len);
 stream_t *open_stream(const char *filename, struct MPOpts *options,
                       int *file_format);
-stream_t *open_stream_full(const char *filename,int mode,
-                           struct MPOpts *options, int *file_format);
 stream_t *open_output_stream(const char *filename, struct MPOpts *options);
 struct demux_stream;
 struct stream *new_ds_stream(struct demux_stream *ds);
