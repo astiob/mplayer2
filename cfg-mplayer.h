@@ -605,10 +605,6 @@ const m_option_t common_opts[] = {
     {"subdelay", &sub_delay, CONF_TYPE_FLOAT, 0, 0.0, 10.0, NULL},
     {"subfps", &sub_fps, CONF_TYPE_FLOAT, 0, 0.0, 10.0, NULL},
     OPT_MAKE_FLAGS("autosub", sub_auto, 0),
-    {"unicode", &sub_unicode, CONF_TYPE_FLAG, 0, 0, 1, NULL},
-    {"nounicode", &sub_unicode, CONF_TYPE_FLAG, 0, 1, 0, NULL},
-    {"utf8", &sub_utf8, CONF_TYPE_FLAG, 0, 0, 1, NULL},
-    {"noutf8", &sub_utf8, CONF_TYPE_FLAG, 0, 1, 0, NULL},
     {"forcedsubsonly", &forced_subs_only, CONF_TYPE_FLAG, 0, 0, 1, NULL},
     // specify IFO file for VOBSUB subtitle
     {"ifo", &spudec_ifo, CONF_TYPE_STRING, 0, 0, 0, NULL},

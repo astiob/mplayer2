@@ -2307,9 +2307,6 @@
         the device (default: 50). A signal strength higher than this value will
         indicate that the currently scanning channel is active.
 
---unicode
-    Tells MPlayer to handle the subtitle file as unicode.
-
 --unrarexec=<filename>
     Specify the path to the unrar executable so MPlayer can use it to access
     rar-compressed VOBsub files (default: not set, so the feature is off). The
@@ -2333,9 +2330,6 @@
 
 --user-agent=<string>
     Use <string> as user agent for HTTP streaming.
-
---utf8
-    Tells MPlayer to handle the subtitle file as UTF-8.
 
 -v
     Increment verbosity level, one level for each ``-v`` found on the command

@@ -64,8 +64,6 @@ void* vo_osd_teletext_page=NULL;
 int vo_osd_teletext_half = 0;
 int vo_osd_teletext_mode=0;
 int vo_osd_teletext_format=0;
-int sub_unicode=0;
-int sub_utf8=0;
 int sub_pos=100;
 int sub_width_p=100;
 int sub_alignment=2; /* 0=top, 1=center, 2=bottom */

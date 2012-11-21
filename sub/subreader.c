@@ -1191,9 +1191,6 @@ static int sub_autodetect (stream_t* st, int *uses_time, int utf16) {
     return SUB_INVALID;  // too many bad lines
 }
 
-extern int sub_utf8;
-int sub_utf8_prev=0;
-
 extern float sub_delay;
 extern float sub_fps;
 
@@ -1221,7 +1218,6 @@ void	subcp_open (stream_t *st)
 #endif
 		if ((icdsc = iconv_open (tocp, cp_tmp)) != (iconv_t)(-1)){
 			mp_msg(MSGT_SUBREADER,MSGL_V,"SUB: opened iconv descriptor.\n");
-			sub_utf8 = 2;
 		} else
 			mp_msg(MSGT_SUBREADER,MSGL_ERR,"SUB: error opening iconv descriptor.\n");
 	}
@@ -1248,10 +1244,8 @@ subtitle* subcp_recode (subtitle *sub)
 		ileft = strlen(ip);
 		oleft = 4 * ileft;
 
-		if (!(ot = malloc(oleft + 1))){
-			mp_msg(MSGT_SUBREADER,MSGL_WARN,"SUB: error allocating mem.\n");
-		   	continue;
-		}
+		if (!(ot = malloc(oleft + 1)))
+                    abort();
 		op = ot;
 		if (iconv(icdsc, &ip, &ileft,
 			  &op, &oleft) == (size_t)(-1)) {
@@ -1443,7 +1437,6 @@ sub_data* sub_read_file(char *filename, float fps, struct MPOpts *opts)
     mp_msg(MSGT_SUBREADER, MSGL_V, "SUB: Detected subtitle file format: %s\n", srp->name);
 
 #ifdef CONFIG_ICONV
-    sub_utf8_prev=sub_utf8;
     {
 	    int l,k;
 	    k = -1;
@@ -1451,7 +1444,6 @@ sub_data* sub_read_file(char *filename, float fps, struct MPOpts *opts)
 		    char *exts[] = {".utf", ".utf8", ".utf-8" };
 		    for (k=3;--k>=0;)
 			if (l >= strlen(exts[k]) && !strcasecmp(filename+(l - strlen(exts[k])), exts[k])){
-			    sub_utf8 = 1;
 			    break;
 			}
 	    }
@@ -1461,13 +1453,8 @@ sub_data* sub_read_file(char *filename, float fps, struct MPOpts *opts)
 
     sub_num=0;n_max=32;
     first=malloc(n_max*sizeof(subtitle));
-    if(!first){
-#ifdef CONFIG_ICONV
-	  subcp_close();
-          sub_utf8=sub_utf8_prev;
-#endif
-	    return NULL;
-    }
+    if (!first)
+        abort();
 
 #ifdef CONFIG_SORTSUB
     alloced_sub =
@@ -1488,7 +1475,7 @@ sub_data* sub_read_file(char *filename, float fps, struct MPOpts *opts)
         sub=srp->read(fd, sub, &(struct readline_args){utf16, opts});
         if(!sub) break;   // EOF
 #ifdef CONFIG_ICONV
-	if ((sub!=ERR) && sub_utf8 == 2) sub=subcp_recode(sub);
+	if (sub!=ERR) sub=subcp_recode(sub);
 #endif
 	if ( sub == ERR )
 	 {
