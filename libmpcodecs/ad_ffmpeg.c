@@ -101,13 +101,19 @@ static int setup_format(sh_audio_t *sh_audio)
 {
     struct priv *priv = sh_audio->context;
     AVCodecContext *codec = priv->avctx;
-    int sample_format = sh_audio->sample_format;
 
-    sample_format = sample_fmt_lavc2native(codec->sample_fmt);
+    int sample_format = sample_fmt_lavc2native(codec->sample_fmt);
     if (sample_format == AF_FORMAT_UNKNOWN) {
 #ifndef CONFIG_LIBAVRESAMPLE
-        mp_msg(MSGT_DECAUDIO, MSGL_FATAL, "Unsupported sample format\n");
-        sample_format = AF_FORMAT_UNKNOWN;
+        if (av_sample_fmt_is_planar(codec->sample_fmt))
+            mp_msg(MSGT_DECAUDIO, MSGL_ERR,
+                   "The player has been compiled without libavresample "
+                   "support,\nwhich is needed with this libavcodec decoder "
+                   "version.\nCompile with libavresample enabled to make "
+                   "audio decoding work!\n");
+        else
+            mp_msg(MSGT_DECAUDIO, MSGL_ERR, "Unsupported sample format\n");
+        goto error;
 #else
         if (priv->avr && (priv->resample_fmt      != codec->sample_fmt ||
                           priv->resample_channels != codec->channels))
@@ -150,6 +156,7 @@ static int setup_format(sh_audio_t *sh_audio)
                 av_strerror(ret, error, sizeof(error));
                 mp_msg(MSGT_DECAUDIO, MSGL_ERR,
                        "Error opening libavresample: %s.\n", error);
+                goto error;
             }
             priv->resample_fmt      = codec->sample_fmt;
             priv->resample_channels = codec->channels;
@@ -187,6 +194,11 @@ static int setup_format(sh_audio_t *sh_audio)
         return 1;
     }
     return 0;
+error:
+#ifdef CONFIG_LIBAVRESAMPLE
+    avresample_free(&priv->avr);
+#endif
+    return -1;
 }
 
 static int init(sh_audio_t *sh_audio)
@@ -400,14 +412,16 @@ static int decode_new_packet(struct sh_audio *sh)
     if (!got_frame)
         return 0;
 
-    setup_format(sh);
+    int format_result = setup_format(sh);
+    if (format_result < 0)
+        return format_result;
 
 #ifdef CONFIG_LIBAVRESAMPLE
     if (priv->avr) {
         int ret;
-        uint64_t needed_size = av_samples_get_buffer_size(NULL, priv->resample_channels,
-                                                          priv->avframe->nb_samples,
-                                                          priv->resample_fmt, 0);
+        uint64_t needed_size = av_samples_get_buffer_size(
+                NULL, priv->resample_channels, priv->avframe->nb_samples,
+                priv->resample_fmt, 0);
         if (needed_size > priv->resample_buf_size) {
             priv->resample_buf = talloc_realloc(priv, priv->resample_buf,
                                                 uint8_t, needed_size);
@@ -415,14 +429,14 @@ static int decode_new_packet(struct sh_audio *sh)
         }
 
         ret = avresample_convert(priv->avr, &priv->resample_buf,
-                                 priv->resample_buf_size, priv->avframe->nb_samples,
-                                 priv->avframe->extended_data, priv->avframe->linesize[0],
-                                 priv->avframe->nb_samples);
+                priv->resample_buf_size, priv->avframe->nb_samples,
+                priv->avframe->extended_data, priv->avframe->linesize[0],
+                priv->avframe->nb_samples);
         if (ret < 0) {
             uint8_t error[128];
             av_strerror(ret, error, sizeof(error));
-            mp_msg(MSGT_DECAUDIO, MSGL_ERR, "Error during sample format conversion: %s.\n",
-                   error);
+            mp_msg(MSGT_DECAUDIO, MSGL_ERR,
+                   "Error during sample format conversion: %s.\n", error);
             return -1;
         }
 
@@ -430,14 +444,11 @@ static int decode_new_packet(struct sh_audio *sh)
 
         priv->output = priv->resample_buf;
         priv->output_left = priv->unitsize * ret;
-    } else {
-#else
-    /* An error is reported later from output format checking, but make
-     * sure we don't crash by overreading first plane. */
-    if (!av_sample_fmt_is_planar(avctx->sample_fmt) || avctx->channels == 1) {
+    } else
 #endif
-        uint64_t unitsize = (uint64_t)av_get_bytes_per_sample(avctx->sample_fmt) *
-                            avctx->channels;
+    {
+        uint64_t unitsize = av_get_bytes_per_sample(avctx->sample_fmt) *
+                            (uint64_t)avctx->channels;
         if (unitsize > 100000)
             abort();
         priv->unitsize = unitsize;
@@ -450,7 +461,7 @@ static int decode_new_packet(struct sh_audio *sh)
 
     mp_dbg(MSGT_DECAUDIO, MSGL_DBG2, "Decoded %d -> %d  \n", insize,
            priv->output_left);
-    return 0;
+    return format_result;
 }
 
 
@@ -463,7 +474,7 @@ static int decode_audio(sh_audio_t *sh_audio, unsigned char *buf, int minlen,
     int len = -1;
     while (len < minlen) {
         if (!priv->output_left) {
-            if (decode_new_packet(sh_audio) < 0)
+            if (decode_new_packet(sh_audio) != 0)
                 break;
             continue;
         }
