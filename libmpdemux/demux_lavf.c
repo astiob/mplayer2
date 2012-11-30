@@ -543,7 +543,6 @@ static demuxer_t *demux_open_lavf(demuxer_t *demuxer)
     AVDictionaryEntry *t = NULL;
     lavf_priv_t *priv = demuxer->priv;
     int i;
-    char mp_filename[256] = "mp:";
 
     stream_seek(demuxer->stream, 0);
 
@@ -585,16 +584,18 @@ static demuxer_t *demux_open_lavf(demuxer_t *demuxer)
         }
     }
 
-    if (demuxer->stream->url) {
+    char *filename = demuxer->stream->url;
+
+    if (filename) {
         if (demuxer->stream->lavf_type && !strcmp(demuxer->stream->lavf_type,
                                                   "rtsp")) {
             // Remove possible leading ffmpeg:// or lavf://
-            char *name = strstr(demuxer->stream->url, "rtsp:");
-            av_strlcpy(mp_filename, name, sizeof(mp_filename));
-        } else
-            av_strlcat(mp_filename, demuxer->stream->url, sizeof(mp_filename));
+            char *name = strstr(filename, "rtsp:");
+            if (name)
+                filename = name;
+        }
     } else
-        av_strlcat(mp_filename, "foobar.dummy", sizeof(mp_filename));
+        filename = "mp:unknown";
 
     if (!(priv->avif->flags & AVFMT_NOFILE)) {
         priv->pb = avio_alloc_context(priv->buffer, BIO_BUFFER_SIZE, 0,
@@ -606,7 +607,7 @@ static demuxer_t *demux_open_lavf(demuxer_t *demuxer)
         avfc->pb = priv->pb;
     }
 
-    if (avformat_open_input(&avfc, mp_filename, priv->avif, NULL) < 0) {
+    if (avformat_open_input(&avfc, filename, priv->avif, NULL) < 0) {
         mp_msg(MSGT_HEADER, MSGL_ERR,
                "LAVF_header: avformat_open_input() failed\n");
         return NULL;
