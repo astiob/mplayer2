@@ -339,7 +339,6 @@ Optional features:
   --disable-libdvdcss-internal  disable internal libdvdcss [autodetect]
   --disable-cddb         disable cddb [autodetect]
   --disable-unrarexec    disable using of UnRAR executable [enabled]
-  --disable-sortsub      disable subtitle sorting [enabled]
   --disable-enca         disable ENCA charset oracle library [autodetect]
   --enable-macosx-finder enable Mac OS X Finder invocation parameter
                          parsing [disabled]
@@ -634,7 +633,6 @@ _sharedbuffer=auto
 quicktime=auto
 _macosx_finder=no
 _macosx_bundle=auto
-_sortsub=yes
 _enca=auto
 _inet6=auto
 _gethostbyname2=auto
@@ -1003,9 +1001,6 @@ for ac_option do
   --disable-macosx-finder) _macosx_finder=no ;;
   --enable-macosx-bundle) _macosx_bundle=yes ;;
   --disable-macosx-bundle) _macosx_bundle=no ;;
-
-  --enable-sortsub) _sortsub=yes ;;
-  --disable-sortsub) _sortsub=no ;;
 
   --enable-crash-debug) _crash_debug=yes ;;
   --disable-crash-debug) _crash_debug=no ;;
@@ -5398,15 +5393,6 @@ fi
 echores "$_vstream"
 
 
-echocheck "Subtitles sorting"
-if test "$_sortsub" = yes ; then
-    def_sortsub='#define CONFIG_SORTSUB 1'
-else
-    def_sortsub='#undef CONFIG_SORTSUB'
-fi
-echores "$_sortsub"
-
-
 echocheck "XMMS inputplugin support"
 if test "$_xmms" = yes ; then
   if ( xmms-config --version ) >/dev/null 2>&1 ; then
@@ -5876,7 +5862,6 @@ $def_debug
 $def_fastmemcpy
 $def_runtime_cpudetection
 $def_sighandler
-$def_sortsub
 $def_stream_cache
 $def_pthread_cache
 
