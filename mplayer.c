@@ -4962,6 +4962,8 @@ goto_next_file:  // don't jump here after ao/vo/getch initialization!
         current_module = "sub_free";
         for (i = 0; i < mpctx->set_of_sub_size; ++i) {
             sub_free(mpctx->set_of_subtitles[i]);
+            if (mpctx->set_of_ass_tracks[i])
+                sub_uninit(mpctx->set_of_ass_tracks[i]);
             talloc_free(mpctx->set_of_ass_tracks[i]);
         }
         mpctx->set_of_sub_size = 0;
