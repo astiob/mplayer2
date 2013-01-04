@@ -115,9 +115,6 @@ v
 j and J
     Cycle through the available subtitles.
 
-y and g
-    Step forward/backward in the subtitle list.
-
 F
     Toggle displaying "forced subtitles".
 

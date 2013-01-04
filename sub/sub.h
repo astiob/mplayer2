@@ -129,7 +129,6 @@ extern int subtitle_autoscale;
 extern char *font_name;
 extern char *sub_font_name;
 extern float font_factor;
-extern float sub_delay;
 extern float sub_fps;
 
 extern int sub_justify;

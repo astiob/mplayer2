@@ -121,7 +121,6 @@ static const mp_cmd_t mp_cmds[] = {
   { MP_CMD_PLAY_ALT_SRC_STEP, "alt_src_step", { ARG_INT } },
   { MP_CMD_LOOP, "loop", { ARG_INT, OARG_INT(0) } },
   { MP_CMD_SUB_DELAY, "sub_delay", { ARG_FLOAT, OARG_INT(0) } },
-  { MP_CMD_SUB_STEP, "sub_step", { ARG_INT, OARG_INT(0) } },
   { MP_CMD_OSD, "osd", { OARG_INT(-1) } },
   { MP_CMD_OSD_SHOW_TEXT, "osd_show_text", { ARG_STRING, OARG_INT(-1), OARG_INT(0) } },
   { MP_CMD_OSD_SHOW_PROPERTY_TEXT, "osd_show_property_text", { ARG_STRING, OARG_INT(-1), OARG_INT(0) } },

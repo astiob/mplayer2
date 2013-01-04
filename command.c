@@ -1919,7 +1919,7 @@ static int mp_property_sub_delay(m_option_t *prop, int action, void *arg,
 {
     if (!mpctx->sh_video)
         return M_PROPERTY_UNAVAILABLE;
-    return m_property_delay(prop, action, arg, &sub_delay);
+    return m_property_delay(prop, action, arg, &mpctx->opts.sub_delay);
 }
 
 /// Alignment of text subtitles (RW)
@@ -2946,23 +2946,6 @@ void run_command(MPContext *mpctx, mp_cmd_t *cmd)
                 mpctx->stop_play = PT_NEXT_SRC;
             else if (v < 0 && mpctx->playtree_iter->file > 1)
                 mpctx->stop_play = PT_PREV_SRC;
-        }
-        break;
-
-    case MP_CMD_SUB_STEP:
-        if (sh_video) {
-            int movement = cmd->args[0].v.i;
-            step_sub(mpctx->subdata, mpctx->video_pts, movement);
-#if 0
-            // currently not implemented with libass
-            if (mpctx->osd->ass_track)
-                sub_delay +=
-                    ass_step_sub(mpctx->osd->ass_track,
-                                 (mpctx->video_pts +
-                                  sub_delay) * 1000 + .5, movement) / 1000.;
-#endif
-            set_osd_tmsg(OSD_MSG_SUB_DELAY, 1, osd_duration,
-                         "Sub delay: %d ms", ROUND(sub_delay * 1000));
         }
         break;
 

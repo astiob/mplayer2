@@ -393,10 +393,6 @@ sub_scale <value> [abs]
 vobsub_lang
     This is a stub linked to sub_select for backwards compatibility.
 
-sub_step <value>
-    Step forward in the subtitle list by <value> steps or backwards if <value>
-    is negative.
-
 sub_visibility [value]
     Toggle/set subtitle visibility.
 

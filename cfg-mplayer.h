@@ -602,7 +602,7 @@ const m_option_t common_opts[] = {
 #ifdef CONFIG_ICONV
     {"subcp", &sub_cp, CONF_TYPE_STRING, 0, 0, 0, NULL},
 #endif
-    {"subdelay", &sub_delay, CONF_TYPE_FLOAT, 0, 0.0, 10.0, NULL},
+    OPT_FLOAT("subdelay", sub_delay, 0),
     {"subfps", &sub_fps, CONF_TYPE_FLOAT, 0, 0.0, 10.0, NULL},
     OPT_MAKE_FLAGS("autosub", sub_auto, 0),
     {"forcedsubsonly", &forced_subs_only, CONF_TYPE_FLAG, 0, 0, 1, NULL},

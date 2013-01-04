@@ -37,35 +37,6 @@ static int nosub_range_start=-1;
 static int nosub_range_end=-1;
 static const sub_data *last_sub_data = NULL;
 
-void step_sub(sub_data *subd, float pts, int movement) {
-    subtitle *subs;
-    int key;
-
-    if (subd == NULL) return;
-    subs = subd->subtitles;
-    key = (pts+sub_delay) * (subd->sub_uses_time ? 100 : sub_fps);
-
-    /* Tell the OSD subsystem that the OSD contents will change soon */
-    vo_osd_changed(OSDTYPE_SUBTITLE);
-
-    /* If we are moving forward, don't count the next (current) subtitle
-     * if we haven't displayed it yet. Same when moving other direction.
-     */
-    if (movement > 0 && key < subs[current_sub].start)
-    	movement--;
-    if (movement < 0 && key >= subs[current_sub].end)
-    	movement++;
-
-    /* Never move beyond first or last subtitle. */
-    if (current_sub+movement < 0)
-    	movement = 0-current_sub;
-    if (current_sub+movement >= subd->sub_num)
-    	movement = subd->sub_num - current_sub - 1;
-
-    current_sub += movement;
-    sub_delay = subs[current_sub].start / (subd->sub_uses_time ? 100 : sub_fps) - pts;
-}
-
 void find_sub(struct MPContext *mpctx, sub_data* subd,int key){
     subtitle *subs;
     subtitle *new_sub = NULL;

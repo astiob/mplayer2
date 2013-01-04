@@ -61,6 +61,7 @@ typedef struct MPOpts {
     int initial_audio_sync;
     int hr_seek;
     float hr_seek_demuxer_offset;
+    float sub_delay;
     int autosync;
     int softsleep;
     int rtc;

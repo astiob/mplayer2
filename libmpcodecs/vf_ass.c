@@ -361,7 +361,7 @@ static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts)
                                          .mb = opts->ass_bottom_margin };
         osd->normal_scale = vf->priv->aspect_correction;
         osd->vsfilter_scale = 1;
-        osd->sub_pts = pts - osd->sub_offset;
+        osd->sub_pts = pts + opts->sub_delay - osd->sub_offset;
         osd->support_rgba = false;
         struct sub_bitmaps b;
         sub_get_bitmaps(osd, &b);
