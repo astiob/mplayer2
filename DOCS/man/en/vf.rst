@@ -1341,6 +1341,12 @@ stereo3d[=in:out]
             side by side parallel (left eye left, right eye right)
         sbsr or side_by_side_right_first
             side by side crosseye (right eye left, left eye right)
+        sbs2l or side_by_side_half_width_left_first
+            side by side parallel with half width resolution (left eye left,
+            right eye right)
+        sbs2r or side_by_side_half_width_right_first
+            side by side crosseye with half width resolution (right eye left,
+            left eye right)
         abl or above_below_left_first
             above-below (left eye above, right eye below)
         abl or above_below_right_first
@@ -1378,6 +1384,10 @@ stereo3d[=in:out]
         agmc or anaglyph_green_magenta_color
             anaglyph green/magenta colored (green filter on left eye, magenta
             filter on right eye)
+        agmd or anaglyph_green_magenta_dubois
+            anaglyph green/magenta colored optimized with the least squares
+            projection of dubois (green filter on left eye, magenta filter on
+            right eye)
         aybg or anaglyph_yellow_blue_gray
             anaglyph yellow/blue gray (yellow filter on left eye, blue filter
             on right eye)
@@ -1387,6 +1397,10 @@ stereo3d[=in:out]
         aybc or anaglyph_yellow_blue_color
             anaglyph yellow/blue colored (yellow filter on left eye, blue
             filter on right eye)
+        aybd or anaglyph_yellow_blue_dubois
+            anaglyph yellow/blue colored optimized with the least squares
+            projection of dubois (yellow filter on left eye, blue filter on
+            right eye)
         irl or interleave_rows_left_first
             Interleaved rows (left eye has top row, right eye starts on next
             row)
