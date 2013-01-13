@@ -55,7 +55,7 @@ struct dirent *mp_readdir(DIR *dir);
 int mp_closedir(DIR *dir);
 int mp_mkdir(const char *path, int mode);
 
-// NOTE: Stat is not overridden with mp_stat, because MinGW-w64 defines it as
+// NOTE: stat is not overridden with mp_stat, because MinGW-w64 defines it as
 //       macro.
 
 #define fprintf(...) mp_fprintf(__VA_ARGS__)
