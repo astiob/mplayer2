@@ -109,8 +109,7 @@ SRCS_COMMON-$(NEED_SHMEM)            += osdep/shmem.c
 SRCS_COMMON-$(NEED_STRSEP)           += osdep/strsep.c
 SRCS_COMMON-$(NEED_SWAB)             += osdep/swab.c
 SRCS_COMMON-$(NEED_VSSCANF)          += osdep/vsscanf.c
-SRCS_COMMON-$(NETWORKING)            += stream/stream_netstream.c \
-                                        stream/asf_mmst_streaming.c \
+SRCS_COMMON-$(NETWORKING)            += stream/asf_mmst_streaming.c \
                                         stream/asf_streaming.c \
                                         stream/cookies.c \
                                         stream/http.c \
@@ -718,7 +717,7 @@ tests: $(addsuffix $(EXESUF),$(TESTS))
 testsclean:
 	-$(RM) $(call ADD_ALL_EXESUFS,$(TESTS))
 
-TOOLS = $(addprefix TOOLS/,alaw-gen asfinfo avi-fix avisubdump compare dump_mp4 movinfo netstream subrip vivodump)
+TOOLS = $(addprefix TOOLS/,alaw-gen asfinfo avi-fix avisubdump compare dump_mp4 movinfo subrip vivodump)
 
 ifdef ARCH_X86
 TOOLS += TOOLS/fastmemcpybench TOOLS/modify_reg
@@ -743,9 +742,8 @@ TOOLS/vfw2menc$(EXESUF): -lwinmm -lole32
 mplayer-nomain.o: mplayer.c
 	$(CC) $(CFLAGS) -DDISABLE_MAIN -c -o $@ $<
 
-TOOLS/netstream$(EXESUF): TOOLS/netstream.c
 TOOLS/vivodump$(EXESUF): TOOLS/vivodump.c
-TOOLS/netstream$(EXESUF) TOOLS/vivodump$(EXESUF): $(subst mplayer.o,mplayer-nomain.o,$(OBJS_MPLAYER)) $(OBJS_COMMON) $(COMMON_LIBS)
+TOOLS/vivodump$(EXESUF): $(subst mplayer.o,mplayer-nomain.o,$(OBJS_MPLAYER)) $(OBJS_COMMON) $(COMMON_LIBS)
 	$(CC) $(CFLAGS) -o $@ $^ $(EXTRALIBS_MPLAYER) $(EXTRALIBS)
 
 REAL_SRCS    = $(wildcard TOOLS/realcodecs/*.c)
