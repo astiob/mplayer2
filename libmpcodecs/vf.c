@@ -22,9 +22,6 @@
 #include <assert.h>
 
 #include "config.h"
-#if HAVE_MALLOC_H
-#include <malloc.h>
-#endif
 
 #include "mp_msg.h"
 #include "m_option.h"
@@ -93,7 +90,6 @@ extern const vf_info_t vf_info_tile;
 extern const vf_info_t vf_info_delogo;
 extern const vf_info_t vf_info_remove_logo;
 extern const vf_info_t vf_info_hue;
-extern const vf_info_t vf_info_spp;
 extern const vf_info_t vf_info_uspp;
 extern const vf_info_t vf_info_fspp;
 extern const vf_info_t vf_info_pp7;
@@ -107,7 +103,6 @@ extern const vf_info_t vf_info_harddup;
 extern const vf_info_t vf_info_softskip;
 extern const vf_info_t vf_info_screenshot;
 extern const vf_info_t vf_info_ass;
-extern const vf_info_t vf_info_mcdeint;
 extern const vf_info_t vf_info_yadif;
 extern const vf_info_t vf_info_blackframe;
 extern const vf_info_t vf_info_geq;
@@ -183,10 +178,6 @@ static const vf_info_t *const filter_list[] = {
     &vf_info_delogo,
     &vf_info_remove_logo,
     &vf_info_hue,
-#ifdef CONFIG_FFMPEG_INTERNALS
-    &vf_info_spp,
-    &vf_info_mcdeint,
-#endif
     &vf_info_geq,
     &vf_info_qp,
     &vf_info_yuvcsp,

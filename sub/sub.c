@@ -20,10 +20,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libavutil/common.h>
+#include <libavutil/mem.h>
+
 #include "config.h"
-#if HAVE_MALLOC_H
-#include <malloc.h>
-#endif
 
 #include "stream/stream.h"
 #include "stream/stream_dvdnav.h"
@@ -40,7 +40,6 @@
 #include "sub.h"
 #include "sub/ass_mp.h"
 #include "spudec.h"
-#include "libavutil/common.h"
 
 
 char * const sub_osd_names[]={
@@ -105,10 +104,10 @@ void osd_alloc_buf(mp_osd_obj_t* obj)
     len = obj->stride*(obj->bbox.y2-obj->bbox.y1);
     if (obj->allocated<len) {
 	obj->allocated = len;
-	free(obj->bitmap_buffer);
-	free(obj->alpha_buffer);
-	obj->bitmap_buffer = memalign(16, len);
-	obj->alpha_buffer  = memalign(16, len);
+	av_free(obj->bitmap_buffer);
+	av_free(obj->alpha_buffer);
+	obj->bitmap_buffer = av_malloc(len);
+	obj->alpha_buffer  = av_malloc(len);
     }
     memset(obj->bitmap_buffer, sub_bg_color, len);
     memset(obj->alpha_buffer, sub_bg_alpha, len);

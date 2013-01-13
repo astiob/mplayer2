@@ -21,9 +21,6 @@
 #include "config.h"
 
 #include <stdio.h>
-#if HAVE_MALLOC_H
-#include <malloc.h>
-#endif
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -124,7 +121,7 @@ switch(video_codec){
    }
    mp_msg(MSGT_DECVIDEO,MSGL_V,"OK!\n");
    if(!videobuffer) {
-     videobuffer = memalign(8, VIDEOBUFFER_SIZE + MP_INPUT_BUFFER_PADDING_SIZE);
+     videobuffer = av_malloc(VIDEOBUFFER_SIZE + MP_INPUT_BUFFER_PADDING_SIZE);
      if (videobuffer) memset(videobuffer+VIDEOBUFFER_SIZE, 0, MP_INPUT_BUFFER_PADDING_SIZE);
      else {
        mp_tmsg(MSGT_DECVIDEO,MSGL_ERR,"Cannot allocate shared memory.\n");
@@ -219,7 +216,7 @@ switch(video_codec){
    }
    mp_msg(MSGT_DECVIDEO,MSGL_V,"OK!\n");
    if(!videobuffer) {
-     videobuffer = memalign(8, VIDEOBUFFER_SIZE + MP_INPUT_BUFFER_PADDING_SIZE);
+     videobuffer = av_malloc(VIDEOBUFFER_SIZE + MP_INPUT_BUFFER_PADDING_SIZE);
      if (videobuffer) memset(videobuffer+VIDEOBUFFER_SIZE, 0, MP_INPUT_BUFFER_PADDING_SIZE);
      else {
        mp_tmsg(MSGT_DECVIDEO,MSGL_ERR,"Cannot allocate shared memory.\n");
@@ -284,7 +281,7 @@ mpeg_header_parser:
    mp_msg(MSGT_DECVIDEO,MSGL_V,"OK!\n");
    // ========= Read & process sequence header & extension ============
    if(!videobuffer) {
-     videobuffer = memalign(8, VIDEOBUFFER_SIZE + MP_INPUT_BUFFER_PADDING_SIZE);
+     videobuffer = av_malloc(VIDEOBUFFER_SIZE + MP_INPUT_BUFFER_PADDING_SIZE);
      if (videobuffer) memset(videobuffer+VIDEOBUFFER_SIZE, 0, MP_INPUT_BUFFER_PADDING_SIZE);
      else {
        mp_tmsg(MSGT_DECVIDEO,MSGL_ERR,"Cannot allocate shared memory.\n");
@@ -352,7 +349,7 @@ mpeg_header_parser:
    }
    mp_msg(MSGT_DECVIDEO,MSGL_INFO,"found\n");
    if(!videobuffer) {
-     videobuffer = memalign(8, VIDEOBUFFER_SIZE + MP_INPUT_BUFFER_PADDING_SIZE);
+     videobuffer = av_malloc(VIDEOBUFFER_SIZE + MP_INPUT_BUFFER_PADDING_SIZE);
      if (videobuffer) memset(videobuffer+VIDEOBUFFER_SIZE, 0, MP_INPUT_BUFFER_PADDING_SIZE);
      else {
        mp_tmsg(MSGT_DECVIDEO,MSGL_ERR,"Cannot allocate shared memory.\n");

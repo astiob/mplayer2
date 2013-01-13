@@ -58,10 +58,6 @@ SRCS_COMMON-$(DVDREAD_INTERNAL)      += libdvdread4/bitreader.c \
 SRCS_COMMON-$(FAAD)                  += libmpcodecs/ad_faad.c
 SRCS_COMMON-$(FASTMEMCPY)            += libvo/aclib.c
 
-# These filters use private headers and do not work with shared libavcodec.
-SRCS_COMMON-$(FFMPEG_INTERNALS)      += libmpcodecs/vf_mcdeint.c \
-                                        libmpcodecs/vf_spp.c \
-
 SRCS_COMMON-$(FTP)                   += stream/stream_ftp.c
 SRCS_COMMON-$(GIF)                   += libmpdemux/demux_gif.c
 SRCS_COMMON-$(HAVE_POSIX_SELECT)     += libmpcodecs/vf_bmovl.c
@@ -615,9 +611,6 @@ libvo/vo_vdpau.o: libvo/vdpau_template.c
 libmpdemux/ebml.o libmpdemux/demux_mkv.o: libmpdemux/ebml_types.h
 libmpdemux/ebml.o: libmpdemux/ebml_defs.c
 sub/osd_libass.o: sub/osd_font.h
-
-# Files that depend on libavcodec internals
-libmpcodecs/vf_fspp.o libmpcodecs/vf_mcdeint.o libmpcodecs/vf_spp.o: CFLAGS := -I$(FFMPEG_SOURCE_PATH) $(CFLAGS)
 
 osdep/mplayer-rc.o: osdep/mplayer.exe.manifest
 

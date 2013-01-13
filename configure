@@ -148,19 +148,6 @@ EOF
   compile_check $TMPC $@
 }
 
-yasm_check() {
-  echo >> "$TMPLOG"
-  cat "$TMPS" >> "$TMPLOG"
-  echo >> "$TMPLOG"
-  echo "$_yasm $YASMFLAGS -o $TMPEXE $TMPS $@" >> "$TMPLOG"
-  rm -f "$TMPEXE"
-  $_yasm $YASMFLAGS -o "$TMPEXE" "$TMPS" "$@" >> "$TMPLOG" 2>&1
-  TMPRES="$?"
-  echo >> "$TMPLOG"
-  echo >> "$TMPLOG"
-  return "$TMPRES"
-}
-
 pkg_config_add() {
   unset IFS  # shell should not be used for programming
   echo >> "$TMPLOG"
@@ -437,12 +424,8 @@ Miscellaneous options:
   --enable-runtime-cpudetection    enable runtime CPU detection [disable]
   --enable-cross-compile enable cross-compilation [disable]
   --cc=COMPILER          C compiler to build MPlayer [gcc]
-  --as=ASSEMBLER         assembler to build MPlayer [as]
   --nm=NM                nm tool to build MPlayer [nm]
-  --yasm=YASM            Yasm assembler to build MPlayer [yasm]
-  --ar=AR                librarian to build MPlayer [ar]
   --pkg-config=PKGCONFIG pkg-config to find some libraries [pkg-config]
-  --ranlib=RANLIB        ranlib to build MPlayer [ranlib]
   --windres=WINDRES      windres to build MPlayer [windres]
   --target=PLATFORM      target platform (i386-linux, arm-linux, etc)
   --enable-static        build a statically linked binary
@@ -511,19 +494,15 @@ _iwmmxt=auto
 _altivec=auto
 _install=install
 _pkg_config=auto
-_ranlib=auto
 _windres=auto
 _cc=auto
-_ar=auto
 test "$CC" && _cc="$CC"
 _as=auto
 _nm=auto
-_yasm=auto
 _runtime_cpudetection=no
 _cross_compile=no
 _prefix="/usr/local"
 ffmpeg=auto
-ffmpeg_internals=no
 _x11=auto
 _xss=auto
 _xv=auto
@@ -708,23 +687,11 @@ for ac_option do
   --cc=*)
     _cc=$(echo $ac_option | cut -d '=' -f 2)
     ;;
-  --as=*)
-    _as=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
   --nm=*)
     _nm=$(echo $ac_option | cut -d '=' -f 2)
     ;;
-  --yasm=*)
-    _yasm=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --ar=*)
-    _ar=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
   --pkg-config=*)
     _pkg_config=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --ranlib=*)
-    _ranlib=$(echo $ac_option | cut -d '=' -f 2)
     ;;
   --windres=*)
     _windres=$(echo $ac_option | cut -d '=' -f 2)
@@ -921,8 +888,6 @@ for ac_option do
   --enable-libnut)      _libnut=yes     ;;
   --disable-libnut)     _libnut=no      ;;
   --enable-libav)       ffmpeg=yes      ;;
-  --ffmpeg-source-dir=*)
-    _ffmpeg_source=$(echo $ac_option | cut -d '=' -f 2 ) ;;
 
   --enable-lirc)        _lirc=yes       ;;
   --disable-lirc)       _lirc=no        ;;
@@ -1087,10 +1052,7 @@ if test $_cross_compile = yes ; then
     test -n "$_target" && tool_prefix="$_target"-
 fi
 
-test "$_ranlib" = auto && _ranlib="$tool_prefix"ranlib
 test "$_windres" = auto && _windres="$tool_prefix"windres
-test "$_ar" = auto && _ar="$tool_prefix"ar
-test "$_yasm" = auto && _yasm="$tool_prefix"yasm
 test "$_pkg_config" = auto && _pkg_config="$tool_prefix"pkg-config
 
 if test "$_cc" = auto ; then
@@ -1215,10 +1177,6 @@ if aix ; then
   extra_ldflags="$extra_ldflags -lC"
 fi
 
-if linux ; then
-  _ranlib='true'
-fi
-
 if win32 ; then
   _exesuf=".exe"
   extra_cflags="$extra_cflags -fno-common"
@@ -1339,13 +1297,6 @@ echo "Detected operating system: $system_name"
 echo "Detected host architecture: $host_arch"
 
 # ---
-
-# now that we know what compiler should be used for compilation, try to find
-# out which assembler is used by the $_cc compiler
-if test "$_as" = auto ; then
-  _as=$($_cc -print-prog-name=as)
-  test -z "$_as" && _as=as
-fi
 
 if test "$_nm" = auto ; then
   _nm=$($_cc -print-prog-name=nm)
@@ -1836,7 +1787,6 @@ case "$host_arch" in
 
   ppc|ppc64|powerpc|powerpc64)
     arch='ppc'
-    def_dcbzl='#define HAVE_DCBZL 0'
     def_fast_unaligned='#define HAVE_FAST_UNALIGNED 1'
     iproc='ppc'
 
@@ -1908,8 +1858,7 @@ case "$host_arch" in
         # gcc 3.2 and up supports 970
         if test "$_cc_major" -ge "3" && test "$_cc_minor" -ge "3" || test "$_cc_major" -ge "4"; then
             case "$proc" in
-                970*|PPC970*) _march='-mcpu=970' _mcpu='-mtune=970'
-                      def_dcbzl='#define HAVE_DCBZL 1' ;;
+                970*|PPC970*) _march='-mcpu=970' _mcpu='-mtune=970' ;;
                 *) ;;
             esac
         fi
@@ -2180,58 +2129,6 @@ fi
 
 
 
-if x86_32 ; then
-  # Checking assembler (_as) compatibility...
-  # Added workaround for older as that reads from stdin by default - atmos
-  as_version=$(echo '' | $_as -version 2>&1 | sed -n 's/^.*assembler \(version \)*\([0-9.]*\).*$/\2/p')
-  echocheck "assembler ($_as $as_version)"
-
-  _pref_as_version='2.9.1'
-  echo 'nop' > $TMPS
-  if test "$_mmx" = yes ; then
-    echo 'emms' >> $TMPS
-  fi
-  if test "$_3dnow" = yes ; then
-    _pref_as_version='2.10.1'
-    echo 'femms' >> $TMPS
-  fi
-  if test "$_3dnowext" = yes ; then
-    _pref_as_version='2.10.1'
-    echo 'pswapd %mm0, %mm0' >> $TMPS
-  fi
-  if test "$_mmxext" = yes ; then
-    _pref_as_version='2.10.1'
-    echo 'movntq %mm0, (%eax)' >> $TMPS
-  fi
-  if test "$_sse" = yes ; then
-    _pref_as_version='2.10.1'
-    echo 'xorps %xmm0, %xmm0' >> $TMPS
-  fi
-  #if test "$_sse2" = yes ; then
-  #  _pref_as_version='2.11'
-  #  echo 'xorpd %xmm0, %xmm0' >> $TMPS
-  #fi
-  if test "$_cmov" = yes ; then
-    _pref_as_version='2.10.1'
-    echo 'cmovb %eax, %ebx' >> $TMPS
-  fi
-  if test "$_ssse3" = yes ; then
-    _pref_as_version='2.16.92'
-    echo 'pabsd %xmm0, %xmm1' >> $TMPS
-  fi
-  $_as $TMPS -o $TMPEXE > /dev/null 2>&1 || as_verc_fail=yes
-
-  if test "$as_verc_fail" != yes ; then
-    echores "ok"
-  else
-    res_comment="Upgrade binutils to ${_pref_as_version} or use --disable-ssse3 etc."
-    echores "failed"
-    die "obsolete binutils version"
-  fi
-
-fi #if x86_32
-
-
 echocheck "PIC"
 pic=no
 cat > $TMPC << EOF
@@ -2281,47 +2178,7 @@ EOF
 cc_check && ebx_available=yes && def_ebx_available='#define HAVE_EBX_AVAILABLE 1'
 echores $ebx_available
 
-
-echocheck "yasm"
-if test -z "$YASMFLAGS" ; then
-  if darwin ; then
-    x86_64 && objformat="macho64" || objformat="macho"
-  elif win32 ; then
-    objformat="win32"
-  else
-    objformat="elf"
-  fi
-  # currently tested for Linux x86, x86_64
-  YASMFLAGS="-f $objformat"
-  x86_64 && YASMFLAGS="$YASMFLAGS -DARCH_X86_64 -m amd64"
-  test "$pic" = "yes" && YASMFLAGS="$YASMFLAGS -DPIC"
-  case "$objformat" in
-    elf) test $_debug && YASMFLAGS="$YASMFLAGS -g dwarf2" ;;
-    *)                   YASMFLAGS="$YASMFLAGS -DPREFIX"  ;;
-  esac
-else
-  warn_cflags=yes
-fi
-
-echo "pabsw xmm0, xmm0" > $TMPS
-yasm_check || _yasm=""
-if test $_yasm ; then
-  def_yasm='#define HAVE_YASM 1'
-  have_yasm="yes"
-  echores "$_yasm"
-else
-  def_yasm='#define HAVE_YASM 0'
-  have_yasm="no"
-  echores "no"
-fi
-
-echocheck "bswap"
-def_bswap='#define HAVE_BSWAP 0'
-echo 'bswap %eax' > $TMPS
-$_as $TMPS -o $TMPEXE > /dev/null 2>&1 && def_bswap='#define HAVE_BSWAP 1' && bswap=yes || bswap=no
-echores "$bswap"
 fi #if x86
-
 
 #FIXME: This should happen before the check for CFLAGS..
 def_altivec_h='#define HAVE_ALTIVEC_H 0'
@@ -2364,15 +2221,6 @@ EOF
 
     # If AltiVec is enabled, make sure the correct flags turn up in CFLAGS.
     test "$_altivec" = yes && CFLAGS="$CFLAGS $_altivec_gcc_flags"
-fi
-
-if ppc ; then
-def_xform_asm='#define HAVE_XFORM_ASM 0'
-xform_asm=no
-echocheck "XFORM ASM support"
-inline_asm_check '"lwzx %1, %y0" :: "Z"(*(int*)0), "r"(0)' &&
-  xform_asm=yes && def_xform_asm='#define HAVE_XFORM_ASM 1'
-echores "$xform_asm"
 fi
 
 if arm ; then
@@ -2633,30 +2481,6 @@ if test "$_posix4" = yes ; then
 fi
 echores "$_posix4"
 
-for func in exp2 exp2f llrint log2 log2f lrint lrintf round roundf truncf; do
-echocheck $func
-eval _$func=no
-statement_check math.h "${func}(2.0)" -D_ISOC99_SOURCE $_ld_lm && eval _$func=yes
-if eval test "x\$_$func" = "xyes"; then
-  eval def_$func="\"#define HAVE_$(echo $func | tr '[a-z]' '[A-Z]') 1\""
-  echores yes
-else
-  eval def_$func="\"#define HAVE_$(echo $func | tr '[a-z]' '[A-Z]') 0\""
-  echores no
-fi
-done
-
-
-echocheck "mkstemp"
-_mkstemp=no
-define_statement_check "_XOPEN_SOURCE 600" "stdlib.h" 'mkstemp("")' && _mkstemp=yes
-if test "$_mkstemp" = yes ; then
-  def_mkstemp='#define HAVE_MKSTEMP 1'
-else
-  def_mkstemp='#define HAVE_MKSTEMP 0'
-fi
-echores "$_mkstemp"
-
 
 echocheck "nanosleep"
 _nanosleep=no
@@ -2696,14 +2520,6 @@ if test $_winsock2_h = yes ; then
 else
   def_winsock2_h='#define HAVE_WINSOCK2_H 0'
 fi
-
-
-echocheck "arpa/inet.h"
-arpa_inet_h=no
-def_arpa_inet_h='#define HAVE_ARPA_INET_H 0'
-header_check arpa/inet.h && arpa_inet_h=yes &&
-  def_arpa_inet_h='#define HAVE_ARPA_INET_H 1'
-echores "$arpa_inet_h"
 
 
 echocheck "inet_pton()"
@@ -2834,40 +2650,6 @@ if test "$_inttypes" = no ; then
 fi
 
 
-echocheck "malloc.h"
-_malloc=no
-header_check malloc.h && _malloc=yes
-if test "$_malloc" = yes ; then
-  def_malloc_h='#define HAVE_MALLOC_H 1'
-else
-  def_malloc_h='#define HAVE_MALLOC_H 0'
-fi
-echores "$_malloc"
-
-
-echocheck "memalign()"
-# XXX restrict to x86 ? extend to other CPUs/cacheline sizes ?
-def_memalign_hack='#define CONFIG_MEMALIGN_HACK 0'
-_memalign=no
-statement_check malloc.h 'memalign(64, sizeof(char))' && _memalign=yes
-if test "$_memalign" = yes ; then
-  def_memalign='#define HAVE_MEMALIGN 1'
-else
-  def_memalign='#define HAVE_MEMALIGN 0'
-  def_map_memalign='#define memalign(a, b) malloc(b)'
-  darwin || def_memalign_hack='#define CONFIG_MEMALIGN_HACK 1'
-fi
-echores "$_memalign"
-
-
-echocheck "posix_memalign()"
-posix_memalign=no
-def_posix_memalign='#define HAVE_POSIX_MEMALIGN 0'
-define_statement_check "_XOPEN_SOURCE 600" "stdlib.h" 'posix_memalign(NULL, 0, 0)' &&
-    posix_memalign=yes && def_posix_memalign='#define HAVE_POSIX_MEMALIGN 1'
-echores "$posix_memalign"
-
-
 echocheck "alloca.h"
 _alloca=no
 statement_check alloca.h 'alloca(0)' && _alloca=yes
@@ -2919,8 +2701,6 @@ fi
 echores "$_dl"
 
 
-def_threads='#define HAVE_THREADS 0'
-
 echocheck "pthread"
 if linux ; then
   THREAD_CFLAGS=-D_REENTRANT
@@ -2955,7 +2735,6 @@ fi
 if test "$_pthreads" = yes ; then
   test $_ld_pthread && res_comment="using $_ld_pthread"
   def_pthreads='#define HAVE_PTHREADS 1'
-  def_threads='#define HAVE_THREADS 1'
   extra_cflags="$extra_cflags $THREAD_CFLAGS"
 else
   res_comment="v4l, v4l2, win32 loader disabled"
@@ -2983,7 +2762,6 @@ if test "$_w32threads" = auto ; then
   _w32threads=no
   mingw32 && _w32threads=yes
 fi
-test "$_w32threads" = yes && def_threads='#define HAVE_THREADS 1'
 echores "$_w32threads"
 
 echocheck "rpath"
@@ -5007,11 +4785,6 @@ if test "$ffmpeg" = auto ; then
 fi
 echores "yes"
 
-def_ffmpeg_internals="#undef CONFIG_FFMPEG_INTERNALS"
-if ! test -z "$_ffmpeg_source" ; then
-  def_ffmpeg_internals="#define CONFIG_FFMPEG_INTERNALS 1" && ffmpeg_internals=yes
-fi
-
 echocheck "libpostproc >= 52.0.0"
 if test "$libpostproc" = auto ; then
     libpostproc=no
@@ -5577,8 +5350,6 @@ MANDIR  = \$(DESTDIR)$_mandir
 CONFDIR = \$(DESTDIR)$_confdir
 LOCALEDIR = \$(DESTDIR)$_localedir
 
-AR      = $_ar
-AS      = $_cc
 CC      = $_cc
 INSTALL = $_install
 INSTALLSTRIP = $_install_strip
@@ -5715,21 +5486,12 @@ XV = $_xv
 XVID4 = $_xvid
 YUV4MPEG = $_yuv4mpeg
 
-# FFmpeg
-FFMPEG_INTERNALS = $ffmpeg_internals
-FFMPEG_SOURCE_PATH = $_ffmpeg_source
-
-RANLIB     = $_ranlib
-YASM       = $_yasm
-YASMFLAGS  = $YASMFLAGS
-
 CONFIG_VDPAU    = $_vdpau
 CONFIG_ZLIB     = $_zlib
 
 HAVE_PTHREADS   = $_pthreads
 HAVE_SHM        = $_shm
 HAVE_W32THREADS = $_w32threads
-HAVE_YASM       = $have_yasm
 
 EOF
 
@@ -5789,7 +5551,6 @@ $def_dvdcss
 /* system headers */
 $def_alloca_h
 $def_altivec_h
-$def_malloc_h
 $def_mman_h
 $def_mman_has_map_failed
 $def_soundcard_h
@@ -5806,9 +5567,6 @@ $def_gethostbyname2
 $def_gettimeofday
 $def_glob
 $def_langinfo
-$def_lrintf
-$def_map_memalign
-$def_memalign
 $def_nanosleep
 $def_posix_select
 $def_select
@@ -6012,32 +5770,9 @@ $def_xv
 $def_yuv4mpeg
 
 
-/* FFmpeg */
-$def_ffmpeg_internals
-
-$def_arpa_inet_h
-$def_bswap
-$def_dcbzl
-$def_exp2
-$def_exp2f
 $def_fast_64bit
 $def_fast_unaligned
-$def_llrint
-$def_log2
-$def_log2f
-$def_lrint
-$def_memalign_hack
-$def_mkstemp
-$def_posix_memalign
 $def_pthreads
-$def_round
-$def_roundf
-$def_threads
-$def_truncf
-$def_xform_asm
-$def_yasm
-
-#define HAVE_INLINE_ASM 1
 
 /* Use these registers in x86 inline asm. No proper detection yet. */
 #define HAVE_EBP_AVAILABLE 1
@@ -6108,7 +5843,7 @@ EOF
 if test "$warn_cflags" = yes; then
   cat <<EOF
 
-MPlayer compilation will use the CPPFLAGS/CFLAGS/LDFLAGS/YASMFLAGS set by you,
+MPlayer compilation will use the CPPFLAGS/CFLAGS/LDFLAGS set by you,
 but:
 
     *** ***  DO NOT REPORT BUGS IF IT DOES NOT COMPILE/WORK!  *** ***

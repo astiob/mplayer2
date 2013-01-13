@@ -428,32 +428,10 @@ pp[=filter1[:option1[:option2...]]/[-]filter2...]
         Horizontal deblocking on luminance only, and switch vertical
         deblocking on or off automatically depending on available CPU time.
 
-spp[=quality[:qp[:mode]]]
-    Simple postprocessing filter that compresses and decompresses the image at
-    several (or - in the case of quality level 6 - all) shifts and averages
-    the results.
-
-    <quality>
-        0-6 (default: 3)
-
-    <qp>
-        Force quantization parameter (default: 0, use QP from video).
-
-    <mode>
-
-        :0: hard thresholding (default)
-        :1: soft thresholding (better deringing, but blurrier)
-        :4: like 0, but also use B-frames' QP (may cause flicker)
-        :5: like 1, but also use B-frames' QP (may cause flicker)
-
 uspp[=quality[:qp]]
     Ultra simple & slow postprocessing filter that compresses and decompresses
     the image at several (or - in the case of quality level 8 - all) shifts
     and averages the results.
-
-    The way this differs from the behavior of spp is that uspp actually
-    encodes & decodes each case with libavcodec Snow, whereas spp uses a
-    simplified intra only 8x8 DCT similar to MJPEG.
 
     <quality>
         0-8 (default: 3)
@@ -462,10 +440,10 @@ uspp[=quality[:qp]]
         Force quantization parameter (default: 0, use QP from video).
 
 fspp[=quality[:qp[:strength[:bframes]]]]
-    faster version of the simple postprocessing filter
+    simple postprocessing filter
 
     <quality>
-        4-5 (equivalent to spp; default: 4)
+        4-5 (default: 4)
 
     <qp>
         Force quantization parameter (default: 0, use QP from video).
@@ -480,8 +458,7 @@ fspp[=quality[:qp[:strength[:bframes]]]]
         1: use QP from B-frames too (may cause flicker)
 
 pp7[=qp[:mode]]
-    Variant of the spp filter, similar to spp=6 with 7 point DCT where only
-    the center sample is used after IDCT.
+    Another postprocessing filter
 
     <qp>
         Force quantization parameter (default: 0, use QP from video).
@@ -1096,23 +1073,6 @@ yadif=[mode[:field_dominance]]
 
         *NOTE*: This option will possibly be removed in a future version. Use
         ``--field-dominance`` instead.
-
-mcdeint=[mode[:parity[:qp]]]
-    Motion compensating deinterlacer. It needs one field per frame as input
-    and must thus be used together with tfields=1 or yadif=1/3 or equivalent.
-
-    <mode>
-        :0: fast
-        :1: medium
-        :2: slow, iterative motion estimation
-        :3: extra slow, like 2 plus multiple reference frames
-
-    <parity>
-        0 or 1 selects which field to use (note: no autodetection yet!).
-
-    <qp>
-        Higher values should result in a smoother motion vector field but less
-        optimal individual vectors.
 
 boxblur=radius:power[:radius:power]
     box blur
