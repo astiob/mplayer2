@@ -424,7 +424,6 @@ Miscellaneous options:
   --enable-runtime-cpudetection    enable runtime CPU detection [disable]
   --enable-cross-compile enable cross-compilation [disable]
   --cc=COMPILER          C compiler to build MPlayer [gcc]
-  --nm=NM                nm tool to build MPlayer [nm]
   --pkg-config=PKGCONFIG pkg-config to find some libraries [pkg-config]
   --windres=WINDRES      windres to build MPlayer [windres]
   --target=PLATFORM      target platform (i386-linux, arm-linux, etc)
@@ -498,7 +497,6 @@ _windres=auto
 _cc=auto
 test "$CC" && _cc="$CC"
 _as=auto
-_nm=auto
 _runtime_cpudetection=no
 _cross_compile=no
 _prefix="/usr/local"
@@ -686,9 +684,6 @@ for ac_option do
     ;;
   --cc=*)
     _cc=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --nm=*)
-    _nm=$(echo $ac_option | cut -d '=' -f 2)
     ;;
   --pkg-config=*)
     _pkg_config=$(echo $ac_option | cut -d '=' -f 2)
@@ -1297,11 +1292,6 @@ echo "Detected operating system: $system_name"
 echo "Detected host architecture: $host_arch"
 
 # ---
-
-if test "$_nm" = auto ; then
-  _nm=$($_cc -print-prog-name=nm)
-  test -z "$_nm" && _nm=nm
-fi
 
 # XXX: this should be ok..
 _cpuinfo="echo"
@@ -2031,18 +2021,6 @@ else
   def_bigendian='#define HAVE_BIGENDIAN 0'
 fi
 echores "$_byte_order"
-
-
-echocheck "extern symbol prefix"
-cat > $TMPC << EOF
-int ff_extern;
-EOF
-cc_check -c || die "Symbol mangling check failed."
-sym=$($_nm -P -g $TMPEXE)
-extern_prefix=${sym%%ff_extern*}
-def_extern_asm="#define EXTERN_ASM $extern_prefix"
-def_extern_prefix="#define EXTERN_PREFIX \"$extern_prefix\""
-echores $extern_prefix
 
 
 echocheck "assembler support of -pipe option"

@@ -2,6 +2,7 @@
 
 #define GLUE(a, b) a ## b
 #define JOIN(a, b) GLUE(a, b)
+#define EXTERN_ASM
 #define MANGLE(s)  JOIN(EXTERN_ASM, s)
 
 .data
