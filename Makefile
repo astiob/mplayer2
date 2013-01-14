@@ -141,7 +141,6 @@ SRCS_COMMON-$(TV_DSHOW)              += stream/tvi_dshow.c \
                                         loader/dshow/guids.c \
                                         loader/dshow/mediatype.c \
 
-SRCS_COMMON-$(TV_V4L1)               += stream/tvi_v4l.c  stream/audio_in.c
 SRCS_COMMON-$(TV_V4L2)               += stream/tvi_v4l2.c stream/audio_in.c
 SRCS_COMMON-$(UNRAR_EXEC)            += sub/unrar_exec.c
 SRCS_COMMON-$(VCD)                   += stream/stream_vcd.c
