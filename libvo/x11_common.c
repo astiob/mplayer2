@@ -381,16 +381,7 @@ void update_xinerama_info(struct vo *vo) {
 int vo_init(struct vo *vo)
 {
     struct MPOpts *opts = vo->opts;
-// int       mScreen;
-    int depth, bpp;
-    unsigned int mask;
 
-// char    * DisplayName = ":0.0";
-// Display * mDisplay;
-    XImage *mXImage = NULL;
-
-// Window    mRootWin;
-    XWindowAttributes attribs;
     char *dispName;
 
     assert(vo->x11 == NULL);
@@ -447,54 +438,9 @@ int vo_init(struct vo *vo)
             opts->vo_screenheight = DisplayHeight(x11->display, x11->screen);
     }
     // get color depth (from root window, or the best visual):
+    XWindowAttributes attribs;
     XGetWindowAttributes(x11->display, x11->rootwin, &attribs);
-    depth = attribs.depth;
 
-    if (depth != 15 && depth != 16 && depth != 24 && depth != 32)
-    {
-        Visual *visual;
-
-        depth = vo_find_depth_from_visuals(x11->display, x11->screen, &visual);
-        if (depth != -1)
-            mXImage = XCreateImage(x11->display, visual, depth, ZPixmap,
-                                   0, NULL, 1, 1, 8, 1);
-    } else
-        mXImage =
-            XGetImage(x11->display, x11->rootwin, 0, 0, 1, 1, AllPlanes, ZPixmap);
-
-    x11->depthonscreen = depth;   // display depth on screen
-
-    // get bits/pixel from XImage structure:
-    if (mXImage == NULL)
-    {
-        mask = 0;
-    } else
-    {
-        /*
-         * for the depth==24 case, the XImage structures might use
-         * 24 or 32 bits of data per pixel.  The x11->depthonscreen
-         * field stores the amount of data per pixel in the
-         * XImage structure!
-         *
-         * Maybe we should rename vo_depthonscreen to (or add) vo_bpp?
-         */
-        bpp = mXImage->bits_per_pixel;
-        if ((x11->depthonscreen + 7) / 8 != (bpp + 7) / 8)
-            x11->depthonscreen = bpp;     // by A'rpi
-        mask =
-            mXImage->red_mask | mXImage->green_mask | mXImage->blue_mask;
-        mp_msg(MSGT_VO, MSGL_V,
-               "vo: X11 color mask:  %X  (R:%lX G:%lX B:%lX)\n", mask,
-               mXImage->red_mask, mXImage->green_mask, mXImage->blue_mask);
-        XDestroyImage(mXImage);
-    }
-    if (((x11->depthonscreen + 7) / 8) == 2)
-    {
-        if (mask == 0x7FFF)
-            x11->depthonscreen = 15;
-        else if (mask == 0xFFFF)
-            x11->depthonscreen = 16;
-    }
 // XCloseDisplay( mDisplay );
 /* slightly improved local display detection AST */
     if (strncmp(dispName, "unix:", 5) == 0)
@@ -506,8 +452,8 @@ int vo_init(struct vo *vo)
     else
         x11->display_is_local = 0;
     mp_msg(MSGT_VO, MSGL_V,
-           "vo: X11 running at %dx%d with depth %d and %d bpp (\"%s\" => %s display)\n",
-           opts->vo_screenwidth, opts->vo_screenheight, depth, x11->depthonscreen,
+           "vo: X11 running at %dx%d with depth %d (\"%s\" => %s display)\n",
+           opts->vo_screenwidth, opts->vo_screenheight, attribs.depth,
            dispName, x11->display_is_local ? "local" : "remote");
 
     x11->wm_type = vo_wm_detect(vo);
@@ -534,7 +480,6 @@ void vo_uninit(struct vo_x11_state *x11)
             XCloseIM(x11->xim);
         XSetErrorHandler(NULL);
         XCloseDisplay(x11->display);
-        x11->depthonscreen = 0;
         x11->display = NULL;
     }
     talloc_free(x11);
@@ -1739,59 +1684,6 @@ double vo_vm_get_fps(struct vo *vo)
     return 1e3 * clock / modeline.htotal / modeline.vtotal;
 }
 #endif
-
-
-/*
- * Scan the available visuals on this Display/Screen.  Try to find
- * the 'best' available TrueColor visual that has a decent color
- * depth (at least 15bit).  If there are multiple visuals with depth
- * >= 15bit, we prefer visuals with a smaller color depth.
- */
-int vo_find_depth_from_visuals(Display * dpy, int screen,
-                               Visual ** visual_return)
-{
-    XVisualInfo visual_tmpl;
-    XVisualInfo *visuals;
-    int nvisuals, i;
-    int bestvisual = -1;
-    int bestvisual_depth = -1;
-
-    visual_tmpl.screen = screen;
-    visual_tmpl.class = TrueColor;
-    visuals = XGetVisualInfo(dpy,
-                             VisualScreenMask | VisualClassMask,
-                             &visual_tmpl, &nvisuals);
-    if (visuals != NULL)
-    {
-        for (i = 0; i < nvisuals; i++)
-        {
-            mp_msg(MSGT_VO, MSGL_V,
-                   "vo: X11 truecolor visual %#lx, depth %d, R:%lX G:%lX B:%lX\n",
-                   visuals[i].visualid, visuals[i].depth,
-                   visuals[i].red_mask, visuals[i].green_mask,
-                   visuals[i].blue_mask);
-            /*
-             * Save the visual index and its depth, if this is the first
-             * truecolor visul, or a visual that is 'preferred' over the
-             * previous 'best' visual.
-             */
-            if (bestvisual_depth == -1
-                || (visuals[i].depth >= 15
-                    && (visuals[i].depth < bestvisual_depth
-                        || bestvisual_depth < 15)))
-            {
-                bestvisual = i;
-                bestvisual_depth = visuals[i].depth;
-            }
-        }
-
-        if (bestvisual != -1 && visual_return != NULL)
-            *visual_return = visuals[bestvisual].visual;
-
-        XFree(visuals);
-    }
-    return bestvisual_depth;
-}
 
 
 static Colormap cmap = None;

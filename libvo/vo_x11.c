@@ -77,6 +77,7 @@ static unsigned char *ImageDataOrig;
 static XImage *myximage = NULL;
 static int depth, bpp;
 static XWindowAttributes attribs;
+int vo_depthonscreen;
 
 static int int_pause;
 
@@ -151,6 +152,58 @@ static int dst_width;
 extern int sws_flags;
 
 static XVisualInfo vinfo;
+
+/*
+ * Scan the available visuals on this Display/Screen.  Try to find
+ * the 'best' available TrueColor visual that has a decent color
+ * depth (at least 15bit).  If there are multiple visuals with depth
+ * >= 15bit, we prefer visuals with a smaller color depth.
+ */
+static int vo_find_depth_from_visuals(Display * dpy, int screen,
+                                      Visual ** visual_return)
+{
+    XVisualInfo visual_tmpl;
+    XVisualInfo *visuals;
+    int nvisuals, i;
+    int bestvisual = -1;
+    int bestvisual_depth = -1;
+
+    visual_tmpl.screen = screen;
+    visual_tmpl.class = TrueColor;
+    visuals = XGetVisualInfo(dpy,
+                             VisualScreenMask | VisualClassMask,
+                             &visual_tmpl, &nvisuals);
+    if (visuals != NULL)
+    {
+        for (i = 0; i < nvisuals; i++)
+        {
+            mp_msg(MSGT_VO, MSGL_V,
+                   "vo: X11 truecolor visual %#lx, depth %d, R:%lX G:%lX B:%lX\n",
+                   visuals[i].visualid, visuals[i].depth,
+                   visuals[i].red_mask, visuals[i].green_mask,
+                   visuals[i].blue_mask);
+            /*
+             * Save the visual index and its depth, if this is the first
+             * truecolor visul, or a visual that is 'preferred' over the
+             * previous 'best' visual.
+             */
+            if (bestvisual_depth == -1
+                || (visuals[i].depth >= 15
+                    && (visuals[i].depth < bestvisual_depth
+                        || bestvisual_depth < 15)))
+            {
+                bestvisual = i;
+                bestvisual_depth = visuals[i].depth;
+            }
+        }
+
+        if (bestvisual != -1 && visual_return != NULL)
+            *visual_return = visuals[bestvisual].visual;
+
+        XFree(visuals);
+    }
+    return bestvisual_depth;
+}
 
 static void getMyXImage(void)
 {
@@ -634,6 +687,54 @@ static int preinit(const char *arg)
 
     if (!vo_init())
         return -1;              // Can't open X11
+
+    XWindowAttributes attribs;
+    XGetWindowAttributes(mDisplay, mRootWin, &attribs);
+    depth = attribs.depth;
+    XImage *mXImage = NULL;
+    if (depth != 15 && depth != 16 && depth != 24 && depth != 32) {
+        Visual *visual;
+
+        depth = vo_find_depth_from_visuals(mDisplay, mScreen, &visual);
+        if (depth != -1)
+            mXImage = XCreateImage(mDisplay, visual, depth, ZPixmap,
+                                   0, NULL, 1, 1, 8, 1);
+    } else
+        mXImage =
+            XGetImage(mDisplay, mRootWin, 0, 0, 1, 1, AllPlanes, ZPixmap);
+
+    vo_depthonscreen = depth;   // display depth on screen
+
+    // get bits/pixel from XImage structure:
+    unsigned int mask;
+    if (mXImage == NULL) {
+        mask = 0;
+    } else {
+        /*
+         * for the depth==24 case, the XImage structures might use
+         * 24 or 32 bits of data per pixel.  The vo_depthonscreen
+         * field stores the amount of data per pixel in the
+         * XImage structure!
+         *
+         * Maybe we should rename vo_depthonscreen to (or add) vo_bpp?
+         */
+        bpp = mXImage->bits_per_pixel;
+        if ((vo_depthonscreen + 7) / 8 != (bpp + 7) / 8)
+            vo_depthonscreen = bpp;     // by A'rpi
+        mask =
+            mXImage->red_mask | mXImage->green_mask | mXImage->blue_mask;
+        mp_msg(MSGT_VO, MSGL_V,
+               "vo: X11 color mask:  %X  (R:%lX G:%lX B:%lX)\n", mask,
+               mXImage->red_mask, mXImage->green_mask, mXImage->blue_mask);
+        XDestroyImage(mXImage);
+    }
+    if (((vo_depthonscreen + 7) / 8) == 2)
+    {
+        if (mask == 0x7FFF)
+            vo_depthonscreen = 15;
+        else if (mask == 0xFFFF)
+            vo_depthonscreen = 16;
+    }
     return 0;
 }
 

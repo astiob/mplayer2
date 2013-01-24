@@ -34,7 +34,6 @@ struct vo_x11_state {
     Window rootwin;
     int screen;
     int display_is_local;
-    int depthonscreen;
 
     XIM xim;
     XIC xic;
@@ -178,7 +177,6 @@ double vo_vm_get_fps(struct vo *vo);
 
 void update_xinerama_info(struct vo *vo);
 
-int vo_find_depth_from_visuals(Display *dpy, int screen, Visual **visual_return);
 void xscreensaver_heartbeat(struct vo_x11_state *x11);
 
 // Old VOs use incompatible function calls, translate them to new
@@ -213,7 +211,6 @@ void xscreensaver_heartbeat(struct vo_x11_state *x11);
 #define vo_x11_border() vo_x11_border(global_vo)
 
 #define mDisplay global_vo->x11->display
-#define vo_depthonscreen global_vo->x11->depthonscreen
 #define vo_window global_vo->x11->window
 #define xv_ck_info global_vo->x11->xv_ck_info
 #define xv_colorkey global_vo->x11->xv_colorkey
