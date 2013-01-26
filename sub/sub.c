@@ -216,8 +216,8 @@ void osd_free(struct osd_state *osd)
     mp_osd_obj_t* obj=vo_osd_list;
     while(obj){
 	mp_osd_obj_t* next=obj->next;
-	free(obj->alpha_buffer);
-	free(obj->bitmap_buffer);
+	av_free(obj->alpha_buffer);
+	av_free(obj->bitmap_buffer);
 	free(obj);
 	obj=next;
     }
