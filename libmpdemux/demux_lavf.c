@@ -450,6 +450,10 @@ static void handle_stream(demuxer_t *demuxer, AVFormatContext *avfc, int i)
         sh_video->ds = demuxer->video;
         if (codec->extradata_size)
             memcpy(sh_video->bih + 1, codec->extradata, codec->extradata_size);
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(54, 2, 0)
+        sh_video->is_attached_pic =
+            st->disposition & AV_DISPOSITION_ATTACHED_PIC;
+#endif
         if ( mp_msg_test(MSGT_HEADER, MSGL_V))
             print_video_header(sh_video->bih, MSGL_V);
         st->discard = AVDISCARD_ALL;
@@ -663,8 +667,16 @@ static demuxer_t *demux_open_lavf(demuxer_t *demuxer)
     int vid = demuxer->video->id;
     demuxer->video->id = -2;
     demuxer->desc->control(demuxer, DEMUXER_CTRL_SWITCH_VIDEO, &vid);
-    if (demuxer->video->id >= 0)
-        demuxer->video->sh = demuxer->v_streams[demuxer->video->id];
+    while (demuxer->video->id >= 0) {
+        struct sh_video *v = demuxer->v_streams[demuxer->video->id];
+        if (v->is_attached_pic) {
+            demuxer->desc->control(demuxer, DEMUXER_CTRL_SWITCH_VIDEO,
+                                   &(int){-1});
+        } else {
+            demuxer->video->sh = v;
+            break;
+        }
+    }
 
     // disabled because unreliable per-stream bitrate values returned
     // by libavformat trigger this heuristic incorrectly and break things

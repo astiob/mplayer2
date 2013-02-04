@@ -127,6 +127,7 @@ typedef struct sh_video {
     AVIStreamHeader video;
     BITMAPINFOHEADER *bih;
     void *ImageDesc; // for quicktime codecs
+    bool is_attached_pic;
 } sh_video_t;
 
 typedef struct sh_sub {
