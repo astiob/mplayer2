@@ -251,23 +251,7 @@ static const char help_text[] = _(
 "           ************************************************\n"\
 "           **** Your system is too SLOW to play this!  ****\n"\
 "           ************************************************\n\n"\
-"Possible reasons, problems, workarounds:\n"\
-"- Most common: broken/buggy _audio_ driver\n"\
-"  - Try -ao sdl or use the OSS emulation of ALSA.\n"\
-"  - Experiment with different values for -autosync, 30 is a good start.\n"\
-"- Slow video output\n"\
-"  - Try a different -vo driver (-vo help for a list) or try -framedrop!\n"\
-"- Slow CPU\n"\
-"  - Don't try to play a big DVD/DivX on a slow CPU! Try some of the lavdopts,\n"\
-"    e.g. -vfm ffmpeg -lavdopts lowres=1:fast:skiploopfilter=all.\n"\
-"- Broken file\n"\
-"  - Try various combinations of -nobps -ni -forceidx -mc 0.\n"\
-"- Slow media (NFS/SMB mounts, DVD, VCD etc)\n"\
-"  - Try -cache 8192.\n"\
-"- Are you using -cache to play a non-interleaved AVI file?\n"\
-"  - Try -nocache.\n"\
-"Read DOCS/HTML/en/video.html for tuning/speedup tips.\n"\
-"If none of this helps you, read DOCS/HTML/en/bugreports.html.\n\n")
+)
 
 
 //**************************************************************************//
