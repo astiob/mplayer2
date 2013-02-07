@@ -152,33 +152,68 @@ vec4 sample_bicubic_fast(sampler2D tex, vec2 texsize, vec2 texcoord) {
 
 float[2] weights2(sampler1D lookup, float f) {
     vec4 c = texture1D(lookup, f);
-    return float[2](c.r, c.g);
+    float array[2];
+    array[0] = c.r;
+    array[1] = c.g;
+    return array;
 }
 
 float[4] weights4(sampler1D lookup, float f) {
     vec4 c = texture1D(lookup, f);
-    return float[4](c.r, c.g, c.b, c.a);
+    float array[4];
+    array[0] = c.r;
+    array[1] = c.g;
+    array[2] = c.b;
+    array[3] = c.a;
+    return array;
 }
 
 float[6] weights6(sampler2D lookup, float f) {
     vec4 c1 = texture(lookup, vec2(0.25, f));
     vec4 c2 = texture(lookup, vec2(0.75, f));
-    return float[6](c1.r, c1.g, c1.b, c2.r, c2.g, c2.b);
+    float array[6];
+    array[0] = c1.r;
+    array[1] = c1.g;
+    array[2] = c1.b;
+    array[3] = c2.r;
+    array[4] = c2.g;
+    array[5] = c2.b;
+    return array;
 }
 
 float[8] weights8(sampler2D lookup, float f) {
     vec4 c1 = texture(lookup, vec2(0.25, f));
     vec4 c2 = texture(lookup, vec2(0.75, f));
-    return float[8](c1.r, c1.g, c1.b, c1.a, c2.r, c2.g, c2.b, c2.a);
+    float array[8];
+    array[0] = c1.r;
+    array[1] = c1.g;
+    array[2] = c1.b;
+    array[3] = c1.a;
+    array[4] = c2.r;
+    array[5] = c2.g;
+    array[6] = c2.b;
+    array[7] = c2.a;
+    return array;
 }
 
 float[12] weights12(sampler2D lookup, float f) {
     vec4 c1 = texture(lookup, vec2(1.0/6.0, f));
     vec4 c2 = texture(lookup, vec2(0.5, f));
     vec4 c3 = texture(lookup, vec2(5.0/6.0, f));
-    return float[12](c1.r, c1.g, c1.b, c1.a,
-                     c2.r, c2.g, c2.b, c2.a,
-                     c3.r, c3.g, c3.b, c3.a);
+    float array[12];
+    array[0] = c1.r;
+    array[1] = c1.g;
+    array[2] = c1.b;
+    array[3] = c1.a;
+    array[4] = c2.r;
+    array[5] = c2.g;
+    array[6] = c2.b;
+    array[7] = c2.a;
+    array[8] = c3.r;
+    array[9] = c3.g;
+    array[10] = c3.b;
+    array[11] = c3.a;
+    return array;
 }
 
 float[16] weights16(sampler2D lookup, float f) {
@@ -186,8 +221,24 @@ float[16] weights16(sampler2D lookup, float f) {
     vec4 c2 = texture(lookup, vec2(0.375, f));
     vec4 c3 = texture(lookup, vec2(0.625, f));
     vec4 c4 = texture(lookup, vec2(0.875, f));
-    return float[16](c1.r, c1.g, c1.b, c1.a, c2.r, c2.g, c2.b, c2.a,
-                     c3.r, c3.g, c3.b, c3.a, c4.r, c4.g, c4.b, c4.a);
+    float array[16];
+    array[0] = c1.r;
+    array[1] = c1.g;
+    array[2] = c1.b;
+    array[3] = c1.a;
+    array[4] = c2.r;
+    array[5] = c2.g;
+    array[6] = c2.b;
+    array[7] = c2.a;
+    array[8] = c3.r;
+    array[9] = c3.g;
+    array[10] = c3.b;
+    array[11] = c3.a;
+    array[12] = c4.r;
+    array[13] = c4.g;
+    array[14] = c4.b;
+    array[15] = c4.a;
+    return array;
 }
 
 #define CONVOLUTION_SEP_N(NAME, N)                                          \
@@ -310,7 +361,8 @@ void main() {
     color.gb = vec2(128.0/255.0);
 #endif
 #ifdef USE_COLORMATRIX
-    color = mat3(colormatrix) * color + colormatrix[3];
+    color = mat3(colormatrix[0], colormatrix[1], colormatrix[2]) * color;
+    color += colormatrix[3];
 #endif
 #ifdef USE_LINEAR_CONV
     color = pow(color, vec3(2.2));
