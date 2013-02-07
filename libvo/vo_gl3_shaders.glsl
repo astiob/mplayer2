@@ -102,7 +102,6 @@ uniform mat4x3 colormatrix;
 uniform vec3 inv_gamma;
 uniform float conv_gamma;
 uniform float dither_quantization;
-uniform float dither_multiply;
 uniform float filter_param1;
 uniform vec2 dither_size;
 
@@ -380,7 +379,18 @@ void main() {
 #endif
 #ifdef USE_DITHER
     float dither_value = texture(dither, gl_FragCoord.xy / dither_size).r;
-    color = floor(color * dither_multiply + dither_value ) / dither_quantization;
+    // dither_value was originally an integer from the range 0..256,
+    // but OpenGL assumed 0..255 when converting it to float. Correct this.
+    dither_value *= 255.0 / 256.0;
+    // The numbers in the WxH dither matrix are multiples of 1/WH
+    // with values from zero inclusive to one exclusive. Add an offset
+    // to center them around one half, so that the aggregate error
+    // introduced by the dither is zero. This also makes dither_value
+    // uniformly distributed on the entire range from zero to one
+    // and, if repeated periodically, on the whole real line.
+    dither_value += 0.5 / (dither_size.x * dither_size.y);
+    color = color * dither_quantization + dither_value;
+    color = floor(color) / dither_quantization;
 #endif
     out_color = vec4(color, 1);
 }
