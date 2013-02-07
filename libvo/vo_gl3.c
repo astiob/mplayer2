@@ -191,7 +191,6 @@ struct gl_priv {
 
     GLuint dither_texture;
     float dither_quantization;
-    float dither_multiply;
     int dither_size;
 
     uint32_t image_width;
@@ -478,8 +477,6 @@ static void update_uniforms(struct gl_priv *p, GLuint program)
     gl->Uniform1i(gl->GetUniformLocation(program, "dither"), TEXUNIT_DITHER);
     gl->Uniform1f(gl->GetUniformLocation(program, "dither_quantization"),
                   p->dither_quantization);
-    gl->Uniform1f(gl->GetUniformLocation(program, "dither_multiply"),
-                  p->dither_multiply);
 
     float sparam1 = p->scaler_params[0];
     gl->Uniform1f(gl->GetUniformLocation(program, "filter_param1"),
@@ -895,7 +892,6 @@ static void init_dither(struct gl_priv *p)
     // dither patterns can be visible.
     p->dither_quantization = (1 << dst_depth) - 1;
     int size = 8;
-    p->dither_multiply = p->dither_quantization + 1.0 / (size*size);
     unsigned char dither[256];
     make_dither_matrix(dither, size);
 
