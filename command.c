@@ -1233,6 +1233,48 @@ static int mp_property_colormatrix_output_range(m_option_t *prop, int action,
                                   prop, action, arg, mpctx);
 }
 
+static int mp_property_chroma_sample_location(m_option_t *prop, int action,
+                                              void *arg, MPContext *mpctx)
+{
+    char *optname = prop->priv;
+    const struct m_option *opt = m_config_get_option(mpctx->mconfig,
+                                                     bstr(optname));
+    struct MPOpts *opts = &mpctx->opts;
+
+    switch (action) {
+    case M_PROPERTY_PRINT:
+        if (!arg)
+            return M_PROPERTY_ERROR;
+        struct mp_csp_details actual = { .chroma_loc = -1 };
+        char *req_loc = m_option_print(opt,
+                                       &opts->requested_chroma_sample_location);
+        char *real_loc = NULL;
+        if (mpctx->sh_video) {
+            struct vf_instance *vf = mpctx->sh_video->vfilter;
+            if (vf->control(vf, VFCTRL_GET_YUV_COLORSPACE, &actual) == true) {
+                real_loc = m_option_print(opt, &actual.chroma_loc);
+            } else {
+                real_loc = talloc_strdup(NULL, "Unknown");
+            }
+        }
+        char *res;
+        if (opts->requested_chroma_sample_location == MP_CPRIM_AUTO && real_loc) {
+            res = talloc_asprintf(NULL, "Auto (%s)", real_loc);
+        } else if (opts->requested_chroma_sample_location == actual.chroma_loc
+                   || !real_loc) {
+            res = talloc_strdup(NULL, req_loc);
+        } else
+            res = talloc_asprintf(NULL, mp_gtext("%s, but %s used"),
+                                  req_loc, real_loc);
+        talloc_free(req_loc);
+        talloc_free(real_loc);
+        *(char **)arg = res;
+        return M_PROPERTY_OK;
+    default:;
+        return colormatrix_property_helper(prop, action, arg, mpctx);
+    }
+}
+
 static int mp_property_capture(m_option_t *prop, int action,
                                void *arg, MPContext *mpctx)
 {
@@ -2270,6 +2312,8 @@ static const m_option_t mp_properties[] = {
       0, 0, 0, "colormatrix-input-range" },
     { "colormatrix_output_range", mp_property_colormatrix_output_range, &m_option_type_choice,
       0, 0, 0, "colormatrix-output-range" },
+    { "chroma_sample_location", mp_property_chroma_sample_location, &m_option_type_choice,
+      0, 0, 0, "chroma-sample-location" },
     { "ontop", mp_property_ontop, CONF_TYPE_FLAG,
       M_OPT_RANGE, 0, 1, NULL },
     { "rootwin", mp_property_rootwin, CONF_TYPE_FLAG,

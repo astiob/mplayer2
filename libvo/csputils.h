@@ -27,9 +27,9 @@
 #include <stdint.h>
 
 
-/* NOTE: the csp and levels AUTO values are converted to specific ones
- * above vf/vo level. At least vf_scale relies on all valid settings being
- * nonzero at vf/vo level.
+/* NOTE: the AUTO values are converted to specific ones
+ * above vf/vo level. At least vf_scale relies on all
+ * valid settings being nonzero at vf/vo level.
  */
 
 enum mp_csp {
@@ -50,14 +50,26 @@ enum mp_csp_levels {
     MP_CSP_LEVELS_COUNT,
 };
 
+enum mp_chroma_loc {
+    MP_CHROMA_LOC_AUTO,
+    MP_CHROMA_LOC_LEFT,
+    MP_CHROMA_LOC_CENTER,
+    MP_CHROMA_LOC_TOP_LEFT,
+    MP_CHROMA_LOC_TOP,
+    MP_CHROMA_LOC_BOTTOM_LEFT,
+    MP_CHROMA_LOC_BOTTOM,
+    MP_CHROMA_LOC_COUNT
+};
+
 struct mp_csp_details {
     enum mp_csp format;
     enum mp_csp_levels levels_in;      // encoded video
     enum mp_csp_levels levels_out;     // output device
+    enum mp_chroma_loc chroma_loc;
 };
 
 // initializer for struct mp_csp_details that contains reasonable defaults
-#define MP_CSP_DETAILS_DEFAULTS {MP_CSP_BT_601, MP_CSP_LEVELS_TV, MP_CSP_LEVELS_PC}
+#define MP_CSP_DETAILS_DEFAULTS {MP_CSP_BT_601, MP_CSP_LEVELS_TV, MP_CSP_LEVELS_PC, MP_CHROMA_LOC_CENTER}
 
 struct mp_csp_params {
     struct mp_csp_details colorspace;

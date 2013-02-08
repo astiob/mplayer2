@@ -144,6 +144,7 @@ void get_detected_video_colorspace(struct sh_video *sh, struct mp_csp_details *c
     csp->format = opts->requested_colorspace;
     csp->levels_in = opts->requested_input_range;
     csp->levels_out = opts->requested_output_range;
+    csp->chroma_loc = opts->requested_chroma_sample_location;
 
     if (csp->format == MP_CSP_AUTO)
         csp->format = sh->colorspace;
@@ -157,6 +158,11 @@ void get_detected_video_colorspace(struct sh_video *sh, struct mp_csp_details *c
 
     if (csp->levels_out == MP_CSP_LEVELS_AUTO)
         csp->levels_out = MP_CSP_LEVELS_PC;
+
+    if (csp->chroma_loc == MP_CHROMA_LOC_AUTO)
+        csp->chroma_loc = sh->chroma_sample_location;
+    if (csp->chroma_loc == MP_CHROMA_LOC_AUTO)
+        csp->chroma_loc = MP_CHROMA_LOC_CENTER;
 }
 
 void set_video_colorspace(struct sh_video *sh)
@@ -172,7 +178,8 @@ void set_video_colorspace(struct sh_video *sh)
 
     int success = actual.format == requested.format
                && actual.levels_in == requested.levels_in
-               && actual.levels_out == requested.levels_out;
+               && actual.levels_out == requested.levels_out
+               && actual.chroma_loc == requested.chroma_loc;
 
     if (!success)
         mp_tmsg(MSGT_DECVIDEO, MSGL_WARN,

@@ -393,6 +393,33 @@
     the start of the next one then keep playing video normally over the
     chapter change instead of doing a seek.
 
+--chroma-sample-location=<location>
+    For chroma-subsampled YUV video, sets the location of chroma samples
+    relative to luma samples. Using an incorrect location causes colors to
+    bleed slightly.
+
+        X   X      3 4 X      X are luma samples,
+                   1 2        1-6 are possible chroma positions
+        X   X      5 6 X
+
+    This option is not supported by all video output drivers. Drivers that do
+    not support it usually assume the center position, and so does the scale
+    video filter.
+
+    By default, the video's chroma sample location flag or a value
+    characteristic of the video codec is used, as reported by the decoder.
+    If no such value is available, the center position is assumed.
+
+    Available chroma sample locations are:
+
+    :auto:           automatic selection (default)
+    :left:           position 1 in the above diagram
+    :center:         position 2 in the above diagram
+    :top-left:       position 3 in the above diagram
+    :top:            position 4 in the above diagram
+    :bottom-left:    position 5 in the above diagram
+    :bottom:         position 6 in the above diagram
+
 --codecpath=<dir>
     Specify a directory for binary codecs.
 
