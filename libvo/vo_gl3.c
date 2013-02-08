@@ -675,6 +675,7 @@ static void compile_shaders(struct gl_priv *p)
 
     bool convert_input_to_linear = !p->is_linear_rgb
                                    && (p->use_srgb || p->use_lut_3d);
+    bool keep_output_linear = p->use_srgb && !p->use_lut_3d;
 
     shader_def_opt(&header_conv, "USE_PLANAR", p->plane_count > 1);
     shader_def_opt(&header_conv, "USE_GBRP", p->image_format == IMGFMT_GBRP);
@@ -685,6 +686,7 @@ static void compile_shaders(struct gl_priv *p)
     shader_def_opt(&header_final, "USE_LINEAR_CONV_INV", p->use_lut_3d);
     shader_def_opt(&header_final, "USE_GAMMA_POW", p->use_gamma);
     shader_def_opt(&header_final, "USE_3DLUT", p->use_lut_3d);
+    shader_def_opt(&header_final, "USE_LINEAR_OUTPUT", keep_output_linear);
     shader_def_opt(&header_final, "USE_DITHER", p->dither_texture != 0);
 
     if (p->use_scale_sep && p->scalers[0].kernel) {
