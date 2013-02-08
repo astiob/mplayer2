@@ -25,9 +25,11 @@ typedef struct MPOpts {
     int fullscreen;
     int vo_dbpp;
     float vo_panscanrange;
+    int requested_color_primaries;
     int requested_colorspace;
     int requested_input_range;
     int requested_output_range;
+    int requested_chroma_sample_location;
     int cursor_autohide_delay;
 
     // ranges -100 - 100, 1000 if the vo default should be used

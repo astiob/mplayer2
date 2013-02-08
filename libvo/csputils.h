@@ -27,10 +27,21 @@
 #include <stdint.h>
 
 
-/* NOTE: the csp and levels AUTO values are converted to specific ones
- * above vf/vo level. At least vf_scale relies on all valid settings being
- * nonzero at vf/vo level.
+/* NOTE: the AUTO values are converted to specific ones
+ * above vf/vo level. At least vf_scale relies on all
+ * valid settings being nonzero at vf/vo level.
  */
+
+enum mp_cprim {
+    MP_CPRIM_AUTO,
+    MP_CPRIM_BT_470BG,
+    MP_CPRIM_BT_709,
+    MP_CPRIM_SMPTE_170M,
+    MP_CPRIM_COUNT
+};
+
+// Any enum mp_cprim value is a valid index (except MP_CPRIM_COUNT)
+extern char * const mp_cprim_names[MP_CPRIM_COUNT];
 
 enum mp_csp {
     MP_CSP_AUTO,
@@ -50,14 +61,27 @@ enum mp_csp_levels {
     MP_CSP_LEVELS_COUNT,
 };
 
+enum mp_chroma_loc {
+    MP_CHROMA_LOC_AUTO,
+    MP_CHROMA_LOC_LEFT,
+    MP_CHROMA_LOC_CENTER,
+    MP_CHROMA_LOC_TOP_LEFT,
+    MP_CHROMA_LOC_TOP,
+    MP_CHROMA_LOC_BOTTOM_LEFT,
+    MP_CHROMA_LOC_BOTTOM,
+    MP_CHROMA_LOC_COUNT
+};
+
 struct mp_csp_details {
+    enum mp_cprim primaries;
     enum mp_csp format;
     enum mp_csp_levels levels_in;      // encoded video
     enum mp_csp_levels levels_out;     // output device
+    enum mp_chroma_loc chroma_loc;
 };
 
 // initializer for struct mp_csp_details that contains reasonable defaults
-#define MP_CSP_DETAILS_DEFAULTS {MP_CSP_BT_601, MP_CSP_LEVELS_TV, MP_CSP_LEVELS_PC}
+#define MP_CSP_DETAILS_DEFAULTS {MP_CPRIM_BT_709, MP_CSP_BT_601, MP_CSP_LEVELS_TV, MP_CSP_LEVELS_PC, MP_CHROMA_LOC_CENTER}
 
 struct mp_csp_params {
     struct mp_csp_details colorspace;
@@ -111,6 +135,7 @@ int mp_csp_equalizer_set(struct mp_csp_equalizer *eq, const char *property,
 int mp_csp_equalizer_get(struct mp_csp_equalizer *eq, const char *property,
                          int *out_value);
 
+enum mp_cprim mp_csp_guess_color_primaries(int width, int height);
 enum mp_csp mp_csp_guess_colorspace(int width, int height);
 
 void mp_gen_gamma_map(unsigned char *map, int size, float gamma);

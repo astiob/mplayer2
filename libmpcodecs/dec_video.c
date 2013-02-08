@@ -141,9 +141,16 @@ void get_detected_video_colorspace(struct sh_video *sh, struct mp_csp_details *c
     struct MPOpts *opts = sh->opts;
     struct vf_instance *vf = sh->vfilter;
 
+    csp->primaries = opts->requested_color_primaries;
     csp->format = opts->requested_colorspace;
     csp->levels_in = opts->requested_input_range;
     csp->levels_out = opts->requested_output_range;
+    csp->chroma_loc = opts->requested_chroma_sample_location;
+
+    if (csp->primaries == MP_CPRIM_AUTO)
+        csp->primaries = sh->color_primaries;
+    if (csp->primaries == MP_CPRIM_AUTO)
+        csp->primaries = mp_csp_guess_color_primaries(vf->w, vf->h);
 
     if (csp->format == MP_CSP_AUTO)
         csp->format = sh->colorspace;
@@ -157,6 +164,11 @@ void get_detected_video_colorspace(struct sh_video *sh, struct mp_csp_details *c
 
     if (csp->levels_out == MP_CSP_LEVELS_AUTO)
         csp->levels_out = MP_CSP_LEVELS_PC;
+
+    if (csp->chroma_loc == MP_CHROMA_LOC_AUTO)
+        csp->chroma_loc = sh->chroma_sample_location;
+    if (csp->chroma_loc == MP_CHROMA_LOC_AUTO)
+        csp->chroma_loc = MP_CHROMA_LOC_CENTER;
 }
 
 void set_video_colorspace(struct sh_video *sh)

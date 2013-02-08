@@ -32,11 +32,18 @@
 
 #include "csputils.h"
 
+char * const mp_cprim_names[MP_CPRIM_COUNT] = {
+    "Autoselect",
+    "BT.470 B/G (PAL)",
+    "BT.709 (HD)",
+    "SMPTE 170M (NTSC)",
+};
+
 char * const mp_csp_names[MP_CSP_COUNT] = {
     "Autoselect",
     "BT.601 (SD)",
     "BT.709 (HD)",
-    "SMPTE-240M",
+    "SMPTE 240M",
 };
 
 char * const mp_csp_equalizer_names[MP_CSP_EQ_COUNT] = {
@@ -47,6 +54,12 @@ char * const mp_csp_equalizer_names[MP_CSP_EQ_COUNT] = {
     "gamma",
 };
 
+
+enum mp_cprim mp_csp_guess_color_primaries(int width, int height)
+{
+    return width >= 1280 || height > 576 ? MP_CPRIM_BT_709 :
+           height == 576 ? MP_CPRIM_BT_470BG : MP_CPRIM_SMPTE_170M;
+}
 
 enum mp_csp mp_csp_guess_colorspace(int width, int height)
 {
