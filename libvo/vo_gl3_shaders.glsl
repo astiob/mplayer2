@@ -35,6 +35,9 @@
 # define DECLARE_FRAGPARMS
 # define out_color gl_FragColor
 # define in varying
+vec3 mix(vec3 x, vec3 y, bvec3 a) {
+    return mix(x, y, vec3(a));
+}
 #endif
 
 #!section vertex_all
@@ -389,8 +392,21 @@ void main() {
     // uniformly distributed on the entire range from zero to one
     // and, if repeated periodically, on the whole real line.
     dither_value += 0.5 / (dither_size.x * dither_size.y);
-    color = color * dither_quantization + dither_value;
-    color = floor(color) / dither_quantization;
+#ifdef USE_LINEAR_OUTPUT
+    vec3 original = color;
+    color = pow(color, vec3(1.0/2.2)) * dither_quantization;
+#else
+    vec3 original = pow(color, vec3(2.2));
+    color *= dither_quantization;
+#endif
+    vec3 floored = pow(floor(color) / dither_quantization, vec3(2.2));
+    vec3 ceiled = pow(ceil(color) / dither_quantization, vec3(2.2));
+    vec3 threshold = dither_value * (ceiled - floored);
+    bvec3 selector = greaterThanEqual(original - floored, threshold);
+    color = mix(floor(color), ceil(color), selector) / dither_quantization;
+#ifdef USE_LINEAR_OUTPUT
+    color = pow(color, vec3(2.2));
+#endif
 #endif
     out_color = vec4(color, 1);
 }
