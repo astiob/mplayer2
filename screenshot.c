@@ -177,7 +177,8 @@ void screenshot_save(struct MPContext *mpctx, struct mp_image *image)
                                                           dst->imgfmt);
 
     struct mp_csp_details colorspace;
-    get_detected_video_colorspace(mpctx->sh_video, &colorspace);
+    struct mp_csp_rgb csp_rgb;
+    get_detected_video_colorspace(mpctx->sh_video, &colorspace, &csp_rgb);
     // this is a property of the output device; images always use full-range RGB
     colorspace.levels_out = MP_CSP_LEVELS_PC;
     mp_sws_set_colorspace(sws, &colorspace);

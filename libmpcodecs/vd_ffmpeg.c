@@ -391,6 +391,24 @@ static void draw_slice(struct AVCodecContext *s,
     }
 }
 
+static enum mp_cprim avcol_pri_to_mp_cprim(enum AVColorPrimaries primaries)
+{
+    switch (primaries) {
+    case AVCOL_PRI_BT709:
+        return MP_CPRIM_BT_709;
+        break;
+    case AVCOL_PRI_BT470BG:
+        return MP_CPRIM_BT_470BG;
+        break;
+    case AVCOL_PRI_SMPTE170M:
+    case AVCOL_PRI_SMPTE240M:
+        return MP_CPRIM_SMPTE_170M;
+        break;
+    default:
+        return MP_CPRIM_AUTO;
+    }
+}
+
 static enum mp_csp avcol_spc_to_mp_csp(enum AVColorSpace colorspace)
 {
     switch (colorspace) {
@@ -503,6 +521,7 @@ static int init_vo(sh_video_t *sh, enum PixelFormat pix_fmt)
         else
             supported_fmts = (const unsigned int[]){ctx->best_csp, 0xffffffff};
 
+        sh->color_primaries = avcol_pri_to_mp_cprim(avctx->color_primaries);
         sh->colorspace = avcol_spc_to_mp_csp(avctx->colorspace);
         sh->color_range = avcol_range_to_mp_csp_levels(avctx->color_range);
         sh->chroma_sample_location =

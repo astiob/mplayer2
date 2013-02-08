@@ -1139,6 +1139,41 @@ static int colormatrix_property_helper(m_option_t *prop, int action,
     return r;
 }
 
+static int mp_property_color_primaries(m_option_t *prop, int action,
+                                       void *arg, MPContext *mpctx)
+{
+    struct MPOpts *opts = &mpctx->opts;
+    switch (action) {
+    case M_PROPERTY_PRINT:
+        if (!arg)
+            return M_PROPERTY_ERROR;
+        struct mp_csp_rgb actual = { .primaries = -1 };
+        char *req_prim = mp_cprim_names[opts->requested_color_primaries];
+        char *real_prim = NULL;
+        if (mpctx->sh_video) {
+            struct vf_instance *vf = mpctx->sh_video->vfilter;
+            if (vf->control(vf, VFCTRL_GET_RGB_COLORSPACE, &actual) == true) {
+                real_prim = mp_cprim_names[actual.primaries];
+            } else {
+                real_prim = "Unknown";
+            }
+        }
+        char *res;
+        if (opts->requested_color_primaries == MP_CPRIM_AUTO && real_prim) {
+            res = talloc_asprintf(NULL, "Auto (%s)", real_prim);
+        } else if (opts->requested_color_primaries == actual.primaries
+                   || !real_prim) {
+            res = talloc_strdup(NULL, req_prim);
+        } else
+            res = talloc_asprintf(NULL, mp_gtext("%s, but %s used"),
+                                  req_prim, real_prim);
+        *(char **)arg = res;
+        return M_PROPERTY_OK;
+    default:;
+        return colormatrix_property_helper(prop, action, arg, mpctx);
+    }
+}
+
 static int mp_property_colormatrix(m_option_t *prop, int action, void *arg,
                                    MPContext *mpctx)
 {
@@ -2306,6 +2341,8 @@ static const m_option_t mp_properties[] = {
       M_OPT_RANGE, 0, 1, NULL },
     { "deinterlace", mp_property_deinterlace, CONF_TYPE_FLAG,
       M_OPT_RANGE, 0, 1, NULL },
+    { "color_primaries", mp_property_color_primaries, &m_option_type_choice,
+      0, 0, 0, "color-primaries" },
     { "colormatrix", mp_property_colormatrix, &m_option_type_choice,
       0, 0, 0, "colormatrix" },
     { "colormatrix_input_range", mp_property_colormatrix_input_range, &m_option_type_choice,

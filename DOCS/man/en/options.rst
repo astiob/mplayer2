@@ -432,11 +432,46 @@
     0xffffff is white. Only supported by the xv (see ``--vo=xv:ck``) and
     directx video output drivers. See also ``--nocolorkey``.
 
+--color-primaries=<gamut>
+    Controls the RGB primaries used when playing video with color correction.
+    There are various standards. Normally, BT.470 B/G should be used for SD
+    video produced in PAL and SECAM countries (most of the world including
+    Europe), SMPTE 170M for SD video produced in NTSC countries (mainly North
+    America), and BT.709 for HD video. This is attempted by default. However,
+    it is impossible to determine the origin of a video reliably, and some HD
+    content reportedly still uses SD primaries, so the automatic guess can be
+    wrong, and there is no way in general to find out which value is correct.
+    Using incorrect color primaries results in slightly under- or oversaturated
+    and shifted colors but usually has a smaller effect than using an incorrect
+    color matrix.
+
+    This option has no effect unless color correction is performed by the video
+    output driver. Currently the only driver that does this is gl3 with the
+    ``icc-profile`` suboption.
+
+    If this option is set to ``auto`` (which is the default), the video's
+    color primaries flag will be used. If that flag is unset, the color gamut
+    will be selected automatically. This is done using a simple heuristic that
+    attempts to distinguish PAL SD, NTSC SD and HD video. If the video is
+    larger than 1279x576 pixels, BT.709 (HD) will be used; if the height is
+    exactly 576 pixels, BT.470 B/G (PAL) will be used; in all other cases,
+    SMPTE 170M (NTSC) is selected.
+
+    Available color gamuts are:
+
+    :auto:          automatic selection (default)
+    :BT.470BG:      ITU-R BT.470 B/G (PAL)
+    :BT.709:        ITU-R BT.709 (HD)
+    :SMPTE-170M:    SMPTE 170M (NTSC)
+    :pal:           alias for BT.470BG
+    :hd:            alias for BT.709
+    :ntsc:          alias for SMPTE-170M
+
 --colormatrix=<colorspace>
     Controls the YUV to RGB color space conversion when playing video. There
     are various standards. Normally, BT.601 should be used for SD video, and
-    BT.709 for HD video. (This is done by default.) Using incorrect color space
-    results in slightly under or over saturated and shifted colors.
+    BT.709 for HD video. (This is done by default.) Using an incorrect color
+    matrix results in slightly under- or oversaturated and shifted colors.
 
     The color space conversion is additionally influenced by the related
     options --colormatrix-input-range and --colormatrix-output-range.
@@ -461,7 +496,7 @@
     :auto:          automatic selection (default)
     :BT.601:        ITU-R BT.601 (SD)
     :BT.709:        ITU-R BT.709 (HD)
-    :SMPTE-240M:    SMPTE-240M
+    :SMPTE-240M:    SMPTE 240M
     :sd:            alias for BT.601
     :hd:            alias for BT.709
     :0:             compatibility alias for auto (do not use)

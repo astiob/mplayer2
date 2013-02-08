@@ -74,6 +74,8 @@ enum mp_voctrl {
 
     VOCTRL_SET_YUV_COLORSPACE,          // struct mp_csp_details
     VOCTRL_GET_YUV_COLORSPACE,          // struct mp_csp_details
+    VOCTRL_SET_RGB_COLORSPACE,          // struct mp_csp_rgb
+    VOCTRL_GET_RGB_COLORSPACE,          // struct mp_csp_rgb
 
     VOCTRL_SCREENSHOT,                  // struct voctrl_screenshot_args
 };
