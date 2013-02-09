@@ -453,13 +453,29 @@ static void update_uniforms(struct gl_priv *p, GLuint program)
     for (int n = 0; n < p->plane_count; n++) {
         char textures_n[32];
         char textures_size_n[32];
+        char textures_offset_n[32];
         snprintf(textures_n, sizeof(textures_n), "textures[%d]", n);
         snprintf(textures_size_n, sizeof(textures_size_n), "textures_size[%d]", n);
+        snprintf(textures_offset_n, sizeof(textures_offset_n), "textures_offset[%d]", n);
+
+        double offset_x, offset_y;
+        offset_x = 0.5 * ((1 << p->planes[n].shift_x) - 1) / p->texture_width;
+        offset_y = 0.5 * ((1 << p->planes[n].shift_y) - 1) / p->texture_height;
+
+        if (!(p->colorspace.chroma_loc % 2))
+            offset_x = 0;
+
+        if (p->colorspace.chroma_loc <= 2)
+            offset_y = 0;
+        else if (p->colorspace.chroma_loc > 4)
+            offset_y = -offset_y;
 
         gl->Uniform1i(gl->GetUniformLocation(program, textures_n), n);
         gl->Uniform2f(gl->GetUniformLocation(program, textures_size_n),
                       p->texture_width >> p->planes[n].shift_x,
                       p->texture_height >> p->planes[n].shift_y);
+        gl->Uniform2f(gl->GetUniformLocation(program, textures_offset_n),
+                      offset_x, offset_y);
     }
 
     gl->Uniform2f(gl->GetUniformLocation(program, "dither_size"),

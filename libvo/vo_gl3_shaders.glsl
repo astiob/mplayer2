@@ -95,6 +95,7 @@ void main() {
 #!section frag_video
 uniform sampler2D textures[3];
 uniform vec2 textures_size[3];
+uniform vec2 textures_offset[3];
 uniform sampler1D lut_c_1d;
 uniform sampler1D lut_l_1d;
 uniform sampler2D lut_c_2d;
@@ -348,9 +349,9 @@ vec4 sample_sharpen5(sampler2D tex, vec2 texsize, vec2 texcoord) {
 
 void main() {
 #ifdef USE_PLANAR
-    vec3 color = vec3(SAMPLE_L(textures[0], textures_size[0], texcoord).r,
-                      SAMPLE_C(textures[1], textures_size[1], texcoord).r,
-                      SAMPLE_C(textures[2], textures_size[2], texcoord).r);
+    vec3 color = vec3(SAMPLE_L(textures[0], textures_size[0], texcoord + textures_offset[0]).r,
+                      SAMPLE_C(textures[1], textures_size[1], texcoord + textures_offset[1]).r,
+                      SAMPLE_C(textures[2], textures_size[2], texcoord + textures_offset[2]).r);
 #else
     vec3 color = SAMPLE_L(textures[0], textures_size[0], texcoord).rgb;
 #endif
