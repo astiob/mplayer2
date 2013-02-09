@@ -2187,14 +2187,13 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
         },
     };
 
-    uint16_t *input = talloc_array(tmp, uint16_t, s_r * 3);
+    float *input = talloc_array(tmp, float, s_r * 3);
     for (int i = 1; i < MP_CPRIM_COUNT; i++) {
         cmsHPROFILE vid_profile = cmsCreateRGBProfile(&d65, &primaries[i],
                         (cmsToneCurve*[3]){tonecurve, tonecurve, tonecurve});
-        cmsHTRANSFORM trafo = cmsCreateTransform(vid_profile, TYPE_RGB_16,
+        cmsHTRANSFORM trafo = cmsCreateTransform(vid_profile, TYPE_RGB_FLT,
                                                  profile, TYPE_RGB_16,
-                                                 icc_intent,
-                                                 cmsFLAGS_HIGHRESPRECALC);
+                                                 icc_intent, 0);
         cmsCloseProfile(vid_profile);
 
         if (!trafo) {
@@ -2207,9 +2206,9 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
         for (int b = 0; b < s_b; b++) {
             for (int g = 0; g < s_g; g++) {
                 for (int r = 0; r < s_r; r++) {
-                    input[r * 3 + 0] = r * 65535 / (s_r - 1);
-                    input[r * 3 + 1] = g * 65535 / (s_g - 1);
-                    input[r * 3 + 2] = b * 65535 / (s_b - 1);
+                    input[r * 3 + 0] = (float) r / (s_r - 1);
+                    input[r * 3 + 1] = (float) g / (s_g - 1);
+                    input[r * 3 + 2] = (float) b / (s_b - 1);
                 }
                 size_t base = (b * s_r * s_g + g * s_r) * 3;
                 cmsDoTransform(trafo, input, output[i] + base, s_r);
