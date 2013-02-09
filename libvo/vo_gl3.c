@@ -479,6 +479,8 @@ static void update_uniforms(struct gl_priv *p, GLuint program)
                       offset_x, offset_y);
     }
 
+    gl->Uniform3f(gl->GetUniformLocation(program, "lut_3d_size"),
+                  p->lut_3d_w, p->lut_3d_h, p->lut_3d_d);
     gl->Uniform2f(gl->GetUniformLocation(program, "dither_size"),
                   p->dither_size, p->dither_size);
 
