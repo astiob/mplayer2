@@ -50,6 +50,7 @@ vec3 mix(vec3 x, vec3 y, bvec3 a) {
 
 uniform mat3 transform;
 uniform sampler3D lut_3d;
+uniform vec3 lut_3d_size;
 
 in vec2 vertex_position;
 in vec4 vertex_color;
@@ -65,7 +66,8 @@ void main() {
     gl_Position = vec4(position, 1);
     color = vertex_color;
 #ifdef USE_3DLUT
-    color = vec4(texture3D(lut_3d, color.rgb).rgb, color.a);
+    vec3 lut_3d_texcoord = color.rgb - (color.rgb - 0.5) / lut_3d_size;
+    color = vec4(texture3D(lut_3d, lut_3d_texcoord).rgb, color.a);
 #endif
     texcoord = vertex_texcoord;
 }
@@ -107,6 +109,7 @@ uniform vec3 inv_gamma;
 uniform float conv_gamma;
 uniform float dither_quantization;
 uniform float filter_param1;
+uniform vec3 lut_3d_size;
 uniform vec2 dither_size;
 
 in vec2 texcoord;
@@ -379,7 +382,9 @@ void main() {
     color = pow(color, inv_gamma);
 #endif
 #ifdef USE_3DLUT
-    color = texture3D(lut_3d, color).rgb;
+    // The LUT has texels representing inputs from 0 to 1 inclusive.
+    // Sample the center of the first texel for 0 and of the last for 1.
+    color = texture3D(lut_3d, color - (color - 0.5) / lut_3d_size).rgb;
 #endif
 #ifdef USE_DITHER
     float dither_value = texture(dither, gl_FragCoord.xy / dither_size).r;
