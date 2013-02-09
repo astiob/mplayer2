@@ -187,7 +187,7 @@ struct gl_priv {
 
     GLuint lut_3d_texture;
     int lut_3d_w, lut_3d_h, lut_3d_d;
-    void *lut_3d_data;
+    void *lut_3d_data[MP_CPRIM_COUNT];
 
     GLuint dither_texture;
     float dither_quantization;
@@ -223,6 +223,7 @@ struct gl_priv {
     float scaler_params[2];
 
     struct mp_csp_details colorspace;
+    struct mp_csp_rgb rgb_colorspace;
     struct mp_csp_equalizer video_eq;
 
     int mpi_flipped;
@@ -972,10 +973,6 @@ static void init_lut_3d(struct gl_priv *p)
     gl->GenTextures(1, &p->lut_3d_texture);
     gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_3DLUT);
     gl->BindTexture(GL_TEXTURE_3D, p->lut_3d_texture);
-    gl->PixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    gl->PixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-    gl->TexImage3D(GL_TEXTURE_3D, 0, GL_RGB16, p->lut_3d_w, p->lut_3d_h,
-                   p->lut_3d_d, 0, GL_RGB, GL_UNSIGNED_SHORT, p->lut_3d_data);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -984,6 +981,22 @@ static void init_lut_3d(struct gl_priv *p)
     gl->ActiveTexture(GL_TEXTURE0);
 
     debug_check_gl(p, "after 3d lut creation");
+}
+
+static void upload_lut_3d(struct gl_priv *p)
+{
+    GL *gl = p->gl;
+
+    gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_3DLUT);
+    gl->BindTexture(GL_TEXTURE_3D, p->lut_3d_texture);
+    gl->PixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    gl->PixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    gl->TexImage3D(GL_TEXTURE_3D, 0, GL_RGB16, p->lut_3d_w, p->lut_3d_h,
+                   p->lut_3d_d, 0, GL_RGB, GL_UNSIGNED_SHORT,
+                   p->lut_3d_data[p->rgb_colorspace.primaries]);
+    gl->ActiveTexture(GL_TEXTURE0);
+
+    debug_check_gl(p, "after 3d lut upload");
 }
 
 static void init_video(struct gl_priv *p)
@@ -2025,6 +2038,19 @@ static int control(struct vo *vo, uint32_t request, void *data)
     case VOCTRL_GET_YUV_COLORSPACE:
         *(struct mp_csp_details *)data = p->colorspace;
         return VO_TRUE;
+    case VOCTRL_SET_RGB_COLORSPACE: {
+        enum mp_cprim primaries = p->rgb_colorspace.primaries;
+        p->rgb_colorspace = *(struct mp_csp_rgb *)data;
+        if (p->use_lut_3d && primaries != p->rgb_colorspace.primaries) {
+            upload_lut_3d(p);
+            update_all_uniforms(p);
+            vo->want_redraw = true;
+        }
+        return VO_TRUE;
+    }
+    case VOCTRL_GET_RGB_COLORSPACE:
+        *(struct mp_csp_rgb *)data = p->rgb_colorspace;
+        return VO_TRUE;
     case VOCTRL_UPDATE_SCREENINFO:
         if (!p->glctx->update_xinerama_info)
             break;
@@ -2082,7 +2108,9 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
                      int s_r, int s_g, int s_b)
 {
     void *tmp = talloc_new(p);
-    uint16_t *output = talloc_array(tmp, uint16_t, s_r * s_g * s_b * 3);
+    uint16_t *output[MP_CPRIM_COUNT];
+    for (int i = 1; i < MP_CPRIM_COUNT; i++)
+        output[i] = talloc_array(tmp, uint16_t, s_r * s_g * s_b * 3);
 
     if (icc_intent == -1)
         icc_intent = INTENT_ABSOLUTE_COLORIMETRIC;
@@ -2099,17 +2127,37 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
     if (icc_cache) {
         mp_msg(MSGT_VO, MSGL_INFO, "[gl] Opening 3D LUT cache in file '%s'.\n",
                icc_cache);
-        struct bstr cachedata = load_file(p, tmp, icc_cache);
-        if (bstr_eatstart(&cachedata, bstr(LUT3D_CACHE_HEADER))
-            && bstr_eatstart(&cachedata, bstr(cache_info))
-            && bstr_eatstart(&cachedata, iccdata)
-            && cachedata.len == talloc_get_size(output))
-        {
-            memcpy(output, cachedata.start, cachedata.len);
-            goto done;
-        } else {
-            mp_msg(MSGT_VO, MSGL_WARN, "[gl] 3D LUT cache invalid!\n");
+        stream_t *cache_stream = open_stream(icc_cache, p->vo->opts, NULL);
+        if (cache_stream) {
+            struct bstr header = bstr(LUT3D_CACHE_HEADER);
+            struct bstr info = bstr(cache_info);
+
+            int intro_size = header.len + info.len + iccdata.len;
+            void *intro = talloc_size(tmp, intro_size);
+            int readsize = stream_read(cache_stream, intro, intro_size);
+
+            struct bstr cachedata = {intro, readsize};
+            if (bstr_eatstart(&cachedata, header)
+                && bstr_eatstart(&cachedata, info)
+                && bstr_eatstart(&cachedata, iccdata))
+            {
+                int i;
+                for (i = 1; i < MP_CPRIM_COUNT; i++) {
+                    size_t size = talloc_get_size(output[i]);
+                    if (stream_read(cache_stream, output[i], size) != size)
+                        break;
+                }
+                // make sure the file contains no more data
+                if (stream_read_char(cache_stream) > -256)
+                    i = 0;
+                free_stream(cache_stream);
+                if (i == MP_CPRIM_COUNT)
+                    goto done;
+            } else {
+                free_stream(cache_stream);
+            }
         }
+        mp_msg(MSGT_VO, MSGL_WARN, "[gl] 3D LUT cache invalid!\n");
     }
 
     cmsSetLogErrorHandler(lcms2_error_handler);
@@ -2120,54 +2168,75 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
 
     cmsCIExyY d65;
     cmsWhitePointFromTemp(&d65, 6504);
-    static const cmsCIExyYTRIPLE bt709prim = {
-        .Red   = {0.64, 0.33, 1.0},
-        .Green = {0.30, 0.60, 1.0},
-        .Blue  = {0.15, 0.06, 1.0},
-    };
     cmsToneCurve *tonecurve = cmsBuildGamma(NULL, 2.2);
-    cmsHPROFILE vid_profile = cmsCreateRGBProfile(&d65, &bt709prim,
-                        (cmsToneCurve*[3]){tonecurve, tonecurve, tonecurve});
-    cmsFreeToneCurve(tonecurve);
-    cmsHTRANSFORM trafo = cmsCreateTransform(vid_profile, TYPE_RGB_16,
-                                             profile, TYPE_RGB_16,
-                                             icc_intent,
-                                             cmsFLAGS_HIGHRESPRECALC);
-    cmsCloseProfile(profile);
-    cmsCloseProfile(vid_profile);
+    static const cmsCIExyYTRIPLE primaries[MP_CPRIM_COUNT] = {
+        [MP_CPRIM_BT_470BG] = {
+            .Red   = {0.64, 0.33, 1.0},
+            .Green = {0.29, 0.60, 1.0},
+            .Blue  = {0.15, 0.06, 1.0},
+        },
+        [MP_CPRIM_BT_709] = {
+            .Red   = {0.64, 0.33, 1.0},
+            .Green = {0.30, 0.60, 1.0},
+            .Blue  = {0.15, 0.06, 1.0},
+        },
+        [MP_CPRIM_SMPTE_170M] = {
+            .Red   = {0.630, 0.340, 1.0},
+            .Green = {0.310, 0.595, 1.0},
+            .Blue  = {0.155, 0.070, 1.0},
+        },
+    };
 
-    if (!trafo)
-        goto error_exit;
-
-    // transform a (s_r)x(s_g)x(s_b) cube, with 3 components per channel
     uint16_t *input = talloc_array(tmp, uint16_t, s_r * 3);
-    for (int b = 0; b < s_b; b++) {
-        for (int g = 0; g < s_g; g++) {
-            for (int r = 0; r < s_r; r++) {
-                input[r * 3 + 0] = r * 65535 / (s_r - 1);
-                input[r * 3 + 1] = g * 65535 / (s_g - 1);
-                input[r * 3 + 2] = b * 65535 / (s_b - 1);
-            }
-            size_t base = (b * s_r * s_g + g * s_r) * 3;
-            cmsDoTransform(trafo, input, output + base, s_r);
+    for (int i = 1; i < MP_CPRIM_COUNT; i++) {
+        cmsHPROFILE vid_profile = cmsCreateRGBProfile(&d65, &primaries[i],
+                        (cmsToneCurve*[3]){tonecurve, tonecurve, tonecurve});
+        cmsHTRANSFORM trafo = cmsCreateTransform(vid_profile, TYPE_RGB_16,
+                                                 profile, TYPE_RGB_16,
+                                                 icc_intent,
+                                                 cmsFLAGS_HIGHRESPRECALC);
+        cmsCloseProfile(vid_profile);
+
+        if (!trafo) {
+            cmsFreeToneCurve(tonecurve);
+            cmsCloseProfile(profile);
+            goto error_exit;
         }
+
+        // transform a (s_r)x(s_g)x(s_b) cube, with 3 components per channel
+        for (int b = 0; b < s_b; b++) {
+            for (int g = 0; g < s_g; g++) {
+                for (int r = 0; r < s_r; r++) {
+                    input[r * 3 + 0] = r * 65535 / (s_r - 1);
+                    input[r * 3 + 1] = g * 65535 / (s_g - 1);
+                    input[r * 3 + 2] = b * 65535 / (s_b - 1);
+                }
+                size_t base = (b * s_r * s_g + g * s_r) * 3;
+                cmsDoTransform(trafo, input, output[i] + base, s_r);
+            }
+        }
+
+        cmsDeleteTransform(trafo);
     }
 
-    cmsDeleteTransform(trafo);
+    cmsFreeToneCurve(tonecurve);
+    cmsCloseProfile(profile);
 
     if (icc_cache) {
         FILE *out = fopen(icc_cache, "wb");
         if (out) {
             fprintf(out, "%s%s", LUT3D_CACHE_HEADER, cache_info);
             fwrite(iccdata.start, iccdata.len, 1, out);
-            fwrite(output, talloc_get_size(output), 1, out);
+            for (int i = 1; i < MP_CPRIM_COUNT; i++)
+                fwrite(output[i], talloc_get_size(output[i]), 1, out);
             fclose(out);
         }
     }
 
 done:
 
-    p->lut_3d_data = talloc_steal(p, output);
+    for (int i = 1; i < MP_CPRIM_COUNT; i++)
+        p->lut_3d_data[i] = talloc_steal(p, output[i]);
     p->lut_3d_w = s_r, p->lut_3d_h = s_g, p->lut_3d_d = s_b;
     p->use_lut_3d = true;
 
@@ -2293,6 +2362,9 @@ static int preinit(struct vo *vo, const char *arg)
     *p = (struct gl_priv) {
         .vo = vo,
         .colorspace = MP_CSP_DETAILS_DEFAULTS,
+        // The 3D LUT texture is uploaded whenever .primaries changes.
+        // Delay the first upload until the initial VOCTRL_SET_RGB_COLORSPACE.
+        .rgb_colorspace = {.primaries = -1},
         .use_npot = 1,
         .use_pbo = 0,
         .swap_interval = 1,
