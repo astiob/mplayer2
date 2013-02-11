@@ -103,6 +103,8 @@ uniform sampler1D lut_l_1d;
 uniform sampler2D lut_c_2d;
 uniform sampler2D lut_l_2d;
 uniform sampler3D lut_3d;
+uniform sampler1D lut_invgamma;
+uniform sampler2D lut_invgamma_rounded;
 uniform sampler2D dither;
 uniform mat4x3 colormatrix;
 uniform vec3 inv_gamma;
@@ -110,6 +112,7 @@ uniform float conv_gamma;
 uniform float dither_quantization;
 uniform float filter_param1;
 uniform vec3 lut_3d_size;
+uniform float lut_invgamma_size;
 uniform vec2 dither_size;
 
 in vec2 texcoord;
@@ -350,6 +353,45 @@ vec4 sample_sharpen5(sampler2D tex, vec2 texsize, vec2 texcoord) {
     return p + t * filter_param1;
 }
 
+struct rounded_colors {
+    vec3 floored, ceiled;
+};
+
+#ifdef USE_3DLUT
+vec3 display_gamma_expand(vec3 color) {
+    // Map 0 and 1 to texel centers
+    color -= (color - 0.5) / lut_invgamma_size;
+    float r = texture1D(lut_invgamma, color.r).r;
+    float g = texture1D(lut_invgamma, color.g).g;
+    float b = texture1D(lut_invgamma, color.b).b;
+    return vec3(r, g, b);
+}
+rounded_colors display_gamma_expand_rounded(vec3 color) {
+    vec2 r = texture(lut_invgamma_rounded, vec2(color.r, 0.5 / 3)).xy;
+    vec2 g = texture(lut_invgamma_rounded, vec2(color.g, 1.5 / 3)).xy;
+    vec2 b = texture(lut_invgamma_rounded, vec2(color.b, 2.5 / 3)).xy;
+    return rounded_colors(vec3(r.x, g.x, b.x), vec3(r.y, g.y, b.y));
+}
+#else
+// Assume sRGB
+vec3 display_gamma_compress(vec3 color) {
+    return mix(color * 12.92,
+               (pow(color, vec3(1.0/2.4)) * 1055 - 55) / 1000,
+               greaterThan(color, vec3(0.0031308)));
+}
+vec3 display_gamma_expand(vec3 color) {
+    return mix(color / 12.92,
+               pow((color * 1000 + 55) / 1055, vec3(2.4)),
+               greaterThan(color, vec3(0.040449936)));
+}
+rounded_colors display_gamma_expand_rounded(vec3 color) {
+    color *= dither_quantization;
+    vec3 floored = display_gamma_expand(floor(color) / dither_quantization);
+    vec3 ceiled = display_gamma_expand(ceil(color) / dither_quantization);
+    return rounded_colors(floored, ceiled);
+}
+#endif
+
 void main() {
 #ifdef USE_PLANAR
     vec3 color = vec3(SAMPLE_L(textures[0], textures_size[0], texcoord + textures_offset[0]).r,
@@ -400,18 +442,17 @@ void main() {
     dither_value += 0.5 / (dither_size.x * dither_size.y);
 #ifdef USE_LINEAR_OUTPUT
     vec3 original = color;
-    color = pow(color, vec3(1.0/2.2)) * dither_quantization;
+    color = display_gamma_compress(color);
 #else
-    vec3 original = pow(color, vec3(2.2));
-    color *= dither_quantization;
+    vec3 original = display_gamma_expand(color);
 #endif
-    vec3 floored = pow(floor(color) / dither_quantization, vec3(2.2));
-    vec3 ceiled = pow(ceil(color) / dither_quantization, vec3(2.2));
-    vec3 threshold = dither_value * (ceiled - floored);
-    bvec3 selector = greaterThanEqual(original - floored, threshold);
+    rounded_colors rounded = display_gamma_expand_rounded(color);
+    vec3 threshold = dither_value * (rounded.ceiled - rounded.floored);
+    bvec3 selector = greaterThanEqual(original - rounded.floored, threshold);
+    color *= dither_quantization;
     color = mix(floor(color), ceil(color), selector) / dither_quantization;
 #ifdef USE_LINEAR_OUTPUT
-    color = pow(color, vec3(2.2));
+    color = display_gamma_expand(color);
 #endif
 #endif
     out_color = vec4(color, 1);

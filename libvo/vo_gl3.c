@@ -67,9 +67,11 @@ static const char vo_gl3_shaders[] =
 
 // Texture units 0-2 are used by the video, with unit 0 for free use.
 // Units 3-4 are used for scaler LUTs.
+// Units 6-7 are used for inverses of tone curves from the ICC profile.
 #define TEXUNIT_SCALERS 3
 #define TEXUNIT_3DLUT 5
-#define TEXUNIT_DITHER 6
+#define TEXUNIT_LUT_INVGAMMA 6
+#define TEXUNIT_DITHER 8
 
 // lscale/cscale arguments that map directly to shader filter routines.
 // Note that the convolution filters are not included in this list.
@@ -188,6 +190,11 @@ struct gl_priv {
     GLuint lut_3d_texture;
     int lut_3d_w, lut_3d_h, lut_3d_d;
     void *lut_3d_data[MP_CPRIM_COUNT];
+
+    GLuint lut_invgamma_texture, lut_invgamma_rounded_texture;
+    int lut_invgamma_size;
+    void *lut_invgamma_data;
+    void *lut_invgamma_rounded_data;
 
     GLuint dither_texture;
     float dither_quantization;
@@ -481,10 +488,16 @@ static void update_uniforms(struct gl_priv *p, GLuint program)
 
     gl->Uniform3f(gl->GetUniformLocation(program, "lut_3d_size"),
                   p->lut_3d_w, p->lut_3d_h, p->lut_3d_d);
+    gl->Uniform1f(gl->GetUniformLocation(program, "lut_invgamma_size"),
+                  p->lut_invgamma_size);
     gl->Uniform2f(gl->GetUniformLocation(program, "dither_size"),
                   p->dither_size, p->dither_size);
 
     gl->Uniform1i(gl->GetUniformLocation(program, "lut_3d"), TEXUNIT_3DLUT);
+    gl->Uniform1i(gl->GetUniformLocation(program, "lut_invgamma"),
+                  TEXUNIT_LUT_INVGAMMA);
+    gl->Uniform1i(gl->GetUniformLocation(program, "lut_invgamma_rounded"),
+                  TEXUNIT_LUT_INVGAMMA + 1);
 
     for (int n = 0; n < 2; n++) {
         const char *lut = p->scalers[n].lut_name;
@@ -980,8 +993,31 @@ static void init_lut_3d(struct gl_priv *p)
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    gl->ActiveTexture(GL_TEXTURE0);
 
+    gl->GenTextures(1, &p->lut_invgamma_texture);
+    gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_LUT_INVGAMMA);
+    gl->BindTexture(GL_TEXTURE_1D, p->lut_invgamma_texture);
+    gl->PixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    gl->PixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    gl->TexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, p->lut_invgamma_size, 0,
+                   GL_RGB, GL_FLOAT, p->lut_invgamma_data);
+    gl->TexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gl->TexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    gl->TexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+
+    gl->GenTextures(1, &p->lut_invgamma_rounded_texture);
+    gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_LUT_INVGAMMA + 1);
+    gl->BindTexture(GL_TEXTURE_2D, p->lut_invgamma_rounded_texture);
+    // same hack as in load_icc
+    int dst_depth = p->dither_depth > 0 ? p->dither_depth : 8;
+    gl->TexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, (1 << dst_depth) - 1, 3, 0,
+                   GL_RG, GL_FLOAT, p->lut_invgamma_rounded_data);
+    gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    gl->ActiveTexture(GL_TEXTURE0);
     debug_check_gl(p, "after 3d lut creation");
 }
 
@@ -2122,6 +2158,12 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
     if (!iccdata.len)
         goto error_exit;
 
+    cmsSetLogErrorHandler(lcms2_error_handler);
+
+    cmsHPROFILE profile = cmsOpenProfileFromMem(iccdata.start, iccdata.len);
+    if (!profile)
+        goto error_exit;
+
     char *cache_info = talloc_asprintf(tmp, "intent=%d, size=%dx%dx%d\n",
                                        icc_intent, s_r, s_g, s_b);
 
@@ -2161,12 +2203,6 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
         }
         mp_msg(MSGT_VO, MSGL_WARN, "[gl] 3D LUT cache invalid!\n");
     }
-
-    cmsSetLogErrorHandler(lcms2_error_handler);
-
-    cmsHPROFILE profile = cmsOpenProfileFromMem(iccdata.start, iccdata.len);
-    if (!profile)
-        goto error_exit;
 
     cmsCIExyY d65;
     cmsWhitePointFromTemp(&d65, 6504);
@@ -2221,7 +2257,6 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
     }
 
     cmsFreeToneCurve(tonecurve);
-    cmsCloseProfile(profile);
 
     if (icc_cache) {
         FILE *out = fopen(icc_cache, "wb");
@@ -2234,11 +2269,51 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
         }
     }
 
-done:
+done:;
+
+    const int maxscnt = FFMIN(65536, GL_MAX_TEXTURE_SIZE);
+    // hack: does not take device depth into account
+    int dst_quant = (1 << (p->dither_depth > 0 ? p->dither_depth : 8)) - 1;
+    int curve_sample_count = maxscnt - (maxscnt - 1) % dst_quant;
+    float *curve_samples = talloc_array(tmp, float, curve_sample_count * 3);
+    float *exact_samples = talloc_array(tmp, float, dst_quant * 2 * 3);
+
+    static const cmsTagSignature tonecurve_tag_sigs[3] = {cmsSigRedTRCTag,
+                                                          cmsSigGreenTRCTag,
+                                                          cmsSigBlueTRCTag};
+    cmsToneCurve *curves[3];
+    for (int i = 0; i < 3; i++) {
+        curves[i] = cmsReadTag(profile, tonecurve_tag_sigs[i]);
+        if (!curves[i]) {
+            cmsCloseProfile(profile);
+            mp_msg(MSGT_VO, MSGL_ERR,
+                   "[gl] RGB tone curves not found in ICC profile!\n");
+            goto error_exit;
+        }
+    }
+    for (int v = 0; v < curve_sample_count; v++) {
+        float value = (float) v / (curve_sample_count - 1);
+        for (int i = 0; i < 3; i++)
+            curve_samples[v * 3 + i] = cmsEvalToneCurveFloat(curves[i], value);
+    }
+    for (int v = 0; v < dst_quant; v++) {
+        float floored = (float) v / dst_quant;
+        float ceiled = (float) (v + 1) / dst_quant;
+        for (int i = 0; i < 3; i++) {
+            size_t base = i * dst_quant * 2 + v * 2;
+            exact_samples[base + 0] = cmsEvalToneCurveFloat(curves[i], floored);
+            exact_samples[base + 1] = cmsEvalToneCurveFloat(curves[i], ceiled);
+        }
+    }
+
+    cmsCloseProfile(profile);
 
     for (int i = 1; i < MP_CPRIM_COUNT; i++)
         p->lut_3d_data[i] = talloc_steal(p, output[i]);
+    p->lut_invgamma_data = talloc_steal(p, curve_samples);
+    p->lut_invgamma_rounded_data = talloc_steal(p, exact_samples);
     p->lut_3d_w = s_r, p->lut_3d_h = s_g, p->lut_3d_d = s_b;
+    p->lut_invgamma_size = curve_sample_count;
     p->use_lut_3d = true;
 
     talloc_free(tmp);
