@@ -244,7 +244,7 @@ static void print_msg_module(FILE* stream, int mod)
 void mp_msg_va(int mod, int lev, const char *format, va_list va)
 {
     char tmp[MSGSIZE_MAX];
-    FILE *stream = lev <= MSGL_WARN ? stderr : stdout;
+    FILE *stream = mod == MSGT_STATUSLINE ? stderr : stdout;
     static int header = 1;
     // indicates if last line printed was a status line
     static int statusline;
@@ -298,9 +298,9 @@ void mp_msg_va(int mod, int lev, const char *format, va_list va)
     /* A status line is normally intended to be overwritten by the next
      * status line, and does not end with a '\n'. If we're printing a normal
      * line instead after the status one print '\n' to change line. */
-    if (statusline && lev != MSGL_STATUS)
-        fprintf(stream, "\n");
-    statusline = lev == MSGL_STATUS;
+    if (statusline && mod != MSGT_STATUSLINE)
+        fprintf(stderr, "\n");
+    statusline = mod == MSGT_STATUSLINE;
 
     if (header)
         print_msg_module(stream, mod);
@@ -314,7 +314,7 @@ void mp_msg_va(int mod, int lev, const char *format, va_list va)
     if (mp_msg_color)
     {
 #ifdef _WIN32
-        HANDLE *wstream = lev <= MSGL_WARN ? hSTDERR : hSTDOUT;
+        HANDLE *wstream = stream == stderr ? hSTDERR : hSTDOUT;
         SetConsoleTextAttribute(wstream, stdoutAttrs);
 #else
         fprintf(stream, "\033[0m");

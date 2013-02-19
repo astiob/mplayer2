@@ -1653,7 +1653,7 @@ static void update_osd_msg(struct MPContext *mpctx)
             if (mpctx->sh_video)
                 vo_osd_changed(OSDTYPE_OSD);
             else if (opts->term_osd)
-                mp_msg(MSGT_CPLAYER, MSGL_STATUS, "%s%s\n", opts->term_osd_esc,
+                mp_msg(MSGT_STATUSLINE, MSGL_STATUS, "%s%s\n", opts->term_osd_esc,
                        msg->msg);
         }
         return;
@@ -1734,7 +1734,7 @@ static void update_osd_msg(struct MPContext *mpctx)
     // Clear the term osd line
     if (opts->term_osd && osd->osd_text[0]) {
         osd->osd_text[0] = 0;
-        mp_msg(MSGT_CPLAYER, MSGL_STATUS, "%s\n", opts->term_osd_esc);
+        mp_msg(MSGT_STATUSLINE, MSGL_STATUS, "%s\n", opts->term_osd_esc);
     }
 }
 
@@ -2928,8 +2928,8 @@ static void update_pause_message(struct MPContext *mpctx)
         update_osd_msg(mpctx);
     } else {
         if (mpctx->status_printed)
-            mp_msg(MSGT_CPLAYER, MSGL_STATUS, "\n");
-        mp_msg(MSGT_CPLAYER, MSGL_STATUS, "%s\r", msg);
+            mp_msg(MSGT_STATUSLINE, MSGL_STATUS, "\n");
+        mp_msg(MSGT_STATUSLINE, MSGL_STATUS, "%s\r", msg);
     }
 
     mpctx->paused_cache_fill = cache_fill;
