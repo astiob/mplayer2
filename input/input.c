@@ -1658,9 +1658,9 @@ void mp_input_register_options(m_config_t *cfg)
 static int print_key_list(m_option_t *cfg, char *optname, char *optparam)
 {
     int i;
-    printf("\n");
+    mp_msg(MSGT_CFGPARSER, MSGL_INFO, "\n");
     for (i = 0; key_names[i].name != NULL; i++)
-        printf("%s\n", key_names[i].name);
+        mp_msg(MSGT_CFGPARSER, MSGL_INFO, "%s\n", key_names[i].name);
     return M_OPT_EXIT;
 }
 
@@ -1671,7 +1671,7 @@ static int print_cmd_list(m_option_t *cfg, char *optname, char *optparam)
     const char *type;
 
     for (i = 0; (cmd = &mp_cmds[i])->name != NULL; i++) {
-        printf("%-20.20s", cmd->name);
+        mp_msg(MSGT_CFGPARSER, MSGL_INFO, "%-20.20s", cmd->name);
         for (j = 0; j < MP_CMD_MAX_ARGS && cmd->args[j].type; j++) {
             switch (cmd->args[j].type) {
             case MP_CMD_ARG_INT:
@@ -1687,11 +1687,11 @@ static int print_cmd_list(m_option_t *cfg, char *optname, char *optparam)
                 type = "??";
             }
             if (cmd->args[j].optional)
-                printf(" [%s]", type);
+                mp_msg(MSGT_CFGPARSER, MSGL_INFO, " [%s]", type);
             else
-                printf(" %s", type);
+                mp_msg(MSGT_CFGPARSER, MSGL_INFO, " %s", type);
         }
-        printf("\n");
+        mp_msg(MSGT_CFGPARSER, MSGL_INFO, "\n");
     }
     return M_OPT_EXIT;
 }
