@@ -180,7 +180,7 @@ struct sh_sub *sd_ass_create_from_track(struct ass_track *track,
                                         bool vsfilter_aspect,
                                         struct MPOpts *opts)
 {
-    struct sh_sub *sh = talloc(NULL, struct sh_sub);
+    struct sh_sub *sh = talloc_zero(NULL, struct sh_sub);
     sh->opts = opts;
     sh->type = 'a';
     sh->title = track->name;
