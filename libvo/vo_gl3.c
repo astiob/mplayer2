@@ -153,6 +153,7 @@ struct gl_priv {
     int use_indirect;
     int use_gamma;
     int use_srgb;
+    int use_bt709_curve;
     int use_scale_sep;
     int use_fancy_downscaling;
     int use_lut_3d;
@@ -663,6 +664,7 @@ static void compile_shaders(struct gl_priv *p)
     shader_def_opt(&header_conv, "USE_GBRP", p->image_format == IMGFMT_GBRP);
     shader_def_opt(&header_conv, "USE_YGRAY", p->is_yuv && p->plane_count == 1);
     shader_def_opt(&header_conv, "USE_COLORMATRIX", p->is_yuv);
+    shader_def_opt(&header_conv, "USE_BT709_CURVE", p->is_yuv && p->use_bt709_curve);
     shader_def_opt(&header_conv, "USE_LINEAR_CONV", convert_input_to_linear);
 
     shader_def_opt(&header_final, "USE_LINEAR_CONV_INV", p->use_lut_3d);
@@ -2220,6 +2222,7 @@ static int preinit(struct vo *vo, const char *arg)
     const opt_t subopts[] = {
         {"gamma",               OPT_ARG_BOOL,   &p->use_gamma},
         {"srgb",                OPT_ARG_BOOL,   &p->use_srgb},
+        {"ibt709",              OPT_ARG_BOOL,   &p->use_bt709_curve},
         {"npot",                OPT_ARG_BOOL,   &p->use_npot},
         {"pbo",                 OPT_ARG_BOOL,   &p->use_pbo},
         {"glfinish",            OPT_ARG_BOOL,   &p->use_glFinish},

@@ -294,6 +294,12 @@ void main() {
 #ifdef USE_COLORMATRIX
     color = mat3(colormatrix) * color + colormatrix[3];
 #endif
+#ifdef USE_BT709_CURVE
+    color = mix(color / 4.5,
+                pow((color * 1000 + 99) / 1099, vec3(1.0/0.45)),
+                greaterThan(color, vec3(0.081)));
+    color = pow(color, vec3(1.0/2.2));
+#end=if
 #ifdef USE_LINEAR_CONV
     color = pow(color, vec3(2.2));
 #endif
