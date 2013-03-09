@@ -90,7 +90,6 @@ extern const vf_info_t vf_info_tile;
 extern const vf_info_t vf_info_delogo;
 extern const vf_info_t vf_info_remove_logo;
 extern const vf_info_t vf_info_hue;
-extern const vf_info_t vf_info_uspp;
 extern const vf_info_t vf_info_fspp;
 extern const vf_info_t vf_info_pp7;
 extern const vf_info_t vf_info_yuvcsp;
@@ -136,7 +135,6 @@ static const vf_info_t *const filter_list[] = {
     &vf_info_lavcdeint,
     &vf_info_screenshot,
     &vf_info_fspp,
-    &vf_info_uspp,
 
     &vf_info_dvbscale,
     &vf_info_cropdetect,

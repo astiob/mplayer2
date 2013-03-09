@@ -428,17 +428,6 @@ pp[=filter1[:option1[:option2...]]/[-]filter2...]
         Horizontal deblocking on luminance only, and switch vertical
         deblocking on or off automatically depending on available CPU time.
 
-uspp[=quality[:qp]]
-    Ultra simple & slow postprocessing filter that compresses and decompresses
-    the image at several (or - in the case of quality level 8 - all) shifts
-    and averages the results.
-
-    <quality>
-        0-8 (default: 3)
-
-    <qp>
-        Force quantization parameter (default: 0, use QP from video).
-
 fspp[=quality[:qp[:strength[:bframes]]]]
     simple postprocessing filter
 

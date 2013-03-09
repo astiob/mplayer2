@@ -332,7 +332,6 @@ SRCS_COMMON = asxparser.c \
               libmpcodecs/vf_tile.c \
               libmpcodecs/vf_tinterlace.c \
               libmpcodecs/vf_unsharp.c \
-              libmpcodecs/vf_uspp.c \
               libmpcodecs/vf_vo.c \
               libmpcodecs/vf_yadif.c \
               libmpcodecs/vf_yuvcsp.c \
