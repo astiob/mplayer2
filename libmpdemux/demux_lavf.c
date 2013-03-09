@@ -295,7 +295,7 @@ static void handle_stream(demuxer_t *demuxer, AVFormatContext *avfc, int i)
             matches_avinputformat_name(priv, "mpegts"))
         codec->codec_tag = 0;
     int override_tag = mp_taglist_override(codec->codec_id);
-    // For some formats (like PCM) always trust CODEC_ID_* more than codec_tag
+    // For some formats (like PCM) always trust codec_id more than codec_tag
     if (override_tag)
         codec->codec_tag = override_tag;
 
@@ -345,10 +345,10 @@ static void handle_stream(demuxer_t *demuxer, AVFormatContext *avfc, int i)
         sh_audio->samplerate = codec->sample_rate;
         sh_audio->i_bps = codec->bit_rate / 8;
         switch (codec->codec_id) {
-        case CODEC_ID_PCM_ALAW:
+        case AV_CODEC_ID_PCM_ALAW:
             sh_audio->format = 0x6;
             break;
-        case CODEC_ID_PCM_MULAW:
+        case AV_CODEC_ID_PCM_MULAW:
             sh_audio->format = 0x7;
             break;
         }
@@ -381,7 +381,7 @@ static void handle_stream(demuxer_t *demuxer, AVFormatContext *avfc, int i)
         sh_video->libav_codec_id = codec->codec_id;
         bih = calloc(sizeof(*bih) + codec->extradata_size, 1);
 
-        if (codec->codec_id == CODEC_ID_RAWVIDEO) {
+        if (codec->codec_id == AV_CODEC_ID_RAWVIDEO) {
             switch (codec->pix_fmt) {
             case PIX_FMT_RGB24:
                 codec->codec_tag = MKTAG(24, 'B', 'G', 'R');
@@ -464,21 +464,21 @@ static void handle_stream(demuxer_t *demuxer, AVFormatContext *avfc, int i)
         sh_sub_t *sh_sub;
         char type;
         /* only support text subtitles for now */
-        if (codec->codec_id == CODEC_ID_TEXT)
+        if (codec->codec_id == AV_CODEC_ID_TEXT)
             type = 't';
-        else if (codec->codec_id == CODEC_ID_MOV_TEXT)
+        else if (codec->codec_id == AV_CODEC_ID_MOV_TEXT)
             type = 'm';
-        else if (codec->codec_id == CODEC_ID_SSA)
+        else if (codec->codec_id == AV_CODEC_ID_SSA)
             type = 'a';
-        else if (codec->codec_id == CODEC_ID_DVD_SUBTITLE)
+        else if (codec->codec_id == AV_CODEC_ID_DVD_SUBTITLE)
             type = 'v';
-        else if (codec->codec_id == CODEC_ID_XSUB)
+        else if (codec->codec_id == AV_CODEC_ID_XSUB)
             type = 'x';
-        else if (codec->codec_id == CODEC_ID_DVB_SUBTITLE)
+        else if (codec->codec_id == AV_CODEC_ID_DVB_SUBTITLE)
             type = 'b';
-        else if (codec->codec_id == CODEC_ID_DVB_TELETEXT)
+        else if (codec->codec_id == AV_CODEC_ID_DVB_TELETEXT)
             type = 'd';
-        else if (codec->codec_id == CODEC_ID_HDMV_PGS_SUBTITLE)
+        else if (codec->codec_id == AV_CODEC_ID_HDMV_PGS_SUBTITLE)
             type = 'p';
         else
             break;
@@ -513,7 +513,7 @@ static void handle_stream(demuxer_t *demuxer, AVFormatContext *avfc, int i)
         AVDictionaryEntry *ftag = av_dict_get(st->metadata, "filename",
                                               NULL, 0);
         char *filename = ftag ? ftag->value : NULL;
-        if (st->codec->codec_id == CODEC_ID_TTF)
+        if (st->codec->codec_id == AV_CODEC_ID_TTF)
             demuxer_add_attachment(demuxer, bstr(filename),
                                    bstr("application/x-truetype-font"),
                                    (struct bstr){codec->extradata,
@@ -966,7 +966,7 @@ redo:
                     prog->aid = program->stream_index[i];
                 break;
             case AVMEDIA_TYPE_SUBTITLE:
-                if (prog->sid == -2 && priv->avfc->streams[program->stream_index[i]]->codec->codec_id == CODEC_ID_TEXT)
+                if (prog->sid == -2 && priv->avfc->streams[program->stream_index[i]]->codec->codec_id == AV_CODEC_ID_TEXT)
                     prog->sid = program->stream_index[i];
                 break;
             }

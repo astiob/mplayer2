@@ -162,10 +162,10 @@ static int init(sh_video_t *sh)
         ctx->do_slices = 1;
 
     if (lavc_codec->capabilities & CODEC_CAP_DR1 && !do_vis_debug
-            && lavc_codec->id != CODEC_ID_H264
-            && lavc_codec->id != CODEC_ID_INTERPLAY_VIDEO
-            && lavc_codec->id != CODEC_ID_ROQ && lavc_codec->id != CODEC_ID_VP8
-            && lavc_codec->id != CODEC_ID_LAGARITH)
+            && lavc_codec->id != AV_CODEC_ID_H264
+            && lavc_codec->id != AV_CODEC_ID_INTERPLAY_VIDEO
+            && lavc_codec->id != AV_CODEC_ID_ROQ && lavc_codec->id != AV_CODEC_ID_VP8
+            && lavc_codec->id != AV_CODEC_ID_LAGARITH)
         ctx->do_dr1 = 1;
     ctx->ip_count = ctx->b_count = 0;
 

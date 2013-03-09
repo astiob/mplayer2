@@ -66,7 +66,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 
     mp_msg(MSGT_VO,MSGL_DBG2, "PNG Compression level %i\n", z_compression);
     uninit();
-    struct AVCodec *png_codec = avcodec_find_encoder(CODEC_ID_PNG);
+    struct AVCodec *png_codec = avcodec_find_encoder(AV_CODEC_ID_PNG);
     if (!png_codec)
         goto error;
     avctx = avcodec_alloc_context3(png_codec);

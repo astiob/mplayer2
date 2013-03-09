@@ -21,8 +21,8 @@
 
 #include <libavcodec/avcodec.h>
 
-unsigned int mp_taglist_override(enum CodecID id);
-unsigned int mp_taglist_video(enum CodecID id);
-unsigned int mp_taglist_audio(enum CodecID id);
+unsigned int mp_taglist_override(enum AVCodecID id);
+unsigned int mp_taglist_video(enum AVCodecID id);
+unsigned int mp_taglist_audio(enum AVCodecID id);
 
 #endif /* MPLAYER_MP_TAGLISTS_H */

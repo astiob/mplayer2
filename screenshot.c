@@ -83,7 +83,7 @@ static int write_png(screenshot_ctx *ctx, struct mp_image *image)
     void *outbuffer = NULL;
     int success = 0;
 
-    struct AVCodec *png_codec = avcodec_find_encoder(CODEC_ID_PNG);
+    struct AVCodec *png_codec = avcodec_find_encoder(AV_CODEC_ID_PNG);
     AVCodecContext *avctx = NULL;
     if (!png_codec)
         goto print_open_fail;
