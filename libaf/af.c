@@ -29,7 +29,6 @@ extern af_info_t af_info_dummy;
 extern af_info_t af_info_delay;
 extern af_info_t af_info_channels;
 extern af_info_t af_info_format;
-extern af_info_t af_info_resample;
 extern af_info_t af_info_volume;
 extern af_info_t af_info_equalizer;
 extern af_info_t af_info_gate;
@@ -41,7 +40,7 @@ extern af_info_t af_info_export;
 extern af_info_t af_info_volnorm;
 extern af_info_t af_info_extrastereo;
 extern af_info_t af_info_lavcac3enc;
-extern af_info_t af_info_lavcresample;
+extern af_info_t af_info_lavrresample;
 extern af_info_t af_info_sweep;
 extern af_info_t af_info_hrtf;
 extern af_info_t af_info_ladspa;
@@ -57,7 +56,6 @@ static af_info_t* filter_list[]={
    &af_info_delay,
    &af_info_channels,
    &af_info_format,
-   &af_info_resample,
    &af_info_volume,
    &af_info_equalizer,
    &af_info_gate,
@@ -71,7 +69,7 @@ static af_info_t* filter_list[]={
    &af_info_volnorm,
    &af_info_extrastereo,
    &af_info_lavcac3enc,
-   &af_info_lavcresample,
+   &af_info_lavrresample,
    &af_info_sweep,
    &af_info_hrtf,
 #ifdef CONFIG_LADSPA
@@ -528,9 +526,7 @@ int af_init(af_stream_t* s)
       af = af_control_any_rev(s, AF_CONTROL_RESAMPLE_RATE | AF_CONTROL_SET,
                &(s->output.rate));
       if (!af) {
-        char *resampler = "resample";
-        if ((AF_INIT_TYPE_MASK & s->cfg.force) == AF_INIT_SLOW)
-          resampler = "lavcresample";
+        char *resampler = "lavrresample";
 	if((AF_INIT_TYPE_MASK & s->cfg.force) == AF_INIT_SLOW){
 	  if(!strcmp(s->first->info->name,"format"))
 	    af = af_append(s,s->first,resampler);
@@ -547,16 +543,6 @@ int af_init(af_stream_t* s)
       if(!af || (AF_OK != af->control(af,AF_CONTROL_RESAMPLE_RATE | AF_CONTROL_SET,
 				      &(s->output.rate))))
 	return -1;
-      // Use lin int if the user wants fast
-      if ((AF_INIT_TYPE_MASK & s->cfg.force) == AF_INIT_FAST) {
-        char args[32];
-	sprintf(args, "%d", s->output.rate);
-	if (strcmp(resampler, "lavcresample") == 0)
-	  strcat(args, ":1");
-	else
-            strcat(args, ":0:0");
-	af->control(af, AF_CONTROL_COMMAND_LINE, args);
-      }
       }
       if(AF_OK != af_reinit(s,af))
       	return -1;

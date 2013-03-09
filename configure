@@ -336,7 +336,6 @@ Optional features:
   --disable-libass       disable subtitle rendering with libass [autodetect]
   --enable-rpath         enable runtime linker path for extra libs [disabled]
   --disable-libpostproc  disable postprocess filter (vf_pp) [autodetect]
-  --disable-libavresample disable libavresample (sample format conversion) [autodetect]
 
 Codecs:
   --enable-gif              enable GIF support [autodetect]
@@ -613,7 +612,6 @@ _w32threads=auto
 _ass=auto
 _rpath=no
 libpostproc=auto
-libavresample=auto
 _asmalign_pot=auto
 _stream_cache=yes
 _priority=no
@@ -917,8 +915,6 @@ for ac_option do
   --disable-rpath)      _rpath=no       ;;
   --enable-libpostproc) libpostproc=yes ;;
   --disable-libpostproc) libpostproc=no ;;
-  --enable-libavresample) libavresample=yes ;;
-  --disable-libavresample) libavresample=no ;;
 
   --enable-enca)        _enca=yes       ;;
   --disable-enca)       _enca=no        ;;
@@ -4733,7 +4729,7 @@ fi
 echores "$_lcms2"
 
 
-all_libav_libs="libavutil > 51.21.0:libavcodec >= 54.25.0:libavformat > 53.20.0:libswscale >= 2.0.0"
+all_libav_libs="libavutil > 51.21.0:libavcodec >= 54.25.0:libavformat > 53.20.0:libswscale >= 2.0.0:libavresample >= 1.0.0"
 echocheck "Libav ($all_libav_libs)"
 if test "$ffmpeg" = auto ; then
   IFS=":"   # shell should not be used for programming
@@ -4756,20 +4752,6 @@ else
     def_libpostproc='#undef CONFIG_LIBPOSTPROC'
 fi
 echores "$libpostproc"
-
-echocheck "libavresample >= 1.0.0"
-if test "$libavresample" = auto ; then
-    libavresample=no
-    if pkg_config_add "libavresample >= 1.0.0" ; then
-        libavresample=yes
-    fi
-fi
-if test "$libavresample" = yes ; then
-    def_libavresample='#define CONFIG_LIBAVRESAMPLE 1'
-else
-    def_libavresample='#undef CONFIG_LIBAVRESAMPLE'
-fi
-echores "$libavresample"
 
 echocheck "libdv-0.9.5+"
 if test "$_libdv" = auto ; then
@@ -5356,7 +5338,6 @@ LIBMAD = $_mad
 LCMS2 = $_lcms2
 LIBNUT = $_libnut
 LIBPOSTPROC = $libpostproc
-LIBAVRESAMPLE = $libavresample
 LIBSMBCLIENT = $_smb
 LIBQUVI = $_libquvi
 LIBTHEORA = $_theora
@@ -5579,7 +5560,6 @@ $def_xvid
 $def_zlib
 
 $def_libpostproc
-$def_libavresample
 $def_libnut
 
 

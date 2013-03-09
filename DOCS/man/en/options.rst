@@ -1828,9 +1828,9 @@
 --srate=<Hz>
     Select the output sample rate to be used (of course sound cards have
     limits on this). If the sample frequency selected is different from that
-    of the current media, the resample or lavcresample audio filter will be
-    inserted into the audio filter layer to compensate for the difference. The
-    type of resampling can be controlled by the ``--af-adv`` option.
+    of the current media, the lavrresample audio filter will be inserted into
+    the audio filter layer to compensate for the difference. The type of
+    resampling can be controlled by the ``--af-adv`` option.
 
 --ss=<time>
     Seek to given time position.

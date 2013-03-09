@@ -37,8 +37,7 @@ struct af_instance_s;
 #endif
 
 // Audio data chunk
-typedef struct af_data_s
-{
+typedef struct af_data {
   void* audio;  // data buffer
   int len;      // buffer length
   int rate;	// sample rate
@@ -54,8 +53,7 @@ typedef struct af_data_s
 
 /* Audio filter information not specific for current instance, but for
    a specific filter */
-typedef struct af_info_s
-{
+typedef struct af_info {
   const char *info;
   const char *name;
   const char *author;

@@ -26,6 +26,7 @@
 #include <libavutil/audioconvert.h>
 #include <libavutil/opt.h>
 #include <libavutil/samplefmt.h>
+#include <libavresample/avresample.h>
 
 #include "talloc.h"
 
@@ -37,10 +38,6 @@
 #include "libaf/reorder_ch.h"
 
 #include "mpbswap.h"
-
-#ifdef CONFIG_LIBAVRESAMPLE
-#include <libavresample/avresample.h>
-#endif
 
 static const ad_info_t info =
 {
@@ -62,14 +59,12 @@ struct priv {
     int unitsize;
     int previous_data_left;  // input demuxer packet data
 
-#ifdef CONFIG_LIBAVRESAMPLE
     AVAudioResampleContext *avr;
     enum AVSampleFormat resample_fmt;
     enum AVSampleFormat out_fmt;
     int resample_channels;
     uint8_t *resample_buf;
     uint64_t resample_buf_size;
-#endif
 };
 
 static int preinit(sh_audio_t *sh)
@@ -104,17 +99,6 @@ static int setup_format(sh_audio_t *sh_audio)
 
     int sample_format = sample_fmt_lavc2native(codec->sample_fmt);
     if (sample_format == AF_FORMAT_UNKNOWN) {
-#ifndef CONFIG_LIBAVRESAMPLE
-        if (av_sample_fmt_is_planar(codec->sample_fmt))
-            mp_msg(MSGT_DECAUDIO, MSGL_ERR,
-                   "The player has been compiled without libavresample "
-                   "support,\nwhich is needed with this libavcodec decoder "
-                   "version.\nCompile with libavresample enabled to make "
-                   "audio decoding work!\n");
-        else
-            mp_msg(MSGT_DECAUDIO, MSGL_ERR, "Unsupported sample format\n");
-        goto error;
-#else
         if (priv->avr && (priv->resample_fmt      != codec->sample_fmt ||
                           priv->resample_channels != codec->channels))
             avresample_free(&priv->avr);
@@ -167,7 +151,6 @@ static int setup_format(sh_audio_t *sh_audio)
             sample_format = sh_audio->sample_format;
     } else if (priv->avr) {
         avresample_free(&priv->avr);
-#endif
     }
 
     bool broken_srate        = false;
@@ -195,9 +178,7 @@ static int setup_format(sh_audio_t *sh_audio)
     }
     return 0;
 error:
-#ifdef CONFIG_LIBAVRESAMPLE
     avresample_free(&priv->avr);
-#endif
     return -1;
 }
 
@@ -329,9 +310,7 @@ static void uninit(sh_audio_t *sh)
         av_freep(&lavc_context->extradata);
         av_freep(&lavc_context);
     }
-#ifdef CONFIG_LIBAVRESAMPLE
     avresample_free(&ctx->avr);
-#endif
 #if LIBAVCODEC_VERSION_INT >= (54 << 16 | 28 << 8)
     avcodec_free_frame(&ctx->avframe);
 #else
@@ -417,7 +396,6 @@ static int decode_new_packet(struct sh_audio *sh)
     if (format_result < 0)
         return format_result;
 
-#ifdef CONFIG_LIBAVRESAMPLE
     if (priv->avr) {
         int ret;
         uint64_t needed_size = av_samples_get_buffer_size(
@@ -445,9 +423,7 @@ static int decode_new_packet(struct sh_audio *sh)
 
         priv->output = priv->resample_buf;
         priv->output_left = priv->unitsize * ret;
-    } else
-#endif
-    {
+    } else {
         uint64_t unitsize = av_get_bytes_per_sample(avctx->sample_fmt) *
                             (uint64_t)avctx->channels;
         if (unitsize > 100000)

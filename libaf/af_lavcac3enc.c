@@ -33,14 +33,12 @@
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
 #include <libavutil/samplefmt.h>
+#include <libavresample/avresample.h>
 
 #include "config.h"
 #include "af.h"
 #include "reorder_ch.h"
 
-#ifdef CONFIG_LIBAVRESAMPLE
-#include <libavresample/avresample.h>
-#endif
 
 #define AC3_MAX_CHANNELS 6
 #define AC3_MAX_CODED_FRAME_SIZE 3840
@@ -52,11 +50,9 @@ const uint16_t ac3_bitrate_tab[19] = {
 
 // Data for specific instances of this filter
 typedef struct af_ac3enc_s {
-#ifdef CONFIG_LIBAVRESAMPLE
     AVAudioResampleContext *avr;
     uint8_t *resample_buf[AC3_MAX_CHANNELS];
     int linesize;
-#endif
     AVFrame *frame;
     struct AVCodec        *lavc_acodec;
     struct AVCodecContext *lavc_actx;
@@ -115,7 +111,6 @@ static int control(struct af_instance_s *af, int cmd, void *arg)
 
             avcodec_close(s->lavc_actx);
 
-#ifdef CONFIG_LIBAVRESAMPLE
             if (s->avr) {
                 uint64_t ch_layout =
                     av_get_default_channel_layout(af->data->nch);
@@ -154,7 +149,6 @@ static int control(struct af_instance_s *af, int cmd, void *arg)
                     return AF_ERROR;
                 }
             }
-#endif
 
             // Put sample parameters
             s->lavc_actx->channels = af->data->nch;
@@ -223,10 +217,8 @@ static void uninit(struct af_instance_s* af)
 #else
         av_freep(&s->frame);
 #endif
-#ifdef CONFIG_LIBAVRESAMPLE
         avresample_free(&s->avr);
         av_freep(&s->resample_buf[0]);
-#endif
         free(s->pending_data);
         free(s);
     }
@@ -250,7 +242,6 @@ static int encode_data(af_ac3enc_t *s, uint8_t *src, uint8_t *dst, int dst_len)
     s->frame->data[0]     = src;
     s->frame->linesize[0] = total_samples * bps;
 
-#ifdef CONFIG_LIBAVRESAMPLE
     if (s->avr) {
         ret = avresample_convert(s->avr, s->resample_buf, s->linesize,
                                  AC3_FRAME_SIZE, &src, total_samples * bps,
@@ -268,7 +259,6 @@ static int encode_data(af_ac3enc_t *s, uint8_t *src, uint8_t *dst, int dst_len)
         memcpy(s->frame->data, s->resample_buf, sizeof(s->resample_buf));
         s->frame->linesize[0] = s->linesize;
     }
-#endif
 
     av_init_packet(&pkt);
     pkt.data = dst;
@@ -408,10 +398,7 @@ static int af_open(af_instance_t* af){
                    "support expected sample formats!\n");
             return AF_ERROR;
         }
-        enum AVSampleFormat fmt_packed = fmts[i];
-#ifdef CONFIG_LIBAVRESAMPLE
-        fmt_packed = av_get_packed_sample_fmt(fmt_packed);
-#endif
+        enum AVSampleFormat fmt_packed = av_get_packed_sample_fmt(fmts[i]);
         if (fmt_packed == AV_SAMPLE_FMT_S16) {
             s->in_sampleformat = AF_FORMAT_S16_NE;
             s->lavc_actx->sample_fmt = fmts[i];
@@ -423,15 +410,9 @@ static int af_open(af_instance_t* af){
         }
     }
     if (av_sample_fmt_is_planar(s->lavc_actx->sample_fmt)) {
-#ifdef CONFIG_LIBAVRESAMPLE
         s->avr = avresample_alloc_context();
         if (!s->avr)
             abort();
-#else
-        mp_msg(MSGT_AFILTER, MSGL_ERR, "Libavresample is required for this "
-               "filter to work with this libavcodec version.\n");
-        return AF_ERROR;
-#endif
     }
     char buf[100];
     mp_msg(MSGT_AFILTER, MSGL_V, "[af_lavcac3enc]: in sample format: %s\n",
