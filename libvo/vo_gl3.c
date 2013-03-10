@@ -1462,6 +1462,11 @@ static void draw_osd(struct vo *vo, struct osd_state *osd)
         gl->Disable(GL_BLEND);
         gl->BindTexture(GL_TEXTURE_2D, 0);
     }
+
+    // The playloop calls this last before waiting some time until it decides
+    // to call flip_page(). Tell OpenGL to start execution of the GPU commands
+    // while we sleep (this happens asynchronously).
+    gl->Flush();
 }
 
 static void gen_eosd(struct gl_priv *p, mp_eosd_images_t *imgs)
