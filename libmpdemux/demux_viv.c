@@ -96,7 +96,6 @@ static void vivo_parse_text_header(demuxer_t *demux, int header_len)
 {
     vivo_priv_t* priv = demux->priv;
     char *buf;
-    int i;
     char *token;
     char *opt, *param;
     int parser_in_audio_block = 0;
@@ -109,25 +108,23 @@ static void vivo_parse_text_header(demuxer_t *demux, int header_len)
 	priv->supported = 0;
     }
 
-    buf = malloc(header_len);
-    opt = malloc(header_len);
-    param = malloc(header_len);
+    buf = malloc(header_len + 1);
+    opt = malloc(header_len + 1);
+    param = malloc(header_len + 1);
     stream_read(demux->stream, buf, header_len);
-    i=0;
-    while(i<header_len && buf[i]==0x0D && buf[i+1]==0x0A) i+=2; // skip empty lines
+    buf[header_len] = 0;
 
     token = strtok(buf, (char *)&("\x0d\x0a"));
-    while (token && (header_len>2))
+    while (token)
     {
-	header_len -= strlen(token)+2;
 	if (sscanf(token, "%[^:]:%[^\n]", opt, param) != 2)
 	{
 	    mp_msg(MSGT_DEMUX, MSGL_V, "viv_text_header_parser: bad line: '%s' at ~%#"PRIx64"\n",
 		token, (int64_t)stream_tell(demux->stream));
 	    break;
 	}
-	mp_dbg(MSGT_DEMUX, MSGL_DBG3, "token: '%s' (%zd bytes/%d bytes left)\n",
-	    token, strlen(token), header_len);
+	mp_dbg(MSGT_DEMUX, MSGL_DBG3, "token: '%s' (%zd bytes)\n",
+	    token, strlen(token));
 	mp_dbg(MSGT_DEMUX, MSGL_DBG3, "token => o: '%s', p: '%s'\n",
 	    opt, param);
 
