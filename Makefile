@@ -566,7 +566,7 @@ libmpdemux/ebml_types.h: TOOLS/matroska.py
 libmpdemux/ebml_defs.c: TOOLS/matroska.py
 	./$< --generate-definitions > $@
 
-sub/osd_font.h: TOOLS/file2string.py sub/osd_font.pfb
+sub/osd_font.h: TOOLS/file2string.py sub/osd_font.otf
 	./$^ >$@
 
 # ./configure must be rerun if it changed
