@@ -362,6 +362,7 @@ static int decode_new_packet(struct sh_audio *sh)
     double pts = MP_NOPTS_VALUE;
     int insize;
     bool packet_already_used = priv->previous_data_left;
+    bool eof = false;
     struct demux_packet *mpkt = ds_get_packet2(sh->ds,
                                                priv->previous_data_left);
     unsigned char *start;
@@ -371,7 +372,7 @@ static int decode_new_packet(struct sh_audio *sh)
         insize = 0;
         ds_parse(sh->ds, &start, &insize, pts, 0);
         if (insize <= 0)
-            return -1;  // error or EOF
+            eof = true;
     } else {
         assert(mpkt->len >= priv->previous_data_left);
         if (!priv->previous_data_left) {
@@ -410,7 +411,7 @@ static int decode_new_packet(struct sh_audio *sh)
     if (!sh->parser && insize >= ret)
         priv->previous_data_left = insize - ret;
     if (!got_frame)
-        return 0;
+        return eof ? -1 : 0;
 
     int format_result = setup_format(sh);
     if (format_result < 0)
