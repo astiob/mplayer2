@@ -39,7 +39,7 @@ struct MPOpts;
 #define unlikely(x) (x)
 #endif
 
-#define MAX_PACKS 4096
+#define MAX_PACKS (4096*40)
 #define MAX_PACK_BYTES 0x8000000  // 128 MiB
 
 enum demuxer_type {

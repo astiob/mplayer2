@@ -32,6 +32,10 @@
 #include "sd.h"
 #include "subassconvert.h"
 
+#if LIBASS_VERSION < 0x01103001
+#define ass_set_fast_event_lookup(a, b)
+#endif
+
 struct sd_ass_priv {
     struct ass_track *ass_track;
     bool vsfilter_aspect;
@@ -56,6 +60,7 @@ static int init(struct sh_sub *sh, struct osd_state *osd)
         sh->context = ctx;
         if (sh->type == 'a') {
             ctx->ass_track = ass_new_track(osd->ass_library);
+            ass_set_fast_event_lookup(ctx->ass_track, 1);
             if (sh->extradata)
                 ass_process_codec_private(ctx->ass_track, sh->extradata,
                                           sh->extradata_len);
