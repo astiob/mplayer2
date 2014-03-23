@@ -50,6 +50,7 @@
 #define from_rgb(c, m, max) \
     ( ((m)[COL_R]*_r(c)*max/255 + (m)[COL_G]*_g(c)*max/255 + \
        (m)[COL_B]*_b(c)*max/255 + (m)[COL_C]*max) )
+#define dither() (rand() / (RAND_MAX + 1.0))
 
 
 static const struct vf_priv_s {
@@ -347,9 +348,9 @@ static void my_draw_bitmap(struct vf_instance *vf, unsigned char *bitmap,
     for (i = 0; i < bitmap_h; ++i) {
         for (j = 0; j < bitmap_w; ++j) {
             unsigned k = src[j] * opacity;
-            dsty[j] = (k * y + (65025 - k) * dsty[j]) / 65025 + 0.5;
-            dstu[j] = (k * u + (65025 - k) * dstu[j]) / 65025 + 0.5;
-            dstv[j] = (k * v + (65025 - k) * dstv[j]) / 65025 + 0.5;
+            dsty[j] = (k * y + (65025 - k) * dsty[j]) / 65025 + dither();
+            dstu[j] = (k * u + (65025 - k) * dstu[j]) / 65025 + dither();
+            dstv[j] = (k * v + (65025 - k) * dstv[j]) / 65025 + dither();
         }
         src  += stride;
         dsty += dmpi->stride[0];
@@ -380,9 +381,9 @@ static void my_draw_bitmap_16(struct vf_instance *vf, unsigned char *bitmap,
     for (i = 0; i < bitmap_h; ++i) {
         for (j = 0; j < bitmap_w; ++j) {
             unsigned k = src[j] * opacity;
-            dsty[j] = (k * y + (65025 - k) * dsty[j]) / 65025 + 0.5;
-            dstu[j] = (k * u + (65025 - k) * dstu[j]) / 65025 + 0.5;
-            dstv[j] = (k * v + (65025 - k) * dstv[j]) / 65025 + 0.5;
+            dsty[j] = (k * y + (65025 - k) * dsty[j]) / 65025 + dither();
+            dstu[j] = (k * u + (65025 - k) * dstu[j]) / 65025 + dither();
+            dstv[j] = (k * v + (65025 - k) * dstv[j]) / 65025 + dither();
         }
         src  += stride;
         dsty += dmpi->stride[0] / 2;
