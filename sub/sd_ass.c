@@ -34,6 +34,10 @@
 
 #if LIBASS_VERSION < 0x01103001
 #define ass_set_fast_event_lookup(a, b)
+#elif defined(__APPLE__)
+void ass_set_fast_event_lookup(ASS_Track *track, int enable) __attribute__((weak_import));
+#define ass_set_fast_event_lookup(a, b) \
+    ({ if (ass_set_fast_event_lookup) ass_set_fast_event_lookup(a, b); })
 #endif
 
 struct sd_ass_priv {
