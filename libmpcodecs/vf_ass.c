@@ -67,6 +67,7 @@ static const struct vf_priv_s {
     double aspect_correction;
 
     unsigned char *planes[3];
+    int stride[3];
     struct line_limits {
         uint16_t start;
         uint16_t end;
@@ -90,10 +91,16 @@ static int config(struct vf_instance *vf,
         d_height = d_height * vf->priv->outh / height;
     }
 
-    int bpp = IMGFMT_IS_YUVP16(outfmt) ? 2 : 1;
-    vf->priv->planes[1]   = malloc(vf->priv->outw * vf->priv->outh * bpp);
-    vf->priv->planes[2]   = malloc(vf->priv->outw * vf->priv->outh * bpp);
-    vf->priv->line_limits = malloc((vf->priv->outh + 1) / 2 * sizeof(*vf->priv->line_limits));
+    int chroma_shift;
+    mp_get_chroma_shift(outfmt, &chroma_shift, NULL, NULL);
+    if (chroma_shift) {
+        int bpp = IMGFMT_IS_YUVP16(outfmt) ? 2 : 1;
+        vf->priv->stride[1]   = vf->priv->outw * bpp;
+        vf->priv->stride[2]   = vf->priv->outw * bpp;
+        vf->priv->planes[1]   = malloc(vf->priv->stride[1] * vf->priv->outh);
+        vf->priv->planes[2]   = malloc(vf->priv->stride[2] * vf->priv->outh);
+        vf->priv->line_limits = malloc((vf->priv->outh + 1) / 2 * sizeof(*vf->priv->line_limits));
+    }
 
     vf->priv->aspect_correction = (double)width / height * d_height / d_width;
 
@@ -164,6 +171,12 @@ static int prepare_image(struct vf_instance *vf, mp_image_t *mpi)
                   vf->priv->outh);
         if (!(mpi->flags & MP_IMGFLAG_PLANAR))
             vf->dmpi->planes[1] = mpi->planes[1];             // passthrough rgb8 palette
+        else if (!mpi->chroma_x_shift) {
+            vf->priv->planes[1] = vf->dmpi->planes[1];
+            vf->priv->planes[2] = vf->dmpi->planes[2];
+            vf->priv->stride[1] = vf->dmpi->stride[1];
+            vf->priv->stride[2] = vf->dmpi->stride[2];
+        }
         return 0;
     }
 
@@ -193,6 +206,12 @@ static int prepare_image(struct vf_instance *vf, mp_image_t *mpi)
 		   mpi->h >> mpi->chroma_y_shift,
                    vf->dmpi->stride[2],
 		   mpi->stride[2]);
+        if (!mpi->chroma_x_shift) {
+            vf->priv->planes[1] = vf->dmpi->planes[1];
+            vf->priv->planes[2] = vf->dmpi->planes[2];
+            vf->priv->stride[1] = vf->dmpi->stride[1];
+            vf->priv->stride[2] = vf->dmpi->stride[2];
+        }
     } else {
         memcpy_pic(vf->dmpi->planes[0] + tmargin * vf->dmpi->stride[0],
                    mpi->planes[0],
@@ -340,11 +359,12 @@ static void my_draw_bitmap(struct vf_instance *vf, unsigned char *bitmap,
     unsigned char *src, *dsty, *dstu, *dstv;
     int i, j;
     mp_image_t *dmpi = vf->dmpi;
+    struct vf_priv_s *priv = vf->priv;
 
     src = bitmap;
     dsty = dmpi->planes[0] + dst_x + dst_y * dmpi->stride[0];
-    dstu = vf->priv->planes[1] + dst_x + dst_y * vf->priv->outw;
-    dstv = vf->priv->planes[2] + dst_x + dst_y * vf->priv->outw;
+    dstu = priv->planes[1] + dst_x + dst_y * priv->stride[1];
+    dstv = priv->planes[2] + dst_x + dst_y * priv->stride[2];
     for (i = 0; i < bitmap_h; ++i) {
         for (j = 0; j < bitmap_w; ++j) {
             unsigned k = src[j] * opacity;
@@ -354,8 +374,8 @@ static void my_draw_bitmap(struct vf_instance *vf, unsigned char *bitmap,
         }
         src  += stride;
         dsty += dmpi->stride[0];
-        dstu += vf->priv->outw;
-        dstv += vf->priv->outw;
+        dstu += priv->stride[1];
+        dstv += priv->stride[2];
     }
 }
 
@@ -373,11 +393,12 @@ static void my_draw_bitmap_16(struct vf_instance *vf, unsigned char *bitmap,
     unsigned char *src;
     uint16_t *dsty, *dstu, *dstv;
     int i, j;
+    struct vf_priv_s *priv = vf->priv;
 
     src = bitmap;
     dsty = (uint16_t *)(dmpi->planes[0] + dst_x * 2 + dst_y * dmpi->stride[0]);
-    dstu = (uint16_t *)vf->priv->planes[1] + dst_x + dst_y * vf->priv->outw;
-    dstv = (uint16_t *)vf->priv->planes[2] + dst_x + dst_y * vf->priv->outw;
+    dstu = (uint16_t *)(priv->planes[1] + dst_x * 2 + dst_y * priv->stride[1]);
+    dstv = (uint16_t *)(priv->planes[2] + dst_x * 2 + dst_y * priv->stride[2]);
     for (i = 0; i < bitmap_h; ++i) {
         for (j = 0; j < bitmap_w; ++j) {
             unsigned k = src[j] * opacity;
@@ -387,8 +408,8 @@ static void my_draw_bitmap_16(struct vf_instance *vf, unsigned char *bitmap,
         }
         src  += stride;
         dsty += dmpi->stride[0] / 2;
-        dstu += vf->priv->outw;
-        dstv += vf->priv->outw;
+        dstu += priv->stride[1] / 2;
+        dstv += priv->stride[2] / 2;
     }
 }
 
@@ -396,12 +417,14 @@ static int render_frame(struct vf_instance *vf, mp_image_t *mpi,
 			const ASS_Image *img, float rgb2yuv[3][4])
 {
     if (img) {
-        for (int i = 0; i < (vf->priv->outh + 1) / 2; i++)
-            vf->priv->line_limits[i] = (struct line_limits){65535, 0};
-        for (const ASS_Image *im = img; im; im = im->next)
-            update_limits(vf, im->dst_y, im->dst_y + im->h,
-			  im->dst_x, im->dst_x + im->w);
-        copy_from_image(vf);
+        if (vf->dmpi->chroma_x_shift) {
+            for (int i = 0; i < (vf->priv->outh + 1) / 2; i++)
+                vf->priv->line_limits[i] = (struct line_limits){65535, 0};
+            for (const ASS_Image *im = img; im; im = im->next)
+                update_limits(vf, im->dst_y, im->dst_y + im->h,
+                              im->dst_x, im->dst_x + im->w);
+            copy_from_image(vf);
+        }
         while (img) {
             if (IMGFMT_IS_YUVP16(vf->dmpi->imgfmt))
                 my_draw_bitmap_16(vf, img->bitmap, img->w, img->h, img->stride,
@@ -411,7 +434,8 @@ static int render_frame(struct vf_instance *vf, mp_image_t *mpi,
                                img->dst_x, img->dst_y, img->color, rgb2yuv);
             img = img->next;
         }
-        copy_to_image(vf);
+        if (vf->dmpi->chroma_x_shift)
+            copy_to_image(vf);
     }
     return 0;
 }
@@ -465,6 +489,10 @@ static int query_format(struct vf_instance *vf, unsigned int fmt)
     case IMGFMT_420P9:
     case IMGFMT_420P10:
     case IMGFMT_420P16:
+    case IMGFMT_444P:
+    case IMGFMT_444P9:
+    case IMGFMT_444P10:
+    case IMGFMT_444P16:
         return vf_next_query_format(vf, vf->priv->outfmt);
     }
     return 0;
@@ -489,9 +517,11 @@ static int control(vf_instance_t *vf, int request, void *data)
 
 static void uninit(struct vf_instance *vf)
 {
-    free(vf->priv->planes[1]);
-    free(vf->priv->planes[2]);
-    free(vf->priv->line_limits);
+    if (vf->priv->line_limits) {
+        free(vf->priv->planes[1]);
+        free(vf->priv->planes[2]);
+        free(vf->priv->line_limits);
+    }
     free(vf->priv);
 }
 
@@ -502,6 +532,10 @@ static const unsigned int fmt_list[] = {
     IMGFMT_420P9,
     IMGFMT_420P10,
     IMGFMT_420P16,
+    IMGFMT_444P,
+    IMGFMT_444P9,
+    IMGFMT_444P10,
+    IMGFMT_444P16,
     0
 };
 
