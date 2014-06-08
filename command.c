@@ -1139,6 +1139,41 @@ static int colormatrix_property_helper(m_option_t *prop, int action,
     return r;
 }
 
+static int mp_property_color_primaries(m_option_t *prop, int action,
+                                       void *arg, MPContext *mpctx)
+{
+    struct MPOpts *opts = &mpctx->opts;
+    switch (action) {
+    case M_PROPERTY_PRINT:
+        if (!arg)
+            return M_PROPERTY_ERROR;
+        struct mp_csp_rgb actual = { .primaries = -1 };
+        char *req_prim = mp_cprim_names[opts->requested_color_primaries];
+        char *real_prim = NULL;
+        if (mpctx->sh_video) {
+            struct vf_instance *vf = mpctx->sh_video->vfilter;
+            if (vf->control(vf, VFCTRL_GET_RGB_COLORSPACE, &actual) == true) {
+                real_prim = mp_cprim_names[actual.primaries];
+            } else {
+                real_prim = "Unknown";
+            }
+        }
+        char *res;
+        if (opts->requested_color_primaries == MP_CPRIM_AUTO && real_prim) {
+            res = talloc_asprintf(NULL, "Auto (%s)", real_prim);
+        } else if (opts->requested_color_primaries == actual.primaries
+                   || !real_prim) {
+            res = talloc_strdup(NULL, req_prim);
+        } else
+            res = talloc_asprintf(NULL, mp_gtext("%s, but %s used"),
+                                  req_prim, real_prim);
+        *(char **)arg = res;
+        return M_PROPERTY_OK;
+    default:;
+        return colormatrix_property_helper(prop, action, arg, mpctx);
+    }
+}
+
 static int mp_property_colormatrix(m_option_t *prop, int action, void *arg,
                                    MPContext *mpctx)
 {
@@ -1231,6 +1266,48 @@ static int mp_property_colormatrix_output_range(m_option_t *prop, int action,
 {
     return levels_property_helper(offsetof(struct mp_csp_details, levels_out),
                                   prop, action, arg, mpctx);
+}
+
+static int mp_property_chroma_sample_location(m_option_t *prop, int action,
+                                              void *arg, MPContext *mpctx)
+{
+    char *optname = prop->priv;
+    const struct m_option *opt = m_config_get_option(mpctx->mconfig,
+                                                     bstr(optname));
+    struct MPOpts *opts = &mpctx->opts;
+
+    switch (action) {
+    case M_PROPERTY_PRINT:
+        if (!arg)
+            return M_PROPERTY_ERROR;
+        struct mp_csp_details actual = { .chroma_loc = -1 };
+        char *req_loc = m_option_print(opt,
+                                       &opts->requested_chroma_sample_location);
+        char *real_loc = NULL;
+        if (mpctx->sh_video) {
+            struct vf_instance *vf = mpctx->sh_video->vfilter;
+            if (vf->control(vf, VFCTRL_GET_YUV_COLORSPACE, &actual) == true) {
+                real_loc = m_option_print(opt, &actual.chroma_loc);
+            } else {
+                real_loc = talloc_strdup(NULL, "Unknown");
+            }
+        }
+        char *res;
+        if (opts->requested_chroma_sample_location == MP_CPRIM_AUTO && real_loc) {
+            res = talloc_asprintf(NULL, "Auto (%s)", real_loc);
+        } else if (opts->requested_chroma_sample_location == actual.chroma_loc
+                   || !real_loc) {
+            res = talloc_strdup(NULL, req_loc);
+        } else
+            res = talloc_asprintf(NULL, mp_gtext("%s, but %s used"),
+                                  req_loc, real_loc);
+        talloc_free(req_loc);
+        talloc_free(real_loc);
+        *(char **)arg = res;
+        return M_PROPERTY_OK;
+    default:;
+        return colormatrix_property_helper(prop, action, arg, mpctx);
+    }
 }
 
 static int mp_property_capture(m_option_t *prop, int action,
@@ -2264,12 +2341,16 @@ static const m_option_t mp_properties[] = {
       M_OPT_RANGE, 0, 1, NULL },
     { "deinterlace", mp_property_deinterlace, CONF_TYPE_FLAG,
       M_OPT_RANGE, 0, 1, NULL },
+    { "color_primaries", mp_property_color_primaries, &m_option_type_choice,
+      0, 0, 0, "color-primaries" },
     { "colormatrix", mp_property_colormatrix, &m_option_type_choice,
       0, 0, 0, "colormatrix" },
     { "colormatrix_input_range", mp_property_colormatrix_input_range, &m_option_type_choice,
       0, 0, 0, "colormatrix-input-range" },
     { "colormatrix_output_range", mp_property_colormatrix_output_range, &m_option_type_choice,
       0, 0, 0, "colormatrix-output-range" },
+    { "chroma_sample_location", mp_property_chroma_sample_location, &m_option_type_choice,
+      0, 0, 0, "chroma-sample-location" },
     { "ontop", mp_property_ontop, CONF_TYPE_FLAG,
       M_OPT_RANGE, 0, 1, NULL },
     { "rootwin", mp_property_rootwin, CONF_TYPE_FLAG,

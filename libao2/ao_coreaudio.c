@@ -118,6 +118,9 @@ typedef struct ao_coreaudio_s
 
 static ao_coreaudio_t *ao = NULL;
 
+/* variable to store the volume when changing between audio units */
+static Float32 temp_vol = -1.0;
+
 /**
  * \brief add data to ringbuffer
  */
@@ -579,6 +582,14 @@ int device_id, display_help = 0;
 	if (err) {
 		ao_msg(MSGT_AO, MSGL_WARN, "Unable to initialize Output Unit component: [%4.4s]\n", (char *)&err);
 		goto err_out1;
+	}
+
+	if (temp_vol >= 0) {
+		err = AudioUnitSetParameter(ao->theOutputUnit, kHALOutputParam_Volume, kAudioUnitScope_Global, 0, temp_vol, 0);
+		if (err) {
+			ao_msg(MSGT_AO, MSGL_WARN, "could not restore the HAL output volume: [%4.4s]\n", (char *)&err);
+			goto err_out2;
+		}
 	}
 
 	size =  sizeof(AudioStreamBasicDescription);
@@ -1136,6 +1147,12 @@ static float get_delay(void)
 static void uninit(int immed)
 {
   OSStatus            err = noErr;
+
+  err = AudioUnitGetParameter(ao->theOutputUnit, kHALOutputParam_Volume, kAudioUnitScope_Global, 0, &temp_vol);
+  if(err) {
+    temp_vol = -1.0; // backing off to standard volume
+    ao_msg(MSGT_AO, MSGL_WARN, "could not save HAL output volume: [%4.4s]\n", (char *)&err);
+  }
 
   if (!immed) {
     long long timeleft=(1000000LL*av_fifo_size(ao->buffer))/ao_data.bps;

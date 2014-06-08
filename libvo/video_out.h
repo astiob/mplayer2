@@ -74,6 +74,8 @@ enum mp_voctrl {
 
     VOCTRL_SET_YUV_COLORSPACE,          // struct mp_csp_details
     VOCTRL_GET_YUV_COLORSPACE,          // struct mp_csp_details
+    VOCTRL_SET_RGB_COLORSPACE,          // struct mp_csp_rgb
+    VOCTRL_GET_RGB_COLORSPACE,          // struct mp_csp_rgb
 
     VOCTRL_SCREENSHOT,                  // struct voctrl_screenshot_args
 };
@@ -124,6 +126,7 @@ typedef struct {
 #define VOFLAG_FLIPPING		0x08
 #define VOFLAG_HIDDEN		0x10  //< Use to create a hidden window
 #define VOFLAG_STEREO		0x20  //< Use to create a stereo-capable window
+#define VOFLAG_GL_DEBUG         0x40  // Hint to request debug OpenGL context
 
 typedef struct vo_info_s
 {
@@ -260,6 +263,7 @@ struct vo {
     void *priv;
     struct MPOpts *opts;
     struct vo_x11_state *x11;
+    struct vo_w32_state *w32;
     struct vo_cocoa_state *cocoa;
     struct mp_fifo *key_fifo;
     struct input_ctx *input_ctx;

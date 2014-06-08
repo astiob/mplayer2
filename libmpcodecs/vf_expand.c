@@ -133,11 +133,13 @@ static int config(struct vf_instance *vf,
 	unsigned int flags, unsigned int outfmt)
 {
     struct MPOpts *opts = vf->opts;
+    mp_image_t test_mpi;
     if(outfmt == IMGFMT_MPEGPES) {
       vf->priv->passthrough = 1;
       return vf_next_config(vf,width,height,d_width,d_height,flags,outfmt);
     }
-    if (outfmt == IMGFMT_IF09) return 0;
+    mp_image_setfmt(&test_mpi, outfmt);
+    if (outfmt == IMGFMT_IF09 || !test_mpi.bpp) return 0;
     vf->priv->exp_x = vf->priv->cfg_exp_x;
     vf->priv->exp_y = vf->priv->cfg_exp_y;
     vf->priv->exp_w = vf->priv->cfg_exp_w;
@@ -170,6 +172,23 @@ static int config(struct vf_instance *vf,
 
     if(vf->priv->exp_x<0 || vf->priv->exp_x+width>vf->priv->exp_w) vf->priv->exp_x=(vf->priv->exp_w-width)/2;
     if(vf->priv->exp_y<0 || vf->priv->exp_y+height>vf->priv->exp_h) vf->priv->exp_y=(vf->priv->exp_h-height)/2;
+    if(test_mpi.flags & MP_IMGFLAG_YUV) {
+        int x_align_mask = (1 << test_mpi.chroma_x_shift) - 1;
+        int y_align_mask = (1 << test_mpi.chroma_y_shift) - 1;
+        // For 1-plane format non-aligned offsets will completely
+        // destroy the colours, for planar it will break the chroma
+        // sampling position.
+        if (vf->priv->exp_x & x_align_mask) {
+            vf->priv->exp_x &= ~x_align_mask;
+            mp_msg(MSGT_VFILTER, MSGL_ERR, "Specified x offset not supported "
+                   "for YUV, reduced to %i.\n", vf->priv->exp_x);
+        }
+        if (vf->priv->exp_y & y_align_mask) {
+            vf->priv->exp_y &= ~y_align_mask;
+            mp_msg(MSGT_VFILTER, MSGL_ERR, "Specified y offset not supported "
+                   "for YUV, reduced to %i.\n", vf->priv->exp_y);
+        }
+    }
 
     if(!opts->screen_size_x && !opts->screen_size_y){
 	d_width=d_width*vf->priv->exp_w/width;
@@ -208,12 +227,13 @@ static void get_image(struct vf_instance *vf, mp_image_t *mpi){
 	}
 	// set up mpi as a cropped-down image of dmpi:
 	if(mpi->flags&MP_IMGFLAG_PLANAR){
+	    int bpp = IMGFMT_IS_YUVP16(mpi->imgfmt) ? 2 : 1;
 	    mpi->planes[0]=vf->dmpi->planes[0]+
-		vf->priv->exp_y*vf->dmpi->stride[0]+vf->priv->exp_x;
+		vf->priv->exp_y*vf->dmpi->stride[0]+vf->priv->exp_x*bpp;
 	    mpi->planes[1]=vf->dmpi->planes[1]+
-		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[1]+(vf->priv->exp_x>>mpi->chroma_x_shift);
+		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[1]+(vf->priv->exp_x>>mpi->chroma_x_shift)*bpp;
 	    mpi->planes[2]=vf->dmpi->planes[2]+
-		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[2]+(vf->priv->exp_x>>mpi->chroma_x_shift);
+		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[2]+(vf->priv->exp_x>>mpi->chroma_x_shift)*bpp;
 	    mpi->stride[1]=vf->dmpi->stride[1];
 	    mpi->stride[2]=vf->dmpi->stride[2];
 	} else {
@@ -343,17 +363,18 @@ static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts){
 
     // copy mpi->dmpi...
     if(mpi->flags&MP_IMGFLAG_PLANAR){
+	int bpp = IMGFMT_IS_YUVP16(mpi->imgfmt) ? 2 : 1;
 	memcpy_pic(vf->dmpi->planes[0]+
-	        vf->priv->exp_y*vf->dmpi->stride[0]+vf->priv->exp_x,
-		mpi->planes[0], mpi->w, mpi->h,
+	        vf->priv->exp_y*vf->dmpi->stride[0]+vf->priv->exp_x*bpp,
+		mpi->planes[0], mpi->w*bpp, mpi->h,
 		vf->dmpi->stride[0],mpi->stride[0]);
 	memcpy_pic(vf->dmpi->planes[1]+
-		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[1]+(vf->priv->exp_x>>mpi->chroma_x_shift),
-		mpi->planes[1], (mpi->w>>mpi->chroma_x_shift), (mpi->h>>mpi->chroma_y_shift),
+		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[1]+(vf->priv->exp_x>>mpi->chroma_x_shift)*bpp,
+		mpi->planes[1], (mpi->w>>mpi->chroma_x_shift)*bpp, (mpi->h>>mpi->chroma_y_shift),
 		vf->dmpi->stride[1],mpi->stride[1]);
 	memcpy_pic(vf->dmpi->planes[2]+
-		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[2]+(vf->priv->exp_x>>mpi->chroma_x_shift),
-		mpi->planes[2], (mpi->w>>mpi->chroma_x_shift), (mpi->h>>mpi->chroma_y_shift),
+		(vf->priv->exp_y>>mpi->chroma_y_shift)*vf->dmpi->stride[2]+(vf->priv->exp_x>>mpi->chroma_x_shift)*bpp,
+		mpi->planes[2], (mpi->w>>mpi->chroma_x_shift)*bpp, (mpi->h>>mpi->chroma_y_shift),
 		vf->dmpi->stride[2],mpi->stride[2]);
     } else {
 	memcpy_pic(vf->dmpi->planes[0]+

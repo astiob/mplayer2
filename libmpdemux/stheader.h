@@ -114,8 +114,10 @@ typedef struct sh_video {
     float stream_aspect;  // aspect ratio in media headers (DVD IFO files)
     int i_bps;            // == bitrate  (compressed bytes/sec)
     int disp_w, disp_h;   // display size (filled by demuxer)
+    int color_primaries;  // enum mp_cprim
     int colorspace;       // enum mp_csp
     int color_range;      // enum mp_csp_levels
+    int chroma_sample_location; // enum mp_chroma_loc
     // output driver/filters: (set by libmpcodecs core)
     unsigned int outfmt;
     unsigned int outfmtidx;

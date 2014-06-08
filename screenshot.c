@@ -22,6 +22,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
+#include "osdep/io.h"
+
 #include <libswscale/swscale.h>
 #include <libavcodec/avcodec.h>
 
@@ -80,8 +82,8 @@ static int write_png(screenshot_ctx *ctx, struct mp_image *image)
 {
     char *fname = ctx->fname;
     FILE *fp = NULL;
-    void *outbuffer = NULL;
     int success = 0;
+    AVPacket packet = {0};
 
     struct AVCodec *png_codec = avcodec_find_encoder(AV_CODEC_ID_PNG);
     AVCodecContext *avctx = NULL;
@@ -104,19 +106,15 @@ static int write_png(screenshot_ctx *ctx, struct mp_image *image)
         goto error_exit;
     }
 
-    size_t outbuffer_size = image->width * image->height * 3 * 2;
-    outbuffer = malloc(outbuffer_size);
-    if (!outbuffer)
-        goto error_exit;
-
     AVFrame *pic = ctx->pic;
     avcodec_get_frame_defaults(pic);
     for (int n = 0; n < 4; n++) {
         pic->data[n] = image->planes[n];
         pic->linesize[n] = image->stride[n];
     }
-    int size = avcodec_encode_video(avctx, outbuffer, outbuffer_size, pic);
-    if (size < 1)
+    int got_packet;
+    int res = avcodec_encode_video2(avctx, &packet, pic, &got_packet);
+    if (res < 0 || !got_packet)
         goto error_exit;
 
     fp = fopen(fname, "wb");
@@ -126,7 +124,7 @@ static int write_png(screenshot_ctx *ctx, struct mp_image *image)
         goto error_exit;
     }
 
-    fwrite(outbuffer, size, 1, fp);
+    fwrite(packet.data, packet.size, 1, fp);
     fflush(fp);
 
     if (ferror(fp))
@@ -137,9 +135,9 @@ error_exit:
     if (avctx)
         avcodec_close(avctx);
     av_free(avctx);
+    av_packet_unref(&packet);
     if (fp)
         fclose(fp);
-    free(outbuffer);
     return success;
 }
 
@@ -175,7 +173,8 @@ void screenshot_save(struct MPContext *mpctx, struct mp_image *image)
                                                           dst->imgfmt);
 
     struct mp_csp_details colorspace;
-    get_detected_video_colorspace(mpctx->sh_video, &colorspace);
+    struct mp_csp_rgb csp_rgb;
+    get_detected_video_colorspace(mpctx->sh_video, &colorspace, &csp_rgb);
     // this is a property of the output device; images always use full-range RGB
     colorspace.levels_out = MP_CSP_LEVELS_PC;
     mp_sws_set_colorspace(sws, &colorspace);

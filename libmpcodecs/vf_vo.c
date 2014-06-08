@@ -94,6 +94,10 @@ static int control(struct vf_instance *vf, int request, void *data)
         return vo_control(video_out, VOCTRL_GET_YUV_COLORSPACE, data) == true;
     case VFCTRL_SET_YUV_COLORSPACE:
         return vo_control(video_out, VOCTRL_SET_YUV_COLORSPACE, data) == true;
+    case VFCTRL_GET_RGB_COLORSPACE:
+        return vo_control(video_out, VOCTRL_GET_RGB_COLORSPACE, data) == true;
+    case VFCTRL_SET_RGB_COLORSPACE:
+        return vo_control(video_out, VOCTRL_SET_RGB_COLORSPACE, data) == true;
     case VFCTRL_DRAW_OSD:
         if (!video_out->config_ok)
             return CONTROL_FALSE;    // vo not configured?

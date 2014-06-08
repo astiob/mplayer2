@@ -108,22 +108,30 @@ typedef struct filter_kernel kernel;
 
 static double bilinear(kernel *k, double x)
 {
-    return 1.0 - x;
+    if (x < 1.0)
+        return 1.0 - x;
+    return 0;
 }
 
 static double hanning(kernel *k, double x)
 {
-    return 0.5 + 0.5 * cos(M_PI * x);
+    if (x < 1.0)
+        return 0.5 + 0.5 * cos(M_PI * x);
+    return 0;
 }
 
 static double hamming(kernel *k, double x)
 {
-    return 0.54 + 0.46 * cos(M_PI * x);
+    if (x < 1.0)
+        return 0.54 + 0.46 * cos(M_PI * x);
+    return 0;
 }
 
 static double hermite(kernel *k, double x)
 {
-    return (2.0 * x - 3.0) * x * x + 1.0;
+    if (x < 1.0)
+        return (2.0 * x - 3.0) * x * x + 1.0;
+    return 0;
 }
 
 static double quadric(kernel *k, double x)

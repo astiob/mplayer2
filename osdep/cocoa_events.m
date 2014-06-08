@@ -116,21 +116,37 @@ void cocoa_events_uninit(void)
     talloc_free(p);
 }
 
+struct cocoa_events_read_all_events_context
+{
+	struct input_ctx *ictx;
+	int time;
+};
+
+static void cocoa_events_read_all_events_callback(void *void_ctx)
+{
+	struct cocoa_events_read_all_events_context *ctx = void_ctx;
+	p->read_all_fd_events(ctx->ictx, ctx->time);
+	cocoa_wake_runloop();
+}
+
+static void cocoa_events_do_nothing(void *ctx)
+{
+}
+
 void cocoa_events_read_all_events(struct input_ctx *ictx, int time)
 {
     // don't bother delegating the select to the async queue if the blocking
     // time is really low or if we are not running a GUI
     if (time > MP_ASYNC_THRESHOLD && vo_cocoa_gui_running()) {
-        dispatch_async(p->select_queue, ^{
-            p->read_all_fd_events(ictx, time);
-            cocoa_wake_runloop();
-        });
+        struct cocoa_events_read_all_events_context ctx = { ictx, time };
+        dispatch_async_f(p->select_queue, &ctx,
+                         cocoa_events_read_all_events_callback);
 
         cocoa_wait_events(time);
         mp_input_wakeup(ictx);
 
         // wait for the async queue to get empty.
-        dispatch_sync(p->select_queue, ^{});
+        dispatch_sync_f(p->select_queue, NULL, cocoa_events_do_nothing);
     } else {
         p->read_all_fd_events(ictx, time);
     }

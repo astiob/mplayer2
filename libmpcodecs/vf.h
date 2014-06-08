@@ -114,6 +114,8 @@ struct vf_ctrl_screenshot {
 #define VFCTRL_SET_OSD_OBJ 20
 #define VFCTRL_SET_YUV_COLORSPACE 22 // arg is struct mp_csp_details*
 #define VFCTRL_GET_YUV_COLORSPACE 23 // arg is struct mp_csp_details*
+#define VFCTRL_SET_RGB_COLORSPACE 24 // arg is struct mp_csp_rgb*
+#define VFCTRL_GET_RGB_COLORSPACE 25 // arg is struct mp_csp_rgb*
 
 // functions:
 void vf_mpi_clear(mp_image_t *mpi, int x0, int y0, int w, int h);

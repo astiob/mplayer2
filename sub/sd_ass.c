@@ -141,6 +141,7 @@ static void get_bitmaps(struct sh_sub *sh, struct osd_state *osd,
     mp_ass_configure(renderer, opts, &osd->dim, osd->unscaled);
     ass_set_aspect_ratio(renderer, scale, 1);
     int changed;
+    res->colorspace = mp_ass_get_colorspace(ctx->ass_track);
     res->imgs = ass_render_frame(renderer, ctx->ass_track,
                                  osd->sub_pts * 1000 + .5, &changed);
     if (changed == 2)

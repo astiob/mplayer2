@@ -86,6 +86,7 @@ extern struct vo_driver video_out_png;
 extern struct vo_driver video_out_caca;
 extern struct vo_driver video_out_yuv4mpeg;
 extern struct vo_driver video_out_direct3d;
+extern struct vo_driver video_out_direct3d_shaders;
 extern struct vo_driver video_out_directx;
 extern struct vo_driver video_out_v4l2;
 extern struct vo_driver video_out_jpeg;
@@ -99,11 +100,12 @@ extern struct vo_driver video_out_md5sum;
 
 const struct vo_driver *video_out_drivers[] =
 {
+#ifdef CONFIG_DIRECT3D
+        &video_out_direct3d_shaders,
+        &video_out_direct3d,
+#endif
 #ifdef CONFIG_DIRECTX
         &video_out_directx,
-#endif
-#ifdef CONFIG_DIRECT3D
-        &video_out_direct3d,
 #endif
 #ifdef CONFIG_GL_COCOA
         &video_out_gl,

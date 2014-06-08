@@ -136,14 +136,23 @@ int get_video_colors(sh_video_t *sh_video, const char *item, int *value)
     return 0;
 }
 
-void get_detected_video_colorspace(struct sh_video *sh, struct mp_csp_details *csp)
+void get_detected_video_colorspace(struct sh_video *sh,
+                                   struct mp_csp_details *csp,
+                                   struct mp_csp_rgb *rgb)
 {
     struct MPOpts *opts = sh->opts;
     struct vf_instance *vf = sh->vfilter;
 
+    rgb->primaries = opts->requested_color_primaries;
     csp->format = opts->requested_colorspace;
     csp->levels_in = opts->requested_input_range;
     csp->levels_out = opts->requested_output_range;
+    csp->chroma_loc = opts->requested_chroma_sample_location;
+
+    if (rgb->primaries == MP_CPRIM_AUTO)
+        rgb->primaries = sh->color_primaries;
+    if (rgb->primaries == MP_CPRIM_AUTO)
+        rgb->primaries = mp_csp_guess_color_primaries(vf->w, vf->h);
 
     if (csp->format == MP_CSP_AUTO)
         csp->format = sh->colorspace;
@@ -157,32 +166,43 @@ void get_detected_video_colorspace(struct sh_video *sh, struct mp_csp_details *c
 
     if (csp->levels_out == MP_CSP_LEVELS_AUTO)
         csp->levels_out = MP_CSP_LEVELS_PC;
+
+    if (csp->chroma_loc == MP_CHROMA_LOC_AUTO)
+        csp->chroma_loc = sh->chroma_sample_location;
+    if (csp->chroma_loc == MP_CHROMA_LOC_AUTO)
+        csp->chroma_loc = MP_CHROMA_LOC_CENTER;
 }
 
 void set_video_colorspace(struct sh_video *sh)
 {
     struct vf_instance *vf = sh->vfilter;
 
-    struct mp_csp_details requested;
-    get_detected_video_colorspace(sh, &requested);
-    vf->control(vf, VFCTRL_SET_YUV_COLORSPACE, &requested);
+    struct mp_csp_details requested_yuv;
+    struct mp_csp_rgb requested_rgb;
+    get_detected_video_colorspace(sh, &requested_yuv, &requested_rgb);
+    vf->control(vf, VFCTRL_SET_YUV_COLORSPACE, &requested_yuv);
+    vf->control(vf, VFCTRL_SET_RGB_COLORSPACE, &requested_rgb);
 
-    struct mp_csp_details actual = MP_CSP_DETAILS_DEFAULTS;
-    vf->control(vf, VFCTRL_GET_YUV_COLORSPACE, &actual);
+    struct mp_csp_details actual_yuv = MP_CSP_DETAILS_DEFAULTS;
+    struct mp_csp_rgb actual_rgb = MP_CSP_RGB_DEFAULTS;
+    vf->control(vf, VFCTRL_GET_YUV_COLORSPACE, &actual_yuv);
+    vf->control(vf, VFCTRL_GET_RGB_COLORSPACE, &actual_rgb);
 
-    int success = actual.format == requested.format
-               && actual.levels_in == requested.levels_in
-               && actual.levels_out == requested.levels_out;
+    int success = actual_yuv.format == requested_yuv.format
+               && actual_yuv.levels_in == requested_yuv.levels_in
+               && actual_yuv.levels_out == requested_yuv.levels_out
+               && actual_yuv.chroma_loc == requested_yuv.chroma_loc
+               && actual_rgb.primaries == requested_rgb.primaries;
 
     if (!success)
         mp_tmsg(MSGT_DECVIDEO, MSGL_WARN,
                 "Colorspace details not fully supported by selected vo.\n");
 
-    if (actual.format != requested.format
-            && requested.format == MP_CSP_SMPTE_240M) {
+    if (actual_yuv.format != requested_yuv.format
+            && requested_yuv.format == MP_CSP_SMPTE_240M) {
         // BT.709 is pretty close, much better than BT.601
-        requested.format = MP_CSP_BT_709;
-        vf->control(vf, VFCTRL_SET_YUV_COLORSPACE, &requested);
+        requested_yuv.format = MP_CSP_BT_709;
+        vf->control(vf, VFCTRL_SET_YUV_COLORSPACE, &requested_yuv);
     }
 
 }

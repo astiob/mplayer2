@@ -67,9 +67,11 @@ static const char vo_gl3_shaders[] =
 
 // Texture units 0-2 are used by the video, with unit 0 for free use.
 // Units 3-4 are used for scaler LUTs.
+// Units 6-7 are used for inverses of tone curves from the ICC profile.
 #define TEXUNIT_SCALERS 3
 #define TEXUNIT_3DLUT 5
-#define TEXUNIT_DITHER 6
+#define TEXUNIT_LUT_INVGAMMA 6
+#define TEXUNIT_DITHER 8
 
 // lscale/cscale arguments that map directly to shader filter routines.
 // Note that the convolution filters are not included in this list.
@@ -148,7 +150,6 @@ struct gl_priv {
     struct vo *vo;
     MPGLContext *glctx;
     GL *gl;
-    const char *shader_version;
 
     int use_indirect;
     int use_gamma;
@@ -160,7 +161,7 @@ struct gl_priv {
     int use_pbo;
     int use_glFinish;
     int use_gl_debug;
-    int use_gl2;
+    int allow_sw;
 
     int dither_depth;
     int swap_interval;
@@ -188,11 +189,16 @@ struct gl_priv {
 
     GLuint lut_3d_texture;
     int lut_3d_w, lut_3d_h, lut_3d_d;
-    void *lut_3d_data;
+    void *lut_3d_data[MP_CPRIM_COUNT];
+
+    GLuint lut_invgamma_texture, lut_invgamma_rounded_texture;
+    int lut_invgamma_size;
+    void *lut_invgamma_data;
+    void *lut_invgamma_rounded_data;
 
     GLuint dither_texture;
     float dither_quantization;
-    float dither_multiply;
+    int dither_size;
 
     uint32_t image_width;
     uint32_t image_height;
@@ -224,6 +230,7 @@ struct gl_priv {
     float scaler_params[2];
 
     struct mp_csp_details colorspace;
+    struct mp_csp_rgb rgb_colorspace;
     struct mp_csp_equalizer video_eq;
 
     int mpi_flipped;
@@ -303,9 +310,13 @@ static void draw_triangles(struct gl_priv *p, struct vertex *vb, int vert_count)
                    GL_DYNAMIC_DRAW);
     gl->BindBuffer(GL_ARRAY_BUFFER, 0);
 
-    gl->BindVertexArray(p->vao);
+    if (gl->BindVertexArray)
+        gl->BindVertexArray(p->vao);
+
     gl->DrawArrays(GL_TRIANGLES, 0, vert_count);
-    gl->BindVertexArray(0);
+
+    if (gl->BindVertexArray)
+        gl->BindVertexArray(0);
 
     debug_check_gl(p, "after rendering");
 }
@@ -349,10 +360,12 @@ static void write_quad(struct vertex *va,
 #undef COLOR_INIT
 }
 
-static void fbotex_init(struct gl_priv *p, struct fbotex *fbo, int w, int h)
+static bool fbotex_init(struct gl_priv *p, struct fbotex *fbo, int w, int h)
 {
     GL *gl = p->gl;
+    bool res = true;
 
+    assert(gl->mpgl_caps & MPGL_CAP_FB);
     assert(!fbo->fbo);
     assert(!fbo->texture);
 
@@ -373,25 +386,28 @@ static void fbotex_init(struct gl_priv *p, struct fbotex *fbo, int w, int h)
     gl->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              GL_TEXTURE_2D, fbo->texture, 0);
 
-    if (gl->CheckFramebufferStatus(GL_FRAMEBUFFER)
-        != GL_FRAMEBUFFER_COMPLETE)
-    {
+    if (gl->CheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         mp_msg(MSGT_VO, MSGL_ERR, "[gl] Error: framebuffer completeness "
                                   "check failed!\n");
+        res = false;
     }
 
     gl->BindFramebuffer(GL_FRAMEBUFFER, 0);
 
     debug_check_gl(p, "after creating framebuffer & associated texture");
+
+    return res;
 }
 
 static void fbotex_uninit(struct gl_priv *p, struct fbotex *fbo)
 {
     GL *gl = p->gl;
 
-    gl->DeleteFramebuffers(1, &fbo->fbo);
-    gl->DeleteTextures(1, &fbo->texture);
-    *fbo = (struct fbotex) {0};
+    if (gl->mpgl_caps & MPGL_CAP_FB) {
+        gl->DeleteFramebuffers(1, &fbo->fbo);
+        gl->DeleteTextures(1, &fbo->texture);
+        *fbo = (struct fbotex) {0};
+    }
 }
 
 static void matrix_ortho2d(float m[3][3], float x0, float x1,
@@ -442,11 +458,46 @@ static void update_uniforms(struct gl_priv *p, GLuint program)
                   1.0 / cparams.ggamma,
                   1.0 / cparams.bgamma);
 
-    gl->Uniform1i(gl->GetUniformLocation(program, "texture1"), 0);
-    gl->Uniform1i(gl->GetUniformLocation(program, "texture2"), 1);
-    gl->Uniform1i(gl->GetUniformLocation(program, "texture3"), 2);
+    for (int n = 0; n < p->plane_count; n++) {
+        char textures_n[32];
+        char textures_size_n[32];
+        char textures_offset_n[32];
+        snprintf(textures_n, sizeof(textures_n), "textures[%d]", n);
+        snprintf(textures_size_n, sizeof(textures_size_n), "textures_size[%d]", n);
+        snprintf(textures_offset_n, sizeof(textures_offset_n), "textures_offset[%d]", n);
+
+        double offset_x, offset_y;
+        offset_x = 0.5 * ((1 << p->planes[n].shift_x) - 1) / p->texture_width;
+        offset_y = 0.5 * ((1 << p->planes[n].shift_y) - 1) / p->texture_height;
+
+        if (!(p->colorspace.chroma_loc % 2))
+            offset_x = 0;
+
+        if (p->colorspace.chroma_loc <= 2)
+            offset_y = 0;
+        else if (p->colorspace.chroma_loc > 4)
+            offset_y = -offset_y;
+
+        gl->Uniform1i(gl->GetUniformLocation(program, textures_n), n);
+        gl->Uniform2f(gl->GetUniformLocation(program, textures_size_n),
+                      p->texture_width >> p->planes[n].shift_x,
+                      p->texture_height >> p->planes[n].shift_y);
+        gl->Uniform2f(gl->GetUniformLocation(program, textures_offset_n),
+                      offset_x, offset_y);
+    }
+
+    gl->Uniform3f(gl->GetUniformLocation(program, "lut_3d_size"),
+                  p->lut_3d_w, p->lut_3d_h, p->lut_3d_d);
+    gl->Uniform1f(gl->GetUniformLocation(program, "lut_invgamma_size"),
+                  p->lut_invgamma_size);
+    gl->Uniform2f(gl->GetUniformLocation(program, "dither_size"),
+                  p->dither_size, p->dither_size);
 
     gl->Uniform1i(gl->GetUniformLocation(program, "lut_3d"), TEXUNIT_3DLUT);
+    gl->Uniform1i(gl->GetUniformLocation(program, "lut_invgamma"),
+                  TEXUNIT_LUT_INVGAMMA);
+    gl->Uniform1i(gl->GetUniformLocation(program, "lut_invgamma_rounded"),
+                  TEXUNIT_LUT_INVGAMMA + 1);
 
     for (int n = 0; n < 2; n++) {
         const char *lut = p->scalers[n].lut_name;
@@ -458,8 +509,6 @@ static void update_uniforms(struct gl_priv *p, GLuint program)
     gl->Uniform1i(gl->GetUniformLocation(program, "dither"), TEXUNIT_DITHER);
     gl->Uniform1f(gl->GetUniformLocation(program, "dither_quantization"),
                   p->dither_quantization);
-    gl->Uniform1f(gl->GetUniformLocation(program, "dither_multiply"),
-                  p->dither_multiply);
 
     float sparam1 = p->scaler_params[0];
     gl->Uniform1f(gl->GetUniformLocation(program, "filter_param1"),
@@ -605,12 +654,12 @@ static void shader_setup_scaler(char **shader, struct scaler *scaler, int pass)
             // The direction/pass assignment is rather arbitrary, but fixed in
             // other parts of the code (like FBO setup).
             const char *direction = pass == 0 ? "0, 1" : "1, 0";
-            *shader = talloc_asprintf_append(*shader, "#define %s(p0, p1) "
-                "sample_convolution_sep%d(vec2(%s), %s, p0, p1)\n",
+            *shader = talloc_asprintf_append(*shader, "#define %s(p0, p1, p2) "
+                "sample_convolution_sep%d(vec2(%s), %s, p0, p1, p2)\n",
                 target, size, direction, scaler->lut_name);
         } else {
-            *shader = talloc_asprintf_append(*shader, "#define %s(p0, p1) "
-                "sample_convolution%d(%s, p0, p1)\n",
+            *shader = talloc_asprintf_append(*shader, "#define %s(p0, p1, p2) "
+                "sample_convolution%d(%s, p0, p1, p2)\n",
                 target, size, scaler->lut_name);
         }
     }
@@ -640,7 +689,7 @@ static void compile_shaders(struct gl_priv *p)
     char *s_eosd = get_section(tmp, src, "frag_eosd");
     char *s_osd = get_section(tmp, src, "frag_osd");
 
-    char *header = talloc_asprintf(tmp, "#version %s\n%s", p->shader_version,
+    char *header = talloc_asprintf(tmp, "#version %d\n%s", gl->glsl_version,
                                    shader_prelude);
 
     char *header_eosd = talloc_strdup(tmp, header);
@@ -658,6 +707,7 @@ static void compile_shaders(struct gl_priv *p)
 
     bool convert_input_to_linear = !p->is_linear_rgb
                                    && (p->use_srgb || p->use_lut_3d);
+    bool keep_output_linear = p->use_srgb && !p->use_lut_3d;
 
     shader_def_opt(&header_conv, "USE_PLANAR", p->plane_count > 1);
     shader_def_opt(&header_conv, "USE_GBRP", p->image_format == IMGFMT_GBRP);
@@ -668,6 +718,7 @@ static void compile_shaders(struct gl_priv *p)
     shader_def_opt(&header_final, "USE_LINEAR_CONV_INV", p->use_lut_3d);
     shader_def_opt(&header_final, "USE_GAMMA_POW", p->use_gamma);
     shader_def_opt(&header_final, "USE_3DLUT", p->use_lut_3d);
+    shader_def_opt(&header_final, "USE_LINEAR_OUTPUT", keep_output_linear);
     shader_def_opt(&header_final, "USE_DITHER", p->dither_texture != 0);
 
     if (p->use_scale_sep && p->scalers[0].kernel) {
@@ -875,9 +926,10 @@ static void init_dither(struct gl_priv *p)
     // dither patterns can be visible.
     p->dither_quantization = (1 << dst_depth) - 1;
     int size = 8;
-    p->dither_multiply = p->dither_quantization + 1.0 / (size*size);
     unsigned char dither[256];
     make_dither_matrix(dither, size);
+
+    p->dither_size = size;
 
     gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_DITHER);
     gl->GenTextures(1, &p->dither_texture);
@@ -936,18 +988,53 @@ static void init_lut_3d(struct gl_priv *p)
     gl->GenTextures(1, &p->lut_3d_texture);
     gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_3DLUT);
     gl->BindTexture(GL_TEXTURE_3D, p->lut_3d_texture);
-    gl->PixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    gl->PixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-    gl->TexImage3D(GL_TEXTURE_3D, 0, GL_RGB16, p->lut_3d_w, p->lut_3d_h,
-                   p->lut_3d_d, 0, GL_RGB, GL_UNSIGNED_SHORT, p->lut_3d_data);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     gl->TexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    gl->GenTextures(1, &p->lut_invgamma_texture);
+    gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_LUT_INVGAMMA);
+    gl->BindTexture(GL_TEXTURE_1D, p->lut_invgamma_texture);
+    gl->PixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    gl->PixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    gl->TexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, p->lut_invgamma_size, 0,
+                   GL_RGB, GL_FLOAT, p->lut_invgamma_data);
+    gl->TexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gl->TexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    gl->TexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+
+    gl->GenTextures(1, &p->lut_invgamma_rounded_texture);
+    gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_LUT_INVGAMMA + 1);
+    gl->BindTexture(GL_TEXTURE_2D, p->lut_invgamma_rounded_texture);
+    // same hack as in load_icc
+    int dst_depth = p->dither_depth > 0 ? p->dither_depth : 8;
+    gl->TexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, (1 << dst_depth) - 1, 3, 0,
+                   GL_RG, GL_FLOAT, p->lut_invgamma_rounded_data);
+    gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    gl->ActiveTexture(GL_TEXTURE0);
+    debug_check_gl(p, "after 3d lut creation");
+}
+
+static void upload_lut_3d(struct gl_priv *p)
+{
+    GL *gl = p->gl;
+
+    gl->ActiveTexture(GL_TEXTURE0 + TEXUNIT_3DLUT);
+    gl->BindTexture(GL_TEXTURE_3D, p->lut_3d_texture);
+    gl->PixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    gl->PixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    gl->TexImage3D(GL_TEXTURE_3D, 0, GL_RGB16, p->lut_3d_w, p->lut_3d_h,
+                   p->lut_3d_d, 0, GL_RGB, GL_UNSIGNED_SHORT,
+                   p->lut_3d_data[p->rgb_colorspace.primaries]);
     gl->ActiveTexture(GL_TEXTURE0);
 
-    debug_check_gl(p, "after 3d lut creation");
+    debug_check_gl(p, "after 3d lut upload");
 }
 
 static void init_video(struct gl_priv *p)
@@ -1076,7 +1163,9 @@ static void do_render(struct gl_priv *p)
     float final_texw = p->image_width * source->tex_w / (float)source->vp_w;
     float final_texh = p->image_height * source->tex_h / (float)source->vp_h;
 
-    if (p->use_srgb && !p->use_lut_3d)
+    bool use_srgb_fb = p->use_srgb && !p->use_lut_3d;
+
+    if (use_srgb_fb)
         gl->Enable(GL_FRAMEBUFFER_SRGB);
 
     if (p->stereo_mode) {
@@ -1117,7 +1206,8 @@ static void do_render(struct gl_priv *p)
         draw_triangles(p, vb, VERTICES_PER_QUAD);
     }
 
-    gl->Disable(GL_FRAMEBUFFER_SRGB);
+    if (use_srgb_fb)
+        gl->Disable(GL_FRAMEBUFFER_SRGB);
 
     gl->UseProgram(0);
 
@@ -1598,6 +1688,70 @@ static void draw_eosd(struct gl_priv *p, mp_eosd_images_t *imgs)
     gl->Disable(GL_BLEND);
 }
 
+// Disable features that are not supported with the current OpenGL version.
+static void check_gl_features(struct gl_priv *p)
+{
+    GL *gl = p->gl;
+    bool have_float_tex = gl->mpgl_caps & MPGL_CAP_FLOAT_TEX;
+    bool have_fbo = gl->mpgl_caps & MPGL_CAP_FB;
+    bool have_srgb = (gl->mpgl_caps & MPGL_CAP_SRGB_TEX) &&
+                     (gl->mpgl_caps & MPGL_CAP_SRGB_FB);
+
+    char *disabled[10];
+    int n_disabled = 0;
+
+    if (have_fbo) {
+        struct fbotex fbo = {0};
+        have_fbo = fbotex_init(p, &fbo, 16, 16);
+        fbotex_uninit(p, &fbo);
+    }
+
+    // Disable these only if the user didn't disable scale-sep on the command
+    // line, so convolution filter can still be forced to be run.
+    // Normally, we want to disable them by default if FBOs are unavailable,
+    // because they will be slow (not critically slow, but still slower).
+    // Without FP textures, we must always disable them.
+    if (!have_float_tex || (!have_fbo && p->use_scale_sep)) {
+        for (int n = 0; n < 2; n++) {
+            struct scaler *scaler = &p->scalers[n];
+            if (mp_find_filter_kernel(scaler->name)) {
+                scaler->name = "bilinear";
+                disabled[n_disabled++]
+                    = have_float_tex ? "scaler (FBO)" : "scaler (float tex.)";
+            }
+        }
+    }
+
+    if (!have_srgb && p->use_srgb) {
+        p->use_srgb = false;
+        disabled[n_disabled++] = "sRGB";
+    }
+    if (!have_fbo && p->use_lut_3d) {
+        p->use_lut_3d = false;
+        disabled[n_disabled++] = "color management (FBO)";
+    }
+    if (!have_srgb && p->use_lut_3d) {
+        p->use_lut_3d = false;
+        disabled[n_disabled++] = "color management (sRGB)";
+    }
+
+    if (!have_fbo) {
+        p->use_scale_sep = false;
+        p->use_indirect = false;
+    }
+
+    if (n_disabled) {
+        mp_msg(MSGT_VO, MSGL_ERR, "[gl] Some OpenGL extensions not detected, "
+               "disabling: ");
+        for (int n = 0; n < n_disabled; n++) {
+            if (n)
+                mp_msg(MSGT_VO, MSGL_ERR, ", ");
+            mp_msg(MSGT_VO, MSGL_ERR, "%s", disabled[n]);
+        }
+        mp_msg(MSGT_VO, MSGL_ERR, ".\n");
+    }
+}
+
 static void setup_vertex_array(GL *gl)
 {
     size_t stride = sizeof(struct vertex);
@@ -1631,15 +1785,7 @@ static int init_gl(struct gl_priv *p)
     mp_msg(MSGT_VO, MSGL_V, "[gl] Display depth: R=%d, G=%d, B=%d\n",
            p->glctx->depth_r, p->glctx->depth_g, p->glctx->depth_b);
 
-    GLint major, minor;
-    gl->GetIntegerv(GL_MAJOR_VERSION, &major);
-    gl->GetIntegerv(GL_MINOR_VERSION, &minor);
-
-    p->shader_version = "130";
-
-    // Hack for OSX: it only creates 3.2 contexts.
-    if (MPGL_VER(major, minor) >= MPGL_VER(3, 2))
-        p->shader_version = "150";
+    check_gl_features(p);
 
     gl->Disable(GL_DITHER);
     gl->Disable(GL_BLEND);
@@ -1649,13 +1795,18 @@ static int init_gl(struct gl_priv *p)
     gl->DrawBuffer(GL_BACK);
 
     gl->GenBuffers(1, &p->vertex_buffer);
-    gl->GenVertexArrays(1, &p->vao);
-
     gl->BindBuffer(GL_ARRAY_BUFFER, p->vertex_buffer);
-    gl->BindVertexArray(p->vao);
-    setup_vertex_array(gl);
+
+    if (gl->BindVertexArray) {
+        gl->GenVertexArrays(1, &p->vao);
+        gl->BindVertexArray(p->vao);
+        setup_vertex_array(gl);
+        gl->BindVertexArray(0);
+    } else {
+        setup_vertex_array(gl);
+    }
+
     gl->BindBuffer(GL_ARRAY_BUFFER, 0);
-    gl->BindVertexArray(0);
 
     GLint max_texture_size;
     gl->GetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
@@ -1681,7 +1832,8 @@ static void uninit_gl(struct gl_priv *p)
 
     uninit_video(p);
 
-    gl->DeleteVertexArrays(1, &p->vao);
+    if (gl->DeleteVertexArrays)
+        gl->DeleteVertexArrays(1, &p->vao);
     p->vao = 0;
     gl->DeleteBuffers(1, &p->vertex_buffer);
     p->vertex_buffer = 0;
@@ -1780,26 +1932,19 @@ static int query_format(uint32_t format)
     return caps;
 }
 
-static bool config_window(struct gl_priv *p, uint32_t d_width,
+static bool create_window(struct gl_priv *p, uint32_t d_width,
                           uint32_t d_height, uint32_t flags)
 {
     if (p->stereo_mode == GL_3D_QUADBUFFER)
         flags |= VOFLAG_STEREO;
 
-    int mpgl_version = MPGL_VER(3, 0);
-    int mpgl_flags = p->use_gl_debug ? MPGLFLAG_DEBUG : 0;
+    if (p->use_gl_debug)
+        flags |= VOFLAG_GL_DEBUG;
 
-    if (p->use_gl2)
-        mpgl_version = MPGL_VER(2, 1);
-
-    if (create_mpglcontext(p->glctx, mpgl_flags, mpgl_version, d_width,
-                           d_height, flags) == SET_WINDOW_FAILED)
-        return false;
-
-    if (!p->vertex_buffer)
-        init_gl(p);
-
-    return true;
+    int mpgl_caps = MPGL_CAP_GL21 | MPGL_CAP_TEX_RG;
+    if (!p->allow_sw)
+        mpgl_caps |= MPGL_CAP_NO_SW;
+    return mpgl_create_window(p->glctx, mpgl_caps, d_width, d_height, flags);
 }
 
 static int config(struct vo *vo, uint32_t width, uint32_t height,
@@ -1808,8 +1953,11 @@ static int config(struct vo *vo, uint32_t width, uint32_t height,
 {
     struct gl_priv *p = vo->priv;
 
-    if (!config_window(p, d_width, d_height, flags))
+    if (!create_window(p, d_width, d_height, flags))
         return -1;
+
+    if (!p->vertex_buffer)
+        init_gl(p);
 
     p->vo_flipped = !!(flags & VOFLAG_FLIPPING);
 
@@ -1928,6 +2076,19 @@ static int control(struct vo *vo, uint32_t request, void *data)
     case VOCTRL_GET_YUV_COLORSPACE:
         *(struct mp_csp_details *)data = p->colorspace;
         return VO_TRUE;
+    case VOCTRL_SET_RGB_COLORSPACE: {
+        enum mp_cprim primaries = p->rgb_colorspace.primaries;
+        p->rgb_colorspace = *(struct mp_csp_rgb *)data;
+        if (p->use_lut_3d && primaries != p->rgb_colorspace.primaries) {
+            upload_lut_3d(p);
+            update_all_uniforms(p);
+            vo->want_redraw = true;
+        }
+        return VO_TRUE;
+    }
+    case VOCTRL_GET_RGB_COLORSPACE:
+        *(struct mp_csp_rgb *)data = p->rgb_colorspace;
+        return VO_TRUE;
     case VOCTRL_UPDATE_SCREENINFO:
         if (!p->glctx->update_xinerama_info)
             break;
@@ -1953,7 +2114,7 @@ static void uninit(struct vo *vo)
     struct gl_priv *p = vo->priv;
 
     uninit_gl(p);
-    uninit_mpglcontext(p->glctx);
+    mpgl_uninit(p->glctx);
     p->glctx = NULL;
     p->gl = NULL;
 }
@@ -1985,7 +2146,9 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
                      int s_r, int s_g, int s_b)
 {
     void *tmp = talloc_new(p);
-    uint16_t *output = talloc_array(tmp, uint16_t, s_r * s_g * s_b * 3);
+    uint16_t *output[MP_CPRIM_COUNT];
+    for (int i = 1; i < MP_CPRIM_COUNT; i++)
+        output[i] = talloc_array(tmp, uint16_t, s_r * s_g * s_b * 3);
 
     if (icc_intent == -1)
         icc_intent = INTENT_ABSOLUTE_COLORIMETRIC;
@@ -1995,6 +2158,12 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
     if (!iccdata.len)
         goto error_exit;
 
+    cmsSetLogErrorHandler(lcms2_error_handler);
+
+    cmsHPROFILE profile = cmsOpenProfileFromMem(iccdata.start, iccdata.len);
+    if (!profile)
+        goto error_exit;
+
     char *cache_info = talloc_asprintf(tmp, "intent=%d, size=%dx%dx%d\n",
                                        icc_intent, s_r, s_g, s_b);
 
@@ -2002,76 +2171,149 @@ static bool load_icc(struct gl_priv *p, const char *icc_file,
     if (icc_cache) {
         mp_msg(MSGT_VO, MSGL_INFO, "[gl] Opening 3D LUT cache in file '%s'.\n",
                icc_cache);
-        struct bstr cachedata = load_file(p, tmp, icc_cache);
-        if (bstr_eatstart(&cachedata, bstr(LUT3D_CACHE_HEADER))
-            && bstr_eatstart(&cachedata, bstr(cache_info))
-            && bstr_eatstart(&cachedata, iccdata)
-            && cachedata.len == talloc_get_size(output))
-        {
-            memcpy(output, cachedata.start, cachedata.len);
-            goto done;
-        } else {
-            mp_msg(MSGT_VO, MSGL_WARN, "[gl] 3D LUT cache invalid!\n");
+        stream_t *cache_stream = open_stream(icc_cache, p->vo->opts, NULL);
+        if (cache_stream) {
+            struct bstr header = bstr(LUT3D_CACHE_HEADER);
+            struct bstr info = bstr(cache_info);
+
+            int intro_size = header.len + info.len + iccdata.len;
+            void *intro = talloc_size(tmp, intro_size);
+            int readsize = stream_read(cache_stream, intro, intro_size);
+
+            struct bstr cachedata = {intro, readsize};
+            if (bstr_eatstart(&cachedata, header)
+                && bstr_eatstart(&cachedata, info)
+                && bstr_eatstart(&cachedata, iccdata))
+            {
+                int i;
+                for (i = 1; i < MP_CPRIM_COUNT; i++) {
+                    size_t size = talloc_get_size(output[i]);
+                    if (stream_read(cache_stream, output[i], size) != size)
+                        break;
+                }
+                // make sure the file contains no more data
+                if (stream_read_char(cache_stream) > -256)
+                    i = 0;
+                free_stream(cache_stream);
+                if (i == MP_CPRIM_COUNT)
+                    goto done;
+            } else {
+                free_stream(cache_stream);
+            }
         }
+        mp_msg(MSGT_VO, MSGL_WARN, "[gl] 3D LUT cache invalid!\n");
     }
-
-    cmsSetLogErrorHandler(lcms2_error_handler);
-
-    cmsHPROFILE profile = cmsOpenProfileFromMem(iccdata.start, iccdata.len);
-    if (!profile)
-        goto error_exit;
 
     cmsCIExyY d65;
     cmsWhitePointFromTemp(&d65, 6504);
-    static const cmsCIExyYTRIPLE bt709prim = {
-        .Red   = {0.64, 0.33, 1.0},
-        .Green = {0.30, 0.60, 1.0},
-        .Blue  = {0.15, 0.06, 1.0},
-    };
     cmsToneCurve *tonecurve = cmsBuildGamma(NULL, 2.2);
-    cmsHPROFILE vid_profile = cmsCreateRGBProfile(&d65, &bt709prim,
+    static const cmsCIExyYTRIPLE primaries[MP_CPRIM_COUNT] = {
+        [MP_CPRIM_BT_470BG] = {
+            .Red   = {0.64, 0.33, 1.0},
+            .Green = {0.29, 0.60, 1.0},
+            .Blue  = {0.15, 0.06, 1.0},
+        },
+        [MP_CPRIM_BT_709] = {
+            .Red   = {0.64, 0.33, 1.0},
+            .Green = {0.30, 0.60, 1.0},
+            .Blue  = {0.15, 0.06, 1.0},
+        },
+        [MP_CPRIM_SMPTE_170M] = {
+            .Red   = {0.630, 0.340, 1.0},
+            .Green = {0.310, 0.595, 1.0},
+            .Blue  = {0.155, 0.070, 1.0},
+        },
+    };
+
+    float *input = talloc_array(tmp, float, s_r * 3);
+    for (int i = 1; i < MP_CPRIM_COUNT; i++) {
+        cmsHPROFILE vid_profile = cmsCreateRGBProfile(&d65, &primaries[i],
                         (cmsToneCurve*[3]){tonecurve, tonecurve, tonecurve});
-    cmsFreeToneCurve(tonecurve);
-    cmsHTRANSFORM trafo = cmsCreateTransform(vid_profile, TYPE_RGB_16,
-                                             profile, TYPE_RGB_16,
-                                             icc_intent,
-                                             cmsFLAGS_HIGHRESPRECALC);
-    cmsCloseProfile(profile);
-    cmsCloseProfile(vid_profile);
+        cmsHTRANSFORM trafo = cmsCreateTransform(vid_profile, TYPE_RGB_FLT,
+                                                 profile, TYPE_RGB_16,
+                                                 icc_intent, 0);
+        cmsCloseProfile(vid_profile);
 
-    if (!trafo)
-        goto error_exit;
-
-    // transform a (s_r)x(s_g)x(s_b) cube, with 3 components per channel
-    uint16_t *input = talloc_array(tmp, uint16_t, s_r * 3);
-    for (int b = 0; b < s_b; b++) {
-        for (int g = 0; g < s_g; g++) {
-            for (int r = 0; r < s_r; r++) {
-                input[r * 3 + 0] = r * 65535 / (s_r - 1);
-                input[r * 3 + 1] = g * 65535 / (s_g - 1);
-                input[r * 3 + 2] = b * 65535 / (s_b - 1);
-            }
-            size_t base = (b * s_r * s_g + g * s_r) * 3;
-            cmsDoTransform(trafo, input, output + base, s_r);
+        if (!trafo) {
+            cmsFreeToneCurve(tonecurve);
+            cmsCloseProfile(profile);
+            goto error_exit;
         }
+
+        // transform a (s_r)x(s_g)x(s_b) cube, with 3 components per channel
+        for (int b = 0; b < s_b; b++) {
+            for (int g = 0; g < s_g; g++) {
+                for (int r = 0; r < s_r; r++) {
+                    input[r * 3 + 0] = (float) r / (s_r - 1);
+                    input[r * 3 + 1] = (float) g / (s_g - 1);
+                    input[r * 3 + 2] = (float) b / (s_b - 1);
+                }
+                size_t base = (b * s_r * s_g + g * s_r) * 3;
+                cmsDoTransform(trafo, input, output[i] + base, s_r);
+            }
+        }
+
+        cmsDeleteTransform(trafo);
     }
 
-    cmsDeleteTransform(trafo);
+    cmsFreeToneCurve(tonecurve);
 
     if (icc_cache) {
         FILE *out = fopen(icc_cache, "wb");
         if (out) {
             fprintf(out, "%s%s", LUT3D_CACHE_HEADER, cache_info);
             fwrite(iccdata.start, iccdata.len, 1, out);
-            fwrite(output, talloc_get_size(output), 1, out);
+            for (int i = 1; i < MP_CPRIM_COUNT; i++)
+                fwrite(output[i], talloc_get_size(output[i]), 1, out);
             fclose(out);
         }
     }
 
-done:
+done:;
 
-    p->lut_3d_data = talloc_steal(p, output);
+    const int maxscnt = FFMIN(65536, GL_MAX_TEXTURE_SIZE);
+    // hack: does not take device depth into account
+    int dst_quant = (1 << (p->dither_depth > 0 ? p->dither_depth : 8)) - 1;
+    int curve_sample_count = maxscnt - (maxscnt - 1) % dst_quant;
+    float *curve_samples = talloc_array(tmp, float, curve_sample_count * 3);
+    float *exact_samples = talloc_array(tmp, float, dst_quant * 2 * 3);
+
+    static const cmsTagSignature tonecurve_tag_sigs[3] = {cmsSigRedTRCTag,
+                                                          cmsSigGreenTRCTag,
+                                                          cmsSigBlueTRCTag};
+    cmsToneCurve *curves[3];
+    for (int i = 0; i < 3; i++) {
+        curves[i] = cmsReadTag(profile, tonecurve_tag_sigs[i]);
+        if (!curves[i]) {
+            cmsCloseProfile(profile);
+            mp_msg(MSGT_VO, MSGL_ERR,
+                   "[gl] RGB tone curves not found in ICC profile!\n");
+            goto error_exit;
+        }
+    }
+    for (int v = 0; v < curve_sample_count; v++) {
+        float value = (float) v / (curve_sample_count - 1);
+        for (int i = 0; i < 3; i++)
+            curve_samples[v * 3 + i] = cmsEvalToneCurveFloat(curves[i], value);
+    }
+    for (int v = 0; v < dst_quant; v++) {
+        float floored = (float) v / dst_quant;
+        float ceiled = (float) (v + 1) / dst_quant;
+        for (int i = 0; i < 3; i++) {
+            size_t base = i * dst_quant * 2 + v * 2;
+            exact_samples[base + 0] = cmsEvalToneCurveFloat(curves[i], floored);
+            exact_samples[base + 1] = cmsEvalToneCurveFloat(curves[i], ceiled);
+        }
+    }
+
+    cmsCloseProfile(profile);
+
+    for (int i = 1; i < MP_CPRIM_COUNT; i++)
+        p->lut_3d_data[i] = talloc_steal(p, output[i]);
+    p->lut_invgamma_data = talloc_steal(p, curve_samples);
+    p->lut_invgamma_rounded_data = talloc_steal(p, exact_samples);
     p->lut_3d_w = s_r, p->lut_3d_h = s_g, p->lut_3d_d = s_b;
+    p->lut_invgamma_size = curve_sample_count;
     p->use_lut_3d = true;
 
     talloc_free(tmp);
@@ -2126,6 +2368,7 @@ const struct fbo_format fbo_formats[] = {
     {"rgb",    GL_RGB},
     {"rgba",   GL_RGBA},
     {"rgb8",   GL_RGB8},
+    {"rgb10",  GL_RGB10},
     {"rgb16",  GL_RGB16},
     {"rgb16f", GL_RGB16F},
     {"rgb32f", GL_RGB32F},
@@ -2195,6 +2438,9 @@ static int preinit(struct vo *vo, const char *arg)
     *p = (struct gl_priv) {
         .vo = vo,
         .colorspace = MP_CSP_DETAILS_DEFAULTS,
+        // The 3D LUT texture is uploaded whenever .primaries changes.
+        // Delay the first upload until the initial VOCTRL_SET_RGB_COLORSPACE.
+        .rgb_colorspace = {.primaries = -1},
         .use_npot = 1,
         .use_pbo = 0,
         .swap_interval = 1,
@@ -2231,11 +2477,11 @@ static int preinit(struct vo *vo, const char *arg)
         {"lparam2",             OPT_ARG_FLOAT,  &p->scaler_params[1]},
         {"fancy-downscaling",   OPT_ARG_BOOL,   &p->use_fancy_downscaling},
         {"debug",               OPT_ARG_BOOL,   &p->use_gl_debug},
-        {"force-gl2",           OPT_ARG_BOOL,   &p->use_gl2},
         {"indirect",            OPT_ARG_BOOL,   &p->use_indirect},
         {"scale-sep",           OPT_ARG_BOOL,   &p->use_scale_sep},
         {"fbo-format",          OPT_ARG_MSTRZ,  &fbo_format, fbo_format_valid},
         {"backend",             OPT_ARG_MSTRZ,  &backend_arg, backend_valid},
+        {"sw",                  OPT_ARG_BOOL,   &p->allow_sw},
         {"icc-profile",         OPT_ARG_MSTRZ,  &icc_profile},
         {"icc-cache",           OPT_ARG_MSTRZ,  &icc_cache},
         {"icc-intent",          OPT_ARG_INT,    &icc_intent},
@@ -2281,23 +2527,20 @@ static int preinit(struct vo *vo, const char *arg)
 
     p->eosd = talloc_zero(vo, struct bitmap_packer);
 
-    p->glctx = init_mpglcontext(backend, vo);
+    p->glctx = mpgl_init(backend, vo);
     if (!p->glctx)
         goto err_out;
     p->gl = p->glctx->gl;
 
-    if (true) {
-        if (!config_window(p, 320, 200, VOFLAG_HIDDEN))
-            goto err_out;
-        // We created a window to test whether the GL context could be
-        // created and so on. Destroy that window to make sure all state
-        // associated with it is lost.
-        uninit(vo);
-        p->glctx = init_mpglcontext(backend, vo);
-        if (!p->glctx)
-            goto err_out;
-        p->gl = p->glctx->gl;
-    }
+    if (!create_window(p, 320, 200, VOFLAG_HIDDEN))
+        goto err_out;
+    check_gl_features(p);
+    // We created a window to test whether the GL context could be
+    // created and so on. Destroy that window to make sure all state
+    // associated with it is lost.
+    uninit_gl(p);
+    if (!mpgl_destroy_window(p->glctx))
+        goto err_out;
 
     return 0;
 
@@ -2415,13 +2658,10 @@ static const char help_text[] =
 "    This mechanism is disabled on RGB input.\n"
 "  fbo-format=<fmt>\n"
 "    Selects the internal format of any FBO textures used.\n"
-"    fmt can be one of: rgb, rgba, rgb8, rgb16, rgb16f, rgb32f\n"
+"    fmt can be one of: rgb, rgba, rgb8, rgb10, rgb16, rgb16f, rgb32f\n"
 "    Default: rgb16.\n"
 "  gamma\n"
 "    Always enable gamma control. (Disables delayed enabling.)\n"
-"  force-gl2\n"
-"    Create a legacy GL context. This will randomly malfunction\n"
-"    if the proper extensions are not supported.\n"
 "Color management:\n"
 "  icc-profile=<file>\n"
 "    Load an ICC profile and use it to transform linear RGB to\n"

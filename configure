@@ -2054,7 +2054,6 @@ if test -z "$CFLAGS" ; then
   else
     CFLAGS="-O2 $_debug $_profile $_march $_mcpu $_pipe -ffast-math -fomit-frame-pointer"
     WARNFLAGS="-Wall -Wno-switch -Wno-parentheses -Wpointer-arith -Wredundant-decls"
-    ERRORFLAGS="-Werror-implicit-function-declaration"
     extra_ldflags="$extra_ldflags -ffast-math"
   fi
 else
@@ -2894,7 +2893,7 @@ fi #if hpux
 echocheck "termcap"
 if test "$_termcap" = auto ; then
   _termcap=no
-  for _ld_tmp in "-lncurses" "-ltinfo" "-ltermcap"; do
+  for _ld_tmp in "-lncursesw" "-lncurses" "-ltinfo" "-ltermcap"; do
     statement_check term.h 'tgetent(0, 0)' $_ld_tmp &&
       extra_ldflags="$extra_ldflags $_ld_tmp" && _termcap=yes && break
   done
@@ -3376,15 +3375,6 @@ if test "$_x11" = auto && test "$_x11_headers" = yes ; then
     fi
     statement_check X11/Xutil.h 'XCreateWindow(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)' $_ld_tmp &&
       _x11=yes
-    # Check that there aren't conflicting headers between ApplicationServices
-    # and X11. On versions of Mac OSX prior to 10.7 the deprecated QuickDraw API
-    # is included by -framework ApplicationServices and clashes with the X11
-    # definition of the "Cursor" type.
-    if darwin && depends_on_application_services && test "$_x11" = yes ; then
-      _x11=no
-      header_check_broken ApplicationServices/ApplicationServices.h \
-        X11/Xutil.h $_ld_tmp && _x11=yes
-    fi
     if test "$_x11" = yes ; then
       libs_mplayer="$libs_mplayer $_ld_tmp"
       break
@@ -4477,7 +4467,7 @@ echores "$_speex"
 echocheck "OggTheora support"
 if test "$_theora" = auto ; then
   _theora=no
-  if pkg_config_add theora ; then
+  if pkg_config_add theoradec ; then
       _theora=yes
   fi
 fi

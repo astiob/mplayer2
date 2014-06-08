@@ -41,7 +41,9 @@ void set_video_quality(sh_video_t *sh_video, int quality);
 int get_video_colors(sh_video_t *sh_video, const char *item, int *value);
 int set_video_colors(sh_video_t *sh_video, const char *item, int value);
 struct mp_csp_details;
-void get_detected_video_colorspace(struct sh_video *sh, struct mp_csp_details *csp);
+void get_detected_video_colorspace(struct sh_video *sh,
+                                   struct mp_csp_details *csp,
+                                   struct mp_csp_rgb *rgb);
 void set_video_colorspace(struct sh_video *sh);
 int set_rectangle(sh_video_t *sh_video, int param, int value);
 void resync_video_stream(sh_video_t *sh_video);
