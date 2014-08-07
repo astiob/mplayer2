@@ -69,15 +69,27 @@ void aspect_fit(struct vo *vo, int *srcw, int *srch, int fitw, int fith)
     mp_msg(MSGT_VO, MSGL_DBG2, "aspect(0) fitin: %dx%d screenaspect: %.2f\n",
            fitw, fith, vo->monitor_aspect);
     *srcw = fitw;
-    *srch = (float)fitw / aspdat->prew * aspdat->preh * pixelaspect;
+    if (vo_fs) {
+        float scale_ratio = (float)fitw / aspdat->prew;
+        if (scale_ratio > 1 && scale_ratio < 1.01)
+            *srcw = aspdat->prew;
+    }
+    *srch = (float)*srcw / aspdat->prew * aspdat->preh * pixelaspect;
     *srch += *srch % 2; // round
     mp_msg(MSGT_VO, MSGL_DBG2, "aspect(1) wh: %dx%d (org: %dx%d)\n",
            *srcw, *srch, aspdat->prew, aspdat->preh);
     if (*srch > fith || *srch < aspdat->orgh) {
-        int tmpw = (float)fith / aspdat->preh * aspdat->prew / pixelaspect;
+        int tmpw, tmph;
+        tmph = fith;
+        if (vo_fs) {
+            float scale_ratio = (float)fith / aspdat->preh;
+            if (scale_ratio > 1 && scale_ratio < 1.01)
+                tmph = aspdat->preh;
+        }
+        tmpw = (float)tmph / aspdat->preh * aspdat->prew / pixelaspect;
         tmpw += tmpw % 2; // round
         if (tmpw <= fitw) {
-            *srch = fith;
+            *srch = tmph;
             *srcw = tmpw;
         } else if (*srch > fith) {
             mp_tmsg(MSGT_VO, MSGL_WARN,
