@@ -458,8 +458,6 @@ Use these options if autodetection fails:
   --extra-libs-mplayer=FLAGS  extra linker flags for MPlayer
 
   --with-sdl-config=PATH      path to sdl*-config
-  --with-dvdnav-config=PATH   path to dvdnav-config
-  --with-dvdread-config=PATH  path to dvdread-config
 
 This configure script is NOT autoconf-based, even though its output is similar.
 It will try to autodetect all configuration options. If you --enable an option
@@ -543,8 +541,6 @@ _xmms=no
 _vcd=auto
 _bluray=auto
 _dvdnav=auto
-_dvdnavconfig=dvdnav-config
-_dvdreadconfig=dvdread-config
 _dvdread=auto
 _dvdread_internal=auto
 _libdvdcss_internal=auto
@@ -653,12 +649,6 @@ for ac_option do
 
   --with-sdl-config=*)
     _sdlconfig=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --with-dvdnav-config=*)
-    _dvdnavconfig=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --with-dvdread-config=*)
-    _dvdreadconfig=$(echo $ac_option | cut -d '=' -f 2)
     ;;
 
   --extra-cflags=*)
@@ -4257,17 +4247,11 @@ if test "$_dvdread_internal" = auto ; then
     extra_cflags="-Ilibdvdread4 $extra_cflags"
   fi
 elif test "$_dvdread" = auto ; then
-  _dvdread=no
-  if test "$_dl" = yes; then
-    _dvdreadcflags=$($_dvdreadconfig --cflags 2> /dev/null)
-    _dvdreadlibs=$($_dvdreadconfig --libs 2> /dev/null)
-    if header_check dvdread/dvd_reader.h $_dvdreadcflags $_dvdreadlibs $_ld_dl ; then
-      _dvdread=yes
-      extra_cflags="$extra_cflags $_dvdreadcflags"
-      extra_ldflags="$extra_ldflags $_dvdreadlibs"
-      res_comment="external"
+    _dvdread=no
+    if pkg_config_add dvdread ; then
+        _dvdread=yes
+        res_comment="external"
     fi
-  fi
 fi
 
 if test "$_dvdread_internal" = yes; then
@@ -5170,34 +5154,19 @@ else
 fi
 echores "$_lircc"
 
-#############################################################################
-
-CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE"
-
-# This must be the last test to be performed. Any other tests following it
-# could fail due to linker errors. libdvdnavmini is intentionally not linked
-# against libdvdread (to permit MPlayer to use its own copy of the library).
-# So any compilation using the flags added here but not linking against
-# libdvdread can fail.
 echocheck "DVD support (libdvdnav)"
 if test "$_dvdread_internal" = yes && test ! -f "libdvdnav/dvdnav.c" ; then
   _dvdnav=no
 fi
-dvdnav_internal=no
+dvdnav_internal=$_dvdread_internal
 if test "$_dvdnav" = auto ; then
   if test "$_dvdread_internal" = yes ; then
     _dvdnav=yes
-    dvdnav_internal=yes
     res_comment="internal"
   else
-    $_dvdnavconfig --version --minilibs >> $TMPLOG 2>&1 || _dvdnav=no
+    _dvdnav=no
+    pkg_config_add dvdnav && _dvdnav=yes
   fi
-fi
-if test "$_dvdnav" = auto ; then
-  _dvdnav=no
-  _dvdnavdir=$($_dvdnavconfig --cflags)
-  _dvdnavlibs=$($_dvdnavconfig --libs)
-  statement_check_broken stdint.h dvdnav/dvdnav.h 'dvdnav_t *dvd = 0' $_dvdnavdir $_dvdnavlibs $_ld_dl $_ld_pthread && _dvdnav=yes
 fi
 if test "$_dvdnav" = yes ; then
   def_dvdnav='#define CONFIG_DVDNAV 1'
@@ -5205,8 +5174,6 @@ if test "$_dvdnav" = yes ; then
     cflags_libdvdnav="-Ilibdvdnav"
     inputmodules="dvdnav(internal) $inputmodules"
   else
-    extra_cflags="$extra_cflags $($_dvdnavconfig --cflags)"
-    extra_ldflags="$extra_ldflags $($_dvdnavconfig --minilibs)"
     inputmodules="dvdnav $inputmodules"
   fi
 else
@@ -5215,8 +5182,9 @@ else
 fi
 echores "$_dvdnav"
 
-# DO NOT ADD ANY TESTS THAT USE LINKER FLAGS HERE (like cc_check).
-# Read dvdnav comment above.
+#############################################################################
+
+CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE"
 
 mak_enable () {
 list=$(echo $1 | tr '[a-z]' '[A-Z]')
