@@ -54,7 +54,7 @@ static int dts_syncinfo(uint8_t *indata_ptr, int *flags, int *sample_rate, int *
 static int decode_audio_dts(unsigned char *indata_ptr, int len, unsigned char *buf);
 
 
-static int a52_syncinfo (uint8_t *buf, int *sample_rate, int *bit_rate)
+static int ac3_syncinfo (uint8_t *buf, int *sample_rate, int *bit_rate)
 {
     static const uint16_t rate[] = { 32,  40,  48,  56,  64,  80,  96, 112,
                                     128, 160, 192, 224, 256, 320, 384, 448,
@@ -128,7 +128,7 @@ static int ac3dts_fillbuff(sh_audio_t *sh_audio)
     }
     else
     {
-      length = a52_syncinfo(sh_audio->a_in_buffer, &sample_rate, &bit_rate);
+      length = ac3_syncinfo(sh_audio->a_in_buffer, &sample_rate, &bit_rate);
       if(length >= 7 && length <= 3840)
       {
         if(isdts != 0)

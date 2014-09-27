@@ -102,7 +102,7 @@ static int parse_args(struct vf_priv_s *p, const char *args)
     return 1;
 }
 
-static int open(vf_instance_t *vf, char *args)
+static int vf_open(vf_instance_t *vf, char *args)
 {
     struct vf_priv_s *p;
     struct vf_priv_s ptmp = {
@@ -131,6 +131,6 @@ const vf_info_t vf_info_fixpts = {
     "fixpts",
     "Nicolas George",
     "",
-    &open,
+    &vf_open,
     NULL
 };
