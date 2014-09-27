@@ -5165,7 +5165,7 @@ if test "$_dvdnav" = auto ; then
     res_comment="internal"
   else
     _dvdnav=no
-    pkg_config_add dvdnav && _dvdnav=yes
+    pkg_config_add "dvdnav >= 4.2.1" && _dvdnav=yes
   fi
 fi
 if test "$_dvdnav" = yes ; then
