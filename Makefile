@@ -539,6 +539,9 @@ all: mplayer$(EXESUF) locales
 %.o: %.m
 	$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
 
+libvo/vo_sharedbuffer.o: libvo/vo_sharedbuffer.m
+	$(CC) $(DEPFLAGS) $(CFLAGS) -fno-lto -c -o $@ $<
+
 %-rc.o: %.rc
 	$(WINDRES) -I. $< $@
 
