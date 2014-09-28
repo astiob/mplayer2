@@ -41,7 +41,7 @@ extern const m_option_type_t m_option_type_int64;
 extern const m_option_type_t m_option_type_intpair;
 extern const m_option_type_t m_option_type_float;
 extern const m_option_type_t m_option_type_double;
-extern const m_option_type_t m_option_type_string;
+extern const m_option_type_t m_option_type_string __attribute__((externally_visible));
 extern const m_option_type_t m_option_type_string_list;
 extern const m_option_type_t m_option_type_position;
 extern const m_option_type_t m_option_type_time;

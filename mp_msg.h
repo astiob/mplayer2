@@ -132,7 +132,7 @@ char *mp_gtext(const char *string);
 
 void mp_msg_va(int mod, int lev, const char *format, va_list va);
 
-void mp_msg(int mod, int lev, const char *format, ... ) PRINTF_ATTRIBUTE(3, 4);
+void mp_msg(int mod, int lev, const char *format, ... ) PRINTF_ATTRIBUTE(3, 4) __attribute__((externally_visible));
 void mp_tmsg(int mod, int lev, const char *format, ... ) PRINTF_ATTRIBUTE(3, 4);
 static inline void mp_dbg(int mod, int lev, const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
 
