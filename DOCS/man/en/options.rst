@@ -172,8 +172,16 @@
 
     The default value is 0 (no hinting).
 
+--ass-left-margin=<value>
+    Adds a black band at the left of the frame. The SSA/ASS renderer can place
+    subtitles there (with ``--ass-use-margins``).
+
 --ass-line-spacing=<value>
     Set line spacing value for SSA/ASS renderer.
+
+--ass-right-margin=<value>
+    Adds a black band at the right of the frame. The SSA/ASS renderer can place
+    subtitles there (with ``--ass-use-margins``).
 
 --ass-styles=<filename>
     Load all SSA/ASS styles found in the specified file and use them for
