@@ -245,6 +245,7 @@ void mp_msg_va(int mod, int lev, const char *format, va_list va)
 {
     char tmp[MSGSIZE_MAX];
     FILE *stream = mod == MSGT_STATUSLINE ? stderr : stdout;
+    FILE *stream_mirror = NULL;
     static int header = 1;
     // indicates if last line printed was a status line
     static int statusline;
@@ -306,10 +307,29 @@ void mp_msg_va(int mod, int lev, const char *format, va_list va)
         print_msg_module(stream, mod);
     set_msg_color(stream, lev);
 
+    if (!statusline)
+    {
+        char *home = getenv("HOME");
+        char *path = malloc(strlen(home) + strlen("/.mplayer/log") + 1);
+        if (path)
+        {
+            sprintf(path, "%s/.mplayer/log", home);
+            stream_mirror = fopen(path, "a");
+            if (stream_mirror)
+            {
+                if (header)
+                    print_msg_module(stream_mirror, mod);
+                set_msg_color(stream_mirror, lev);
+            }
+        }
+    }
+
     size_t len = strlen(tmp);
     header = len && (tmp[len-1] == '\n' || tmp[len-1] == '\r');
 
     fprintf(stream, "%s", tmp);
+    if (stream_mirror && !statusline)
+        fprintf(stream_mirror, "%s", tmp);
 
     if (mp_msg_color)
     {
@@ -318,9 +338,13 @@ void mp_msg_va(int mod, int lev, const char *format, va_list va)
         SetConsoleTextAttribute(wstream, stdoutAttrs);
 #else
         fprintf(stream, "\033[0m");
+        if (stream_mirror)
+            fprintf(stream_mirror, "\033[0m");
 #endif
     }
     fflush(stream);
+    if (stream_mirror)
+        fclose(stream_mirror);
 }
 
 void mp_msg(int mod, int lev, const char *format, ...)
