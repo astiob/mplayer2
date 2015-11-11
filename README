@@ -1,3 +1,16 @@
+mplayer2 is a precursor to mpv (https://mpv.io/) that was developed mainly by
+Uoti Urpala (uau). It used to have a website at http://mplayer2.org/, but all
+official development has stopped and the website is now dead. A copy of the
+website's source code is available at https://github.com/mplayer2/mplayer2.org.
+
+mplayer2 is preserved here for posterity, as well as for use in setups that
+mpv no longer supports. To this end, some additional patches that never
+appeared in the official mplayer2 repository are included in branches other
+than 'master', improving display quality, compatibility, fixing bugs and
+adding small features. The default branch 'all' contains all useful and safe
+patches. As time goes on and old systems become less and less relevant,
+it is likely that fewer and fewer new patches will be added.
+
 
 Compiling with full features requires development files for several
 external libraries. Below is a list of some important requirements. For
