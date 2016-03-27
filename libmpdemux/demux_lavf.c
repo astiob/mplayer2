@@ -154,7 +154,7 @@ static int lavf_check_file(demuxer_t *demuxer)
 {
     struct MPOpts *opts = demuxer->opts;
     struct lavfdopts *lavfdopts = &opts->lavfdopts;
-    AVProbeData avpd;
+    AVProbeData avpd = {0};
     lavf_priv_t *priv;
     int probe_data_size = 0;
     int read_size = INITIAL_PROBE_SIZE;
@@ -422,8 +422,8 @@ static void handle_stream(demuxer_t *demuxer, AVFormatContext *avfc, int i)
          * heuristic makes up works with subtitles in practice.
          */
         double fps;
-        if (st->r_frame_rate.num)
-            fps = av_q2d(st->r_frame_rate);
+        if (st->avg_frame_rate.num)
+            fps = av_q2d(st->avg_frame_rate);
         else
             fps = 1.0 / FFMAX(av_q2d(st->time_base),
                               av_q2d(st->codec->time_base) *

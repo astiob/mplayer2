@@ -81,8 +81,10 @@ static int config(struct vf_instance *vf,
 
 static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts){
     mp_image_t* dmpi;
-    int out_size;
+    int res;
+    int got_packet;
     AVFrame *pic= vf->priv->pic;
+    AVPacket packet;
 
     pic->data[0]=mpi->planes[0];
     pic->data[1]=mpi->planes[1];
@@ -91,17 +93,19 @@ static int put_image(struct vf_instance *vf, mp_image_t *mpi, double pts){
     pic->linesize[1]=mpi->stride[1];
     pic->linesize[2]=mpi->stride[2];
 
-    out_size = avcodec_encode_video(&lavc_venc_context,
-	vf->priv->outbuf, vf->priv->outbuf_size, pic);
+    packet.data = vf->priv->outbuf;
+    packet.size = vf->priv->outbuf_size;
+    res = avcodec_encode_video2(&lavc_venc_context, &packet,
+	pic, &got_packet);
 
-    if(out_size<=0) return 1;
+    if(res<0 || !got_packet) return 1;
 
     dmpi=vf_get_image(vf->next,IMGFMT_MPEGPES,
 	MP_IMGTYPE_EXPORT, 0,
 	mpi->w, mpi->h);
 
     vf->priv->pes.data=vf->priv->outbuf;
-    vf->priv->pes.size=out_size;
+    vf->priv->pes.size=packet.size;
     vf->priv->pes.id=0x1E0;
     vf->priv->pes.timestamp=-1; // dunno
 
